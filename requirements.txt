@@ -1,0 +1,17 @@
+# Requirements for NoteFlow AI project (Python 3.12)
+fastapi
+uvicorn[standard]
+langchain
+langchain-text-splitters
+langchain-openai
+langchain-chroma
+chromadb
+openai
+python-multipart
+pypdf
+python-dotenv
+python-jose[cryptography]
+pandas
+openpyxl
+xlrd
+reportlab

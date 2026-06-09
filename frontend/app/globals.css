@@ -1,0 +1,160 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+body {
+  margin: 0;
+  background: #f8f4ec;
+  color: #111111;
+  font-family: Arial, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+.dashboard-shell,
+.dashboard-shell * {
+  max-width: 100%;
+}
+
+.dashboard-shell input,
+.dashboard-shell select,
+.dashboard-shell textarea {
+  width: 100%;
+}
+
+@media (max-width: 767px) {
+  .dashboard-shell section,
+  .dashboard-shell article {
+    overflow-wrap: anywhere;
+  }
+}
+
+.dark body {
+  background: #11100d;
+  color: #f8f4ec;
+}
+
+.dark .bg-ivory {
+  background-color: #11100d;
+}
+
+.dark .text-ink {
+  color: #f8f4ec;
+}
+
+.dark .bg-white {
+  background-color: #1a1814;
+}
+
+.dark .bg-white\/75 {
+  background-color: rgba(26, 24, 20, 0.78);
+}
+
+.dark .bg-white\/70 {
+  background-color: rgba(26, 24, 20, 0.72);
+}
+
+.dark .bg-white\/35 {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.dark .bg-\[\#F4F2EE\],
+.dark .bg-\[\#F5F2EC\],
+.dark .bg-neutral-50 {
+  background-color: #171511;
+}
+
+.dark .border-black\/5,
+.dark .border-black\/10,
+.dark .border-neutral-100,
+.dark .border-neutral-300,
+.dark .border-white\/60,
+.dark .border-white\/70 {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dark .text-neutral-800,
+.dark .text-neutral-700,
+.dark .text-neutral-600 {
+  color: #d6d3ce;
+}
+
+.dark .text-neutral-500,
+.dark .text-neutral-400 {
+  color: #a8a29a;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  color: #f8f4ec;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #78716c;
+}
+
+.dark .wave-field {
+  background:
+    radial-gradient(circle at 80% 18%, rgba(239, 68, 68, 0.18), transparent 30%),
+    radial-gradient(circle at 28% 18%, rgba(250, 204, 21, 0.08), transparent 30%),
+    linear-gradient(135deg, #15130f 0%, #211914 48%, #301812 100%);
+}
+
+.wave-field {
+  background:
+    radial-gradient(circle at 80% 18%, rgba(239, 68, 68, 0.22), transparent 28%),
+    radial-gradient(circle at 28% 18%, rgba(255, 211, 117, 0.2), transparent 28%),
+    linear-gradient(135deg, #fbf6ea 0%, #fffaf1 42%, #fde2d3 100%);
+}
+
+.wave-field::before,
+.wave-field::after {
+  border-radius: 9999px;
+  content: "";
+  position: absolute;
+  transform: rotate(-24deg);
+}
+
+.wave-field::before {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.25), rgba(239, 68, 68, 0.24), rgba(255, 255, 255, 0.1));
+  filter: blur(1px);
+  height: 220px;
+  left: -8%;
+  top: 30%;
+  width: 118%;
+}
+
+.wave-field::after {
+  background: linear-gradient(90deg, rgba(255, 242, 210, 0.35), rgba(255, 131, 96, 0.28), rgba(132, 73, 73, 0.16));
+  filter: blur(10px);
+  height: 280px;
+  left: 26%;
+  top: 10%;
+  width: 92%;
+}

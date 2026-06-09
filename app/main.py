@@ -1,0 +1,612 @@
+"""
+Main FastAPI application for NoteFlow AI.
+
+This file defines the FastAPI app and endpoints for:
+- PDF upload
+- RAG query
+- chat history
+- uploaded file list
+- file deletion
+"""
+
+import os
+import re
+import shutil
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional
+
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, Field
+
+from app.services.conversion_service import ConversionError, UnsupportedConversionError, convert_file
+from app.services.auth_service import create_access_token, decode_access_token, hash_password, verify_password
+from app.services.rag_service import RAGService
+from app.services.result_store import ResultStore
+from app.services.user_store import UserStore
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR / "backend" / ".env", override=False)
+
+UPLOAD_DIR = BASE_DIR / "data" / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+RESULTS_PATH = BASE_DIR / "backend" / "data" / "results.json"
+USERS_PATH = BASE_DIR / "backend" / "data" / "users.json"
+CONVERSION_DIR = BASE_DIR / "backend" / "data" / "conversions"
+CONVERSION_DIR.mkdir(parents=True, exist_ok=True)
+
+app = FastAPI(
+    title="NoteFlow AI",
+    description="PDF upload + RAG document chat service",
+)
+
+# Development CORS setting.
+# Readdy preview runs from a different origin, so allow all origins for now.
+# For production, replace this with a fixed frontend domain list.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+rag_service = RAGService(
+    persist_directory=os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
+)
+result_store = ResultStore(RESULTS_PATH)
+user_store = UserStore(USERS_PATH)
+bearer_scheme = HTTPBearer(auto_error=False)
+
+# In-memory state for this starter backend.
+# These values reset when the FastAPI server restarts.
+chat_history: List[Dict[str, Any]] = []
+uploaded_files: Dict[str, Dict[str, Any]] = {}
+
+
+SummaryType = Literal["핵심 요약", "회의록 요약", "보고서 요약", "액션아이템"]
+ConvertTarget = Literal["csv", "pdf", "txt"]
+
+
+class QueryRequest(BaseModel):
+    question: str = Field(..., min_length=1)
+    file_id: Optional[str] = None
+
+
+class SummaryRequest(BaseModel):
+    file_id: str = Field(..., min_length=1)
+    summary_type: SummaryType
+
+
+class KeywordRequest(BaseModel):
+    file_id: str = Field(..., min_length=1)
+    count: int = Field(default=12, ge=1, le=50)
+    scope: str = Field(default="전체 문서", min_length=1)
+
+
+class RegisterRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=254)
+    name: str = Field(..., min_length=1, max_length=80)
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=254)
+    password: str = Field(..., min_length=1, max_length=128)
+
+
+def _public_user(user: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "user_id": user["user_id"],
+        "email": user["email"],
+        "name": user["name"],
+    }
+
+
+def _normalize_email(email: str) -> str:
+    return email.strip().lower()
+
+
+def _validate_email(email: str) -> None:
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        raise HTTPException(status_code=400, detail="Invalid email address")
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> Dict[str, Any]:
+    if not credentials or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        payload = decode_access_token(credentials.credentials)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+    user_id = str(payload.get("sub", ""))
+    user = user_store.get_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+
+
+def _get_file_record(file_id: str) -> Dict[str, Any]:
+    file_record = uploaded_files.get(file_id)
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File not found")
+    return file_record
+
+
+def _read_uploaded_file_text(file_id: str) -> str:
+    file_record = _get_file_record(file_id)
+    upload_path = Path(file_record["upload_path"])
+
+    if not upload_path.exists():
+        raise HTTPException(status_code=404, detail="Uploaded PDF file is missing on disk")
+
+    text = rag_service.extract_text_from_pdf(str(upload_path))
+    if not text or not text.strip():
+        raise HTTPException(status_code=400, detail="No readable text found in PDF")
+
+    return text
+
+
+def _safe_save_result(category: str, item: Dict[str, Any]) -> None:
+    try:
+        result_store.append(category, item)
+    except Exception as exc:
+        print(f"Failed to save {category}: {exc}")
+
+
+def _filename_for_file_id(file_id: Optional[str]) -> str:
+    if not file_id:
+        return ""
+    file_record = uploaded_files.get(file_id)
+    if file_record:
+        return str(file_record.get("filename", ""))
+
+    file_results = result_store.get_by_file_id(file_id)
+    for category in ("summaries", "keywords", "chats"):
+        if file_results[category]:
+            return str(file_results[category][0].get("filename", ""))
+    return ""
+
+
+@app.get("/")
+def root():
+    return {"status": "ok", "service": "NoteFlow AI"}
+
+
+@app.post("/auth/register")
+async def register_user(request: RegisterRequest):
+    email = _normalize_email(request.email)
+    name = request.name.strip()
+    _validate_email(email)
+
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+
+    user = {
+        "user_id": uuid.uuid4().hex,
+        "email": email,
+        "name": name,
+        "hashed_password": hash_password(request.password),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    try:
+        created_user = user_store.create_user(user)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    return {
+        "message": "User registered successfully",
+        "user": _public_user(created_user),
+    }
+
+
+@app.post("/auth/login")
+async def login_user(request: LoginRequest):
+    email = _normalize_email(request.email)
+    user = user_store.get_by_email(email)
+
+    if not user or not verify_password(request.password, str(user.get("hashed_password", ""))):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    public_user = _public_user(user)
+    access_token = create_access_token(
+        subject=user["user_id"],
+        extra_claims={"email": user["email"]},
+    )
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": public_user,
+    }
+
+
+@app.get("/auth/me")
+async def get_me(current_user: Dict[str, Any] = Depends(get_current_user)):
+    return {"user": _public_user(current_user)}
+
+
+@app.post("/auth/logout")
+async def logout_user():
+    return {"message": "Logged out successfully"}
+
+
+@app.post("/upload")
+async def upload_pdf(file: UploadFile = File(...)):
+    if file.content_type != "application/pdf":
+        raise HTTPException(status_code=400, detail="Only PDF uploads are supported")
+
+    file_id = uuid.uuid4().hex
+    filename = file.filename or f"{file_id}.pdf"
+    dest_path = UPLOAD_DIR / f"{file_id}.pdf"
+    created_at = datetime.now(timezone.utc).isoformat()
+
+    try:
+        with dest_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    finally:
+        await file.close()
+
+    text = rag_service.extract_text_from_pdf(str(dest_path))
+
+    if not text or not text.strip():
+        if dest_path.exists():
+            dest_path.unlink()
+
+        raise HTTPException(
+            status_code=400,
+            detail="No readable text found in PDF. This may be a scanned or image-based PDF.",
+        )
+
+    chunks = rag_service.split_text(text)
+
+    if not chunks:
+        if dest_path.exists():
+            dest_path.unlink()
+
+        raise HTTPException(
+            status_code=400,
+            detail="No text chunks were created from this PDF.",
+        )
+
+    rag_service.ingest_documents(
+        chunks,
+        collection_name="noteflow",
+        metadatas=[
+            {
+                "file_id": file_id,
+                "filename": filename,
+                "chunk_index": index,
+            }
+            for index, _ in enumerate(chunks)
+        ],
+    )
+
+    uploaded_files[file_id] = {
+        "file_id": file_id,
+        "filename": filename,
+        "upload_path": str(dest_path),
+        "created_at": created_at,
+        "text_length": len(text),
+        "chunk_count": len(chunks),
+        "status": "ready",
+    }
+
+    return JSONResponse(
+        {
+            "file_id": file_id,
+            "filename": filename,
+            "text_length": len(text),
+            "chunk_count": len(chunks),
+            "status": "ready",
+        }
+    )
+
+
+@app.post("/query")
+async def query_notes(request: QueryRequest):
+    question = request.question.strip()
+
+    if not question:
+        raise HTTPException(status_code=400, detail="question must not be empty")
+
+    try:
+        result = rag_service.answer_question(
+            question,
+            collection_name="noteflow",
+            file_id=request.file_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    created_at = datetime.now(timezone.utc).isoformat()
+    chat_record = {
+        "file_id": request.file_id,
+        "filename": _filename_for_file_id(request.file_id),
+        "question": question,
+        "answer": result.get("answer", ""),
+        "sources": result.get("sources", []),
+        "created_at": created_at,
+    }
+
+    chat_history.append(chat_record)
+    _safe_save_result("chat_results", chat_record)
+
+    return result
+
+
+@app.get("/history")
+async def get_history():
+    return {"history": chat_history}
+
+
+@app.delete("/history")
+async def clear_history():
+    chat_history.clear()
+    return {"message": "Chat history cleared"}
+
+
+@app.get("/files")
+async def list_files():
+    return {"files": list(uploaded_files.values())}
+
+
+@app.get("/files/{file_id}")
+async def get_file(file_id: str):
+    return _get_file_record(file_id)
+
+
+@app.get("/results")
+async def get_results():
+    return result_store.load()
+
+
+@app.get("/results/{file_id}")
+async def get_file_results(file_id: str):
+    file_record = uploaded_files.get(file_id)
+    file_results = result_store.get_by_file_id(file_id)
+    filename = file_record.get("filename") if file_record else _filename_for_file_id(file_id)
+
+    return {
+        "file_id": file_id,
+        "filename": filename,
+        **file_results,
+    }
+
+
+@app.delete("/results/{file_id}")
+async def delete_file_results(file_id: str):
+    file_record = uploaded_files.get(file_id)
+    filename = file_record.get("filename") if file_record else _filename_for_file_id(file_id)
+    deleted_counts = result_store.delete_by_file_id(file_id)
+
+    return {
+        "message": "Result history deleted",
+        "file_id": file_id,
+        "filename": filename,
+        "deleted": deleted_counts,
+    }
+
+
+@app.get("/analysis")
+async def get_analysis():
+    return {
+        "analysis": [
+            {
+                "file_id": file_record["file_id"],
+                "filename": file_record["filename"],
+                "text_length": file_record.get("text_length", 0),
+                "chunk_count": file_record.get("chunk_count", 0),
+                "uploaded_at": file_record.get("created_at"),
+                "status": file_record.get("status", "unknown"),
+            }
+            for file_record in uploaded_files.values()
+        ]
+    }
+
+
+@app.post("/convert")
+async def convert_document(
+    file: UploadFile = File(...),
+    target_format: ConvertTarget = Form(...),
+):
+    original_filename = file.filename or "uploaded"
+    suffix = Path(original_filename).suffix.lower()
+    unique_id = uuid.uuid4().hex[:10]
+    source_path = CONVERSION_DIR / f"source_{unique_id}{suffix}"
+
+    try:
+        with source_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    finally:
+        await file.close()
+
+    try:
+        converted_path = convert_file(
+            source_path=source_path,
+            original_filename=original_filename,
+            target_format=target_format,
+            output_dir=CONVERSION_DIR,
+            unique_id=unique_id,
+        )
+    except UnsupportedConversionError as exc:
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "unsupported",
+                "message": str(exc),
+                "original_filename": original_filename,
+                "target_format": target_format,
+            },
+        )
+    except ConversionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        if source_path.exists():
+            source_path.unlink()
+
+    download_url = f"http://127.0.0.1:8000/downloads/{converted_path.name}"
+    return {
+        "status": "success",
+        "original_filename": original_filename,
+        "converted_filename": converted_path.name,
+        "target_format": target_format,
+        "download_url": download_url,
+    }
+
+
+@app.get("/downloads/{filename}")
+async def download_conversion(filename: str):
+    safe_name = Path(filename).name
+    file_path = CONVERSION_DIR / safe_name
+
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Converted file not found")
+
+    return FileResponse(
+        path=file_path,
+        filename=safe_name,
+        media_type="application/octet-stream",
+    )
+
+
+@app.post("/summary")
+async def summarize_document(request: SummaryRequest):
+    text = _read_uploaded_file_text(request.file_id)
+
+    try:
+        summary = rag_service.summarize_text(text, request.summary_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    file_record = _get_file_record(request.file_id)
+    created_at = datetime.now(timezone.utc).isoformat()
+    summary_record = {
+        "file_id": request.file_id,
+        "filename": file_record["filename"],
+        "summary_type": request.summary_type,
+        "summary": summary,
+        "created_at": created_at,
+    }
+    _safe_save_result("summary_results", summary_record)
+
+    return {
+        "file_id": request.file_id,
+        "filename": file_record["filename"],
+        "summary_type": request.summary_type,
+        "summary": summary,
+        "created_at": created_at,
+    }
+
+
+@app.post("/keywords")
+async def extract_keywords(request: KeywordRequest):
+    text = _read_uploaded_file_text(request.file_id)
+
+    try:
+        result = rag_service.extract_keywords_from_text(
+            text,
+            count=request.count,
+            scope=request.scope,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    file_record = _get_file_record(request.file_id)
+    created_at = datetime.now(timezone.utc).isoformat()
+    keyword_record = {
+        "file_id": request.file_id,
+        "filename": file_record["filename"],
+        "count": request.count,
+        "scope": request.scope,
+        "keywords": result.get("keywords", []),
+        "topics": result.get("topics", []),
+        "created_at": created_at,
+    }
+    _safe_save_result("keyword_results", keyword_record)
+
+    return {
+        "file_id": request.file_id,
+        "filename": file_record["filename"],
+        "count": request.count,
+        "scope": request.scope,
+        "keywords": result.get("keywords", []),
+        "topics": result.get("topics", []),
+        "created_at": created_at,
+    }
+
+
+@app.delete("/files/{file_id}")
+async def delete_file(file_id: str):
+    file_record = uploaded_files.pop(file_id, None)
+
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    filename = file_record["filename"]
+    upload_path = Path(file_record["upload_path"])
+
+    if upload_path.exists():
+        upload_path.unlink()
+
+    deleted_chunks = 0
+    deleted_results = {"summaries": 0, "keywords": 0, "chats": 0}
+
+    try:
+        deleted_chunks = rag_service.delete_documents_by_file_id(
+            file_id,
+            collection_name="noteflow",
+        )
+    except Exception as exc:
+        return {
+            "message": "File deleted, but related Chroma chunks could not be deleted",
+            "file_id": file_id,
+            "filename": filename,
+            "deleted_chunks": deleted_chunks,
+            "deleted_results": deleted_results,
+            "chroma_delete_error": str(exc),
+        }
+
+    try:
+        deleted_results = result_store.delete_by_file_id(file_id)
+    except Exception as exc:
+        return {
+            "message": "File deleted, but related result history could not be deleted",
+            "file_id": file_id,
+            "filename": filename,
+            "deleted_chunks": deleted_chunks,
+            "deleted_results": deleted_results,
+            "result_delete_error": str(exc),
+        }
+
+    return {
+        "message": "File deleted",
+        "file_id": file_id,
+        "filename": filename,
+        "deleted_chunks": deleted_chunks,
+        "deleted_results": deleted_results,
+    }
