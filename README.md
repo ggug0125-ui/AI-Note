@@ -228,6 +228,18 @@ LocalStorage 저장
 * GET /auth/me
 * POST /auth/logout
 
+## 회원가입 활성화
+
+배포 환경에서는 API 남용 방지를 위해 회원가입이 기본적으로 비활성화되어 있습니다.
+신규 회원가입을 허용하려면 `.env`에 아래 값을 설정한 뒤 백엔드 서버를 재시작하세요.
+
+```env
+ALLOW_REGISTER=true
+```
+
+기본값은 `false`이며, 비활성화 상태에서 `POST /auth/register` 요청은 HTTP 403과
+`현재 회원가입이 비활성화되어 있습니다.` 메시지를 반환합니다.
+
 ## 문서 관리
 
 * POST /upload

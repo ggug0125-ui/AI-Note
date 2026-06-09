@@ -198,6 +198,12 @@ def root():
 
 @app.post("/auth/register")
 async def register_user(request: RegisterRequest):
+    if os.getenv("ALLOW_REGISTER", "false").lower() != "true":
+        raise HTTPException(
+            status_code=403,
+            detail="현재 회원가입이 비활성화되어 있습니다.",
+        )
+
     email = _normalize_email(request.email)
     name = request.name.strip()
     _validate_email(email)
