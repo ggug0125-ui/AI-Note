@@ -8,8 +8,8 @@ import { FormEvent, useState } from "react";
 import { Logo } from "../../components/Logo";
 import { ThemeToggle } from "../../components/ThemeToggle";
 import { WaveBackground } from "../../components/WaveBackground";
+import { API_BASE_URL } from "@/lib/api";
 
-const API_BASE_URL = "http://127.0.0.1:8000";
 const TOKEN_KEY = "access_token";
 const USER_KEY = "user";
 

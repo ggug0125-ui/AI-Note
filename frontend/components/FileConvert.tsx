@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useMemo, useState } from "react";
 import { ArrowRightLeft, Download, FileSpreadsheet, FileText, UploadCloud } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api";
 
 type TargetFormat = "csv" | "pdf" | "txt";
 
@@ -14,7 +15,6 @@ type ConvertResponse = {
   download_url?: string;
 };
 
-const API_BASE_URL = "http://127.0.0.1:8000";
 
 const convertOptions = [
   {

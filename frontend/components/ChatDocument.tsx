@@ -2,6 +2,7 @@
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { FileUp, History, RefreshCw, Send, Trash2 } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api";
 
 type UploadedFile = {
   file_id: string;
@@ -30,7 +31,6 @@ type ChatHistoryItem = {
   created_at?: string;
 };
 
-const API_BASE_URL = "http://127.0.0.1:8000";
 
 export function ChatDocument() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);

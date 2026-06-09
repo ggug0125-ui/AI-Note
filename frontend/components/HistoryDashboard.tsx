@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Clipboard, RefreshCw, Trash2 } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api";
 
 type UploadedFile = {
   file_id: string;
@@ -47,7 +48,6 @@ type FileResults = {
   chats: ChatHistoryItem[];
 };
 
-const API_BASE_URL = "http://127.0.0.1:8000";
 
 export function HistoryDashboard() {
   const [files, setFiles] = useState<UploadedFile[]>([]);

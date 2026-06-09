@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, FileSearch, Gauge, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api";
 
 type AnalysisItem = {
   file_id: string;
@@ -12,7 +13,6 @@ type AnalysisItem = {
   status: string;
 };
 
-const API_BASE_URL = "http://127.0.0.1:8000";
 
 const checks = ["페이지별 텍스트 추출", "문서 길이와 청크 수 계산", "청크 기반 검색 인덱스", "분석 결과 재조회"];
 
