@@ -18,6 +18,8 @@ type AuthUser = {
   user_id: string;
   email: string;
   name: string;
+  role: "admin" | "user";
+  plan: "Admin" | "Free";
 };
 
 const tabCopy: Record<DashboardTab, { eyebrow: string; title: string; description: string }> = {
@@ -50,6 +52,11 @@ const tabCopy: Record<DashboardTab, { eyebrow: string; title: string; descriptio
     eyebrow: "Workflow Export",
     title: "엑셀·한글 변환",
     description: "분석 결과를 업무 파일 포맷으로 변환하는 작업 공간입니다."
+  },
+  mypage: {
+    eyebrow: "Account",
+    title: "마이페이지",
+    description: "계정 정보와 AI 문서 어시스턴트 이용 권한을 확인합니다."
   }
 };
 
@@ -64,6 +71,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const current = tabCopy[activeTab];
+  const isAdmin = user?.role === "admin";
 
   useEffect(() => {
     async function verifyToken() {
@@ -134,7 +142,7 @@ export default function DashboardPage() {
             </div>
             <div className="grid w-full max-w-full grid-cols-3 gap-2 rounded-2xl bg-neutral-50 p-2 text-center md:w-auto">
               <div className="px-3 py-2">
-                <strong className="block text-lg font-black text-ink">6</strong>
+                <strong className="block text-lg font-black text-ink">7</strong>
                 <span className="text-xs font-bold text-neutral-500">메뉴</span>
               </div>
               <div className="px-3 py-2">
@@ -149,13 +157,51 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {activeTab === "assistant" && <ChatDocument />}
+        {activeTab === "assistant" && <ChatDocument isAdmin={isAdmin} />}
         {activeTab === "pdf-analysis" && <PdfAnalysis />}
         {activeTab === "summary" && <Summary />}
         {activeTab === "keywords" && <KeywordExtract />}
         {activeTab === "history" && <HistoryDashboard />}
         {activeTab === "convert" && <FileConvert />}
+        {activeTab === "mypage" && user && <MyPage user={user} />}
       </div>
     </main>
+  );
+}
+
+function MyPage({ user }: { user: AuthUser }) {
+  const isAdmin = user.role === "admin";
+
+  return (
+    <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
+        <span className="text-xs font-extrabold uppercase tracking-wide text-coral">Profile</span>
+        <h2 className="mt-3 text-2xl font-black text-ink">{user.name}</h2>
+        <p className="mt-2 text-sm font-semibold text-neutral-500">{user.email}</p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <InfoCard label="등급" value={user.plan} />
+          <InfoCard label="권한 상태" value={isAdmin ? "관리자" : "일반 회원"} />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
+        <span className="text-xs font-extrabold uppercase tracking-wide text-coral">Access</span>
+        <h3 className="mt-3 text-xl font-black text-ink">AI 문서 어시스턴트</h3>
+        <p className="mt-4 rounded-2xl bg-neutral-50 p-5 text-sm font-bold leading-7 text-neutral-700">
+          {isAdmin
+            ? "관리자는 모든 AI 문서 어시스턴트 기능을 사용할 수 있습니다."
+            : "현재 일반 회원은 AI 문서 어시스턴트 이용이 제한되어 있습니다."}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function InfoCard({ label, value }: { label: string; value: string }) {
+  return (
+    <article className="rounded-2xl border border-black/5 bg-neutral-50 p-4">
+      <p className="text-xs font-bold text-neutral-500">{label}</p>
+      <strong className="mt-2 block text-lg font-black text-ink">{value}</strong>
+    </article>
   );
 }

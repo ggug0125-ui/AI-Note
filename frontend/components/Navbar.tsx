@@ -1,11 +1,11 @@
 "use client";
 
-import { BarChart3, FileText, FileUp, History, LogOut, Menu, MessageSquareText, Sparkles, Tags, X } from "lucide-react";
+import { BarChart3, FileText, FileUp, History, LogOut, Menu, MessageSquareText, Sparkles, Tags, UserCircle, X } from "lucide-react";
 import { useState } from "react";
 import { Logo } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
 
-export type DashboardTab = "assistant" | "pdf-analysis" | "summary" | "keywords" | "history" | "convert";
+export type DashboardTab = "assistant" | "pdf-analysis" | "summary" | "keywords" | "history" | "convert" | "mypage";
 
 type NavItem = {
   id: DashboardTab;
@@ -19,7 +19,8 @@ const navItems: NavItem[] = [
   { id: "summary", label: "AI 자동 요약", icon: Sparkles },
   { id: "keywords", label: "키워드 추출", icon: Tags },
   { id: "history", label: "작업 기록", icon: History },
-  { id: "convert", label: "엑셀·한글 변환", icon: FileUp }
+  { id: "convert", label: "엑셀·한글 변환", icon: FileUp },
+  { id: "mypage", label: "마이페이지", icon: UserCircle }
 ];
 
 type NavbarProps = {

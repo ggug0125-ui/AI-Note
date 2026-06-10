@@ -32,7 +32,7 @@ type ChatHistoryItem = {
 };
 
 
-export function ChatDocument() {
+export function ChatDocument({ isAdmin = true }: { isAdmin?: boolean }) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedChatFileId, setSelectedChatFileId] = useState("");
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -48,8 +48,8 @@ export function ChatDocument() {
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState("");
 
-  const canUpload = useMemo(() => selectedFile !== null && !isUploading, [selectedFile, isUploading]);
-  const canAsk = useMemo(() => question.trim().length > 0 && !isAsking, [question, isAsking]);
+  const canUpload = useMemo(() => isAdmin && selectedFile !== null && !isUploading, [isAdmin, selectedFile, isUploading]);
+  const canAsk = useMemo(() => isAdmin && question.trim().length > 0 && !isAsking, [isAdmin, question, isAsking]);
 
   async function loadFiles() {
     const response = await authenticatedFetch(`${API_BASE_URL}/files`);
@@ -67,8 +67,13 @@ export function ChatDocument() {
   }
 
   useEffect(() => {
+    if (!isAdmin) {
+      setUploadStatus("관리자 전용 기능입니다.");
+      return;
+    }
+
     loadFiles().catch(() => setUploadStatus("백엔드 서버에 연결할 수 없습니다."));
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     if (selectedChatFileId) {
@@ -84,6 +89,11 @@ export function ChatDocument() {
   }
 
   async function handleUpload() {
+    if (!isAdmin) {
+      setUploadStatus("관리자 전용 기능입니다.");
+      return;
+    }
+
     if (!selectedFile) {
       return;
     }
@@ -116,6 +126,11 @@ export function ChatDocument() {
   }
 
   async function loadChatHistory() {
+    if (!isAdmin) {
+      setHistoryStatus("관리자 전용 기능입니다.");
+      return;
+    }
+
     if (!selectedChatFileId) {
       setHistoryStatus("문서를 먼저 선택해주세요.");
       return;
@@ -141,6 +156,11 @@ export function ChatDocument() {
   }
 
   async function handleDeleteFile(file: UploadedFile) {
+    if (!isAdmin) {
+      setUploadStatus("관리자 전용 기능입니다.");
+      return;
+    }
+
     const confirmed = window.confirm(
       `${file.filename} 문서를 삭제할까요?\n\n업로드 원본, 검색 인덱스, 요약/키워드/질문 히스토리가 함께 삭제됩니다.`,
     );
@@ -178,6 +198,11 @@ export function ChatDocument() {
 
   async function handleAsk(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!isAdmin) {
+      setQueryStatus("관리자 전용 기능입니다.");
+      return;
+    }
+
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion) {
       return;

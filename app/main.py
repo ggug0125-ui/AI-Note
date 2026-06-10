@@ -106,10 +106,13 @@ class LoginRequest(BaseModel):
 
 
 def _public_user(user: Dict[str, Any]) -> Dict[str, Any]:
+    is_admin = _normalize_email(str(user["email"])) == _normalize_email(ADMIN_EMAIL)
     return {
         "user_id": user["user_id"],
         "email": user["email"],
         "name": user["name"],
+        "role": "admin" if is_admin else "user",
+        "plan": "Admin" if is_admin else "Free",
     }
 
 
@@ -179,6 +182,14 @@ def get_current_user(
 
 def _is_admin_user(user: Dict[str, Any]) -> bool:
     return _normalize_email(str(user.get("email", ""))) == _normalize_email(ADMIN_EMAIL)
+
+
+def require_admin_user(user: Dict[str, Any]) -> None:
+    if not _is_admin_user(user):
+        raise HTTPException(
+            status_code=403,
+            detail="AI Document Assistant is available to administrators only.",
+        )
 
 
 def _user_identity(user: Dict[str, Any]) -> Dict[str, str]:
@@ -363,6 +374,8 @@ async def upload_pdf(
     file: UploadFile = File(...),
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
+    require_admin_user(current_user)
+
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Only PDF uploads are supported")
 
@@ -449,6 +462,8 @@ async def query_notes(
     request: QueryRequest,
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
+    require_admin_user(current_user)
+
     question = request.question.strip()
 
     if not question:
@@ -491,6 +506,8 @@ async def get_history(
     current_user: Dict[str, Any] = Depends(get_current_user),
     limit: int = Query(default=50, ge=1, le=500),
 ):
+    require_admin_user(current_user)
+
     identity = _user_identity(current_user)
     history = result_store.list_chat_history(
         user_id=identity["user_id"],
@@ -503,6 +520,8 @@ async def get_history(
 
 @app.delete("/history")
 async def clear_history(current_user: Dict[str, Any] = Depends(get_current_user)):
+    require_admin_user(current_user)
+
     if _is_admin_user(current_user):
         chat_history.clear()
         return {"message": "Chat history cleared"}
@@ -516,6 +535,8 @@ async def clear_history(current_user: Dict[str, Any] = Depends(get_current_user)
 
 @app.get("/files")
 async def list_files(current_user: Dict[str, Any] = Depends(get_current_user)):
+    require_admin_user(current_user)
+
     identity = _user_identity(current_user)
     files = result_store.list_documents(
         user_id=identity["user_id"],
@@ -560,6 +581,8 @@ async def delete_file_results(
     file_id: str,
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
+    require_admin_user(current_user)
+
     file_record = _get_file_record(file_id, current_user)
     filename = file_record.get("filename") or _filename_for_file_id(file_id, current_user)
     deleted_counts = result_store.delete_by_file_id(file_id)
@@ -660,6 +683,8 @@ async def summarize_document(
     request: SummaryRequest,
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
+    require_admin_user(current_user)
+
     text = _read_uploaded_file_text(request.file_id, current_user)
 
     try:
@@ -693,6 +718,8 @@ async def extract_keywords(
     request: KeywordRequest,
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
+    require_admin_user(current_user)
+
     text = _read_uploaded_file_text(request.file_id, current_user)
 
     try:
@@ -734,6 +761,8 @@ async def delete_file(
     file_id: str,
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
+    require_admin_user(current_user)
+
     file_record = _get_file_record(file_id, current_user)
     uploaded_files.pop(file_id, None)
 
