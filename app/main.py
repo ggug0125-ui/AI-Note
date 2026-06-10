@@ -349,6 +349,15 @@ async def upload_pdf(file: UploadFile = File(...)):
         "chunk_count": len(chunks),
         "status": "ready",
     }
+    document_record = {
+        "file_id": file_id,
+        "filename": filename,
+        "text_length": len(text),
+        "chunk_count": len(chunks),
+        "status": "ready",
+        "created_at": created_at,
+    }
+    _safe_save_result("documents", document_record)
 
     return JSONResponse(
         {
