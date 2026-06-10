@@ -96,7 +96,7 @@ class KeywordRequest(BaseModel):
 
 class RegisterRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=254)
-    name: str = Field(..., min_length=1, max_length=80)
+    name: Optional[str] = Field(default=None, max_length=80)
     password: str = Field(..., min_length=8, max_length=128)
 
 
@@ -286,18 +286,15 @@ def root():
 
 @app.post("/auth/register")
 async def register_user(request: RegisterRequest):
-    if os.getenv("ALLOW_REGISTER", "false").lower() != "true":
-        raise HTTPException(
-            status_code=403,
-            detail="현재 회원가입이 비활성화되어 있습니다.",
-        )
-
     email = _normalize_email(request.email)
-    name = request.name.strip()
+    name = request.name.strip() if request.name else email.split("@", 1)[0]
     _validate_email(email)
 
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
+
+    if user_store.get_by_email(email):
+        raise HTTPException(status_code=400, detail="Email is already registered")
 
     user = {
         "user_id": uuid.uuid4().hex,
@@ -310,7 +307,7 @@ async def register_user(request: RegisterRequest):
     try:
         created_user = user_store.create_user(user)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return {
         "message": "User registered successfully",
