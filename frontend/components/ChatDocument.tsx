@@ -2,7 +2,7 @@
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { FileUp, History, RefreshCw, Send, Trash2 } from "lucide-react";
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, authenticatedFetch } from "@/lib/api";
 
 type UploadedFile = {
   file_id: string;
@@ -52,7 +52,7 @@ export function ChatDocument() {
   const canAsk = useMemo(() => question.trim().length > 0 && !isAsking, [question, isAsking]);
 
   async function loadFiles() {
-    const response = await fetch(`${API_BASE_URL}/files`);
+    const response = await authenticatedFetch(`${API_BASE_URL}/files`);
     if (!response.ok) {
       throw new Error("파일 목록을 불러오지 못했습니다.");
     }
@@ -94,7 +94,7 @@ export function ChatDocument() {
     setUploadStatus("업로드 중입니다...");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/upload`, {
+      const response = await authenticatedFetch(`${API_BASE_URL}/upload`, {
         method: "POST",
         body: formData
       });
@@ -125,7 +125,7 @@ export function ChatDocument() {
     setHistoryStatus("질문 이력을 불러오는 중입니다...");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/results/${selectedChatFileId}`);
+      const response = await authenticatedFetch(`${API_BASE_URL}/results/${selectedChatFileId}`);
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         throw new Error(error.detail ?? "질문 이력을 불러오지 못했습니다.");
@@ -152,7 +152,7 @@ export function ChatDocument() {
     setUploadStatus("문서를 삭제하는 중입니다...");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/files/${file.file_id}`, {
+      const response = await authenticatedFetch(`${API_BASE_URL}/files/${file.file_id}`, {
         method: "DELETE",
       });
       if (!response.ok) {
@@ -193,7 +193,7 @@ export function ChatDocument() {
     setSources([]);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/query`, {
+      const response = await authenticatedFetch(`${API_BASE_URL}/query`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

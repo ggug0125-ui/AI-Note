@@ -2,7 +2,7 @@
 
 import { ChangeEvent, useMemo, useState } from "react";
 import { ArrowRightLeft, Download, FileSpreadsheet, FileText, UploadCloud } from "lucide-react";
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, authenticatedFetch } from "@/lib/api";
 
 type TargetFormat = "csv" | "pdf" | "txt";
 
@@ -70,7 +70,7 @@ export function FileConvert() {
     setStatus("파일을 변환하는 중입니다...");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/convert`, {
+      const response = await authenticatedFetch(`${API_BASE_URL}/convert`, {
         method: "POST",
         body: formData,
       });

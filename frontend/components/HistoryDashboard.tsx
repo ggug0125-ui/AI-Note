@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Clipboard, RefreshCw, Trash2 } from "lucide-react";
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, authenticatedFetch } from "@/lib/api";
 
 type UploadedFile = {
   file_id: string;
@@ -68,7 +68,7 @@ export function HistoryDashboard() {
     setStatus("문서 목록을 불러오는 중입니다...");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/files`);
+      const response = await authenticatedFetch(`${API_BASE_URL}/files`);
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         throw new Error(error.detail ?? "문서 목록을 불러오지 못했습니다.");
@@ -95,7 +95,7 @@ export function HistoryDashboard() {
     setStatus("작업 기록을 불러오는 중입니다...");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/results/${fileId}`);
+      const response = await authenticatedFetch(`${API_BASE_URL}/results/${fileId}`);
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         throw new Error(error.detail ?? "작업 기록을 불러오지 못했습니다.");
@@ -128,7 +128,7 @@ export function HistoryDashboard() {
     setStatus("선택한 문서의 작업 기록을 삭제하는 중입니다...");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/results/${selectedFileId}`, {
+      const response = await authenticatedFetch(`${API_BASE_URL}/results/${selectedFileId}`, {
         method: "DELETE",
       });
       if (!response.ok) {
@@ -163,7 +163,7 @@ export function HistoryDashboard() {
     setStatus("문서를 삭제하는 중입니다...");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/files/${selectedFileId}`, {
+      const response = await authenticatedFetch(`${API_BASE_URL}/files/${selectedFileId}`, {
         method: "DELETE",
       });
       if (!response.ok) {

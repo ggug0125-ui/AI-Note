@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ClipboardList, History, Sparkles } from "lucide-react";
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, authenticatedFetch } from "@/lib/api";
 
 type UploadedFile = {
   file_id: string;
@@ -32,7 +32,7 @@ export function Summary() {
 
   async function loadFiles() {
     try {
-      const response = await fetch(`${API_BASE_URL}/files`);
+      const response = await authenticatedFetch(`${API_BASE_URL}/files`);
       if (!response.ok) {
         throw new Error("파일 목록을 불러오지 못했습니다.");
       }
@@ -67,7 +67,7 @@ export function Summary() {
     setHistoryStatus("요약 이력을 불러오는 중입니다...");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/results/${selectedFileId}`);
+      const response = await authenticatedFetch(`${API_BASE_URL}/results/${selectedFileId}`);
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         throw new Error(error.detail ?? "요약 이력을 불러오지 못했습니다.");
@@ -95,7 +95,7 @@ export function Summary() {
     setSummary("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/summary`, {
+      const response = await authenticatedFetch(`${API_BASE_URL}/summary`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

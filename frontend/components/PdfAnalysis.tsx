@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, FileSearch, Gauge, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, authenticatedFetch } from "@/lib/api";
 
 type AnalysisItem = {
   file_id: string;
@@ -30,7 +30,7 @@ export function PdfAnalysis() {
     setStatus("문서 분석 정보를 불러오는 중입니다...");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/analysis`);
+      const response = await authenticatedFetch(`${API_BASE_URL}/analysis`);
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         throw new Error(error.detail ?? "분석 정보를 불러오지 못했습니다.");
@@ -62,7 +62,7 @@ export function PdfAnalysis() {
     setStatus("문서를 삭제하는 중입니다...");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/files/${item.file_id}`, {
+      const response = await authenticatedFetch(`${API_BASE_URL}/files/${item.file_id}`, {
         method: "DELETE",
       });
       if (!response.ok) {
