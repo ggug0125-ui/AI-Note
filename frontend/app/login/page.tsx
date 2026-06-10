@@ -12,12 +12,37 @@ import { API_BASE_URL } from "@/lib/api";
 
 const TOKEN_KEY = "access_token";
 const USER_KEY = "user";
+const DEFAULT_LOGIN_ERROR_MESSAGE = "로그인에 실패했습니다.";
 
 const socialProviders = [
   { name: "Naver", icon: "/icons/naver.svg", message: "Naver 로그인은 추후 연동 예정입니다." },
   { name: "Kakao", icon: "/icons/kakao.svg", message: "Kakao 로그인은 추후 연동 예정입니다." },
   { name: "Google", icon: "/icons/google.svg", message: "Google 로그인은 추후 연동 예정입니다." }
 ];
+
+function getLoginErrorMessage(data: unknown) {
+  if (!data || typeof data !== "object" || !("detail" in data)) {
+    return DEFAULT_LOGIN_ERROR_MESSAGE;
+  }
+
+  const { detail } = data as { detail?: unknown };
+  if (typeof detail === "string") {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (item && typeof item === "object" && "msg" in item) {
+          return String((item as { msg: unknown }).msg);
+        }
+        return String(item);
+      })
+      .join("\n");
+  }
+
+  return DEFAULT_LOGIN_ERROR_MESSAGE;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -43,21 +68,21 @@ export default function LoginPage() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          email: email.trim(),
+          email: email.trim().toLowerCase(),
           password: password.trim()
         })
       });
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.detail ?? "로그인에 실패했습니다.");
+        throw new Error(getLoginErrorMessage(data));
       }
 
       window.localStorage.setItem(TOKEN_KEY, data.access_token);
       window.localStorage.setItem(USER_KEY, JSON.stringify(data.user));
       router.push("/dashboard");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "로그인에 실패했습니다.");
+      setErrorMessage(error instanceof Error ? error.message : DEFAULT_LOGIN_ERROR_MESSAGE);
     } finally {
       setIsSubmitting(false);
     }
