@@ -96,6 +96,54 @@ class ResultStore:
             if self._matches_user(item, user_id, user_email)
         ]
 
+    def list_chat_history(
+        self,
+        user_id: Optional[str] = None,
+        user_email: Optional[str] = None,
+        include_all: bool = False,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        query: Dict[str, Any] = {}
+        if not include_all:
+            query = self._user_query(user_id, user_email)
+
+        if self._collections is not None:
+            cursor = (
+                self._collections["chat_results"]
+                .find(query)
+                .sort("created_at", -1)
+                .limit(limit)
+            )
+            return [self._chat_record(item) for item in cursor]
+
+        chats = self.load().get("chat_results", [])
+        if not include_all:
+            chats = [
+                item for item in chats
+                if self._matches_user(item, user_id, user_email)
+            ]
+        return [
+            self._chat_record(item)
+            for item in sorted(chats, key=lambda item: str(item.get("created_at", "")), reverse=True)[:limit]
+        ]
+
+    def count_all(self) -> Dict[str, int]:
+        if self._collections is not None:
+            return {
+                "total_documents": int(self._collections["documents"].count_documents({})),
+                "total_chat_history": int(self._collections["chat_results"].count_documents({})),
+                "total_summaries": int(self._collections["summary_results"].count_documents({})),
+                "total_keywords": int(self._collections["keyword_results"].count_documents({})),
+            }
+
+        data = self.load()
+        return {
+            "total_documents": len(data.get("documents", [])),
+            "total_chat_history": len(data.get("chat_results", [])),
+            "total_summaries": len(data.get("summary_results", [])),
+            "total_keywords": len(data.get("keyword_results", [])),
+        }
+
     def get_by_file_id(self, file_id: str) -> Dict[str, List[Dict[str, Any]]]:
         if self._collections is not None:
             return {
@@ -206,6 +254,19 @@ class ResultStore:
     @staticmethod
     def _public_record(item: Dict[str, Any]) -> Dict[str, Any]:
         return {key: value for key, value in item.items() if key != "_id"}
+
+    @classmethod
+    def _chat_record(cls, item: Dict[str, Any]) -> Dict[str, Any]:
+        record = cls._public_record(item)
+        return {
+            "file_id": record.get("file_id"),
+            "filename": record.get("filename", ""),
+            "question": record.get("question", ""),
+            "answer": record.get("answer", ""),
+            "sources": record.get("sources", []),
+            "created_at": record.get("created_at", ""),
+            "user_email": record.get("user_email", ""),
+        }
 
     def _load_unlocked(self) -> Dict[str, List[Dict[str, Any]]]:
         if not self.path.exists():

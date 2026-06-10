@@ -35,6 +35,12 @@ class UserStore:
         with self._lock:
             return self._load_unlocked()
 
+    def count_users(self) -> int:
+        if self._collection is not None:
+            return int(self._collection.count_documents({}))
+
+        return len(self.list_users())
+
     def get_by_email(self, email: str) -> Optional[Dict[str, Any]]:
         normalized_email = email.strip().lower()
         if self._collection is not None:

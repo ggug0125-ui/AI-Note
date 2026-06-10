@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -344,6 +344,18 @@ async def get_me(current_user: Dict[str, Any] = Depends(get_current_user)):
     return {"user": _public_user(current_user)}
 
 
+@app.get("/admin/dashboard")
+async def get_admin_dashboard(current_user: Dict[str, Any] = Depends(get_current_user)):
+    if not _is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    result_counts = result_store.count_all()
+    return {
+        "total_users": user_store.count_users(),
+        **result_counts,
+    }
+
+
 @app.post("/auth/logout")
 async def logout_user():
     return {"message": "Logged out successfully"}
@@ -478,13 +490,18 @@ async def query_notes(
 
 
 @app.get("/history")
-async def get_history(current_user: Dict[str, Any] = Depends(get_current_user)):
-    return {
-        "history": [
-            item for item in chat_history
-            if _record_belongs_to_user(item, current_user)
-        ]
-    }
+async def get_history(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    limit: int = Query(default=50, ge=1, le=500),
+):
+    identity = _user_identity(current_user)
+    history = result_store.list_chat_history(
+        user_id=identity["user_id"],
+        user_email=identity["user_email"],
+        include_all=_is_admin_user(current_user),
+        limit=limit,
+    )
+    return {"history": history}
 
 
 @app.delete("/history")
