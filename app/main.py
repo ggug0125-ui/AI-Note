@@ -64,6 +64,9 @@ rag_service = RAGService(
 result_store = ResultStore(RESULTS_PATH)
 user_store = UserStore(USERS_PATH)
 bearer_scheme = HTTPBearer(auto_error=False)
+ADMIN_EMAIL = "ggug0125@gmail.com"
+ADMIN_NAME = "관리자"
+ADMIN_PASSWORD = "102121200"
 
 # In-memory state for this starter backend.
 # These values reset when the FastAPI server restarts.
@@ -117,6 +120,31 @@ def _normalize_email(email: str) -> str:
 def _validate_email(email: str) -> None:
     if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
         raise HTTPException(status_code=400, detail="Invalid email address")
+
+
+@app.on_event("startup")
+def seed_admin_user() -> None:
+    email = _normalize_email(ADMIN_EMAIL)
+
+    if user_store.get_by_email(email):
+        print(f"Admin user already exists: {email}")
+        return
+
+    admin_user = {
+        "user_id": uuid.uuid4().hex,
+        "email": email,
+        "name": ADMIN_NAME,
+        "hashed_password": hash_password(ADMIN_PASSWORD),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    try:
+        user_store.create_user(admin_user)
+    except ValueError:
+        print(f"Admin user already exists: {email}")
+        return
+
+    print(f"Admin user seeded: {email}")
 
 
 def get_current_user(
