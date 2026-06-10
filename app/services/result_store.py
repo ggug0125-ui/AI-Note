@@ -38,8 +38,10 @@ class ResultStore:
                 category: db[collection_name]
                 for category, collection_name in COLLECTION_BY_CATEGORY.items()
             }
+            print("ResultStore initialized in MongoDB mode")
         else:
             self.path.parent.mkdir(parents=True, exist_ok=True)
+            print("ResultStore initialized in JSON fallback mode")
 
     def load(self) -> Dict[str, List[Dict[str, Any]]]:
         if self._collections is not None:
@@ -59,7 +61,8 @@ class ResultStore:
             collection = self._collections.get(category)
             if collection is None:
                 raise ValueError(f"Unknown result category: {category}")
-            collection.insert_one(dict(item))
+            result = collection.insert_one(dict(item))
+            print(f"ResultStore MongoDB append succeeded: category={category}, inserted_id={result.inserted_id}")
             return
 
         with self._lock:
@@ -67,6 +70,7 @@ class ResultStore:
             data.setdefault(category, [])
             data[category].append(item)
             self._write_unlocked(data)
+            print(f"ResultStore JSON append succeeded: category={category}")
 
     def get_by_file_id(self, file_id: str) -> Dict[str, List[Dict[str, Any]]]:
         if self._collections is not None:
