@@ -72,6 +72,30 @@ class ResultStore:
             self._write_unlocked(data)
             print(f"ResultStore JSON append succeeded: category={category}")
 
+    def list_documents(
+        self,
+        user_id: Optional[str] = None,
+        user_email: Optional[str] = None,
+        include_all: bool = False,
+    ) -> List[Dict[str, Any]]:
+        query: Dict[str, Any] = {}
+        if not include_all:
+            query = self._user_query(user_id, user_email)
+
+        if self._collections is not None:
+            return [
+                self._public_record(item)
+                for item in self._collections["documents"].find(query)
+            ]
+
+        documents = self.load().get("documents", [])
+        if include_all:
+            return documents
+        return [
+            item for item in documents
+            if self._matches_user(item, user_id, user_email)
+        ]
+
     def get_by_file_id(self, file_id: str) -> Dict[str, List[Dict[str, Any]]]:
         if self._collections is not None:
             return {
@@ -158,6 +182,26 @@ class ResultStore:
             return 0
         result = self._collections[category].delete_many({"file_id": file_id})
         return int(result.deleted_count)
+
+    @staticmethod
+    def _user_query(user_id: Optional[str], user_email: Optional[str]) -> Dict[str, Any]:
+        clauses = []
+        if user_id:
+            clauses.append({"user_id": user_id})
+        if user_email:
+            clauses.append({"user_email": user_email})
+        if not clauses:
+            return {"user_id": "__missing_user__"}
+        if len(clauses) == 1:
+            return clauses[0]
+        return {"$or": clauses}
+
+    @staticmethod
+    def _matches_user(item: Dict[str, Any], user_id: Optional[str], user_email: Optional[str]) -> bool:
+        return (
+            bool(user_id and item.get("user_id") == user_id)
+            or bool(user_email and item.get("user_email") == user_email)
+        )
 
     @staticmethod
     def _public_record(item: Dict[str, Any]) -> Dict[str, Any]:

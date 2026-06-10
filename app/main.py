@@ -177,16 +177,53 @@ def get_current_user(
     return user
 
 
-def _get_file_record(file_id: str) -> Dict[str, Any]:
+def _is_admin_user(user: Dict[str, Any]) -> bool:
+    return _normalize_email(str(user.get("email", ""))) == _normalize_email(ADMIN_EMAIL)
+
+
+def _user_identity(user: Dict[str, Any]) -> Dict[str, str]:
+    return {
+        "user_id": str(user.get("user_id", "")),
+        "user_email": _normalize_email(str(user.get("email", ""))),
+    }
+
+
+def _record_belongs_to_user(record: Dict[str, Any], user: Dict[str, Any]) -> bool:
+    if _is_admin_user(user):
+        return True
+
+    identity = _user_identity(user)
+    return (
+        bool(record.get("user_id") and record.get("user_id") == identity["user_id"])
+        or bool(record.get("user_email") and record.get("user_email") == identity["user_email"])
+    )
+
+
+def _get_file_record(file_id: str, current_user: Dict[str, Any]) -> Dict[str, Any]:
     file_record = uploaded_files.get(file_id)
-    if not file_record:
+    if file_record:
+        if not _record_belongs_to_user(file_record, current_user):
+            raise HTTPException(status_code=403, detail="Not allowed to access this file")
+        return file_record
+
+    file_results = result_store.get_by_file_id(file_id)
+    documents = file_results.get("documents", [])
+    if not documents:
         raise HTTPException(status_code=404, detail="File not found")
-    return file_record
+
+    document = documents[0]
+    if not _record_belongs_to_user(document, current_user):
+        raise HTTPException(status_code=403, detail="Not allowed to access this file")
+    return document
 
 
-def _read_uploaded_file_text(file_id: str) -> str:
-    file_record = _get_file_record(file_id)
-    upload_path = Path(file_record["upload_path"])
+def _read_uploaded_file_text(file_id: str, current_user: Dict[str, Any]) -> str:
+    file_record = _get_file_record(file_id, current_user)
+    upload_path_value = file_record.get("upload_path")
+    if not upload_path_value:
+        raise HTTPException(status_code=404, detail="Uploaded PDF file is missing on disk")
+
+    upload_path = Path(upload_path_value)
 
     if not upload_path.exists():
         raise HTTPException(status_code=404, detail="Uploaded PDF file is missing on disk")
@@ -205,18 +242,41 @@ def _safe_save_result(category: str, item: Dict[str, Any]) -> None:
         print(f"Failed to save {category}: {exc}")
 
 
-def _filename_for_file_id(file_id: Optional[str]) -> str:
+def _filename_for_file_id(file_id: Optional[str], current_user: Optional[Dict[str, Any]] = None) -> str:
     if not file_id:
         return ""
     file_record = uploaded_files.get(file_id)
     if file_record:
+        if current_user and not _record_belongs_to_user(file_record, current_user):
+            raise HTTPException(status_code=403, detail="Not allowed to access this file")
         return str(file_record.get("filename", ""))
 
     file_results = result_store.get_by_file_id(file_id)
+    documents = file_results.get("documents", [])
+    if documents:
+        if current_user and not _record_belongs_to_user(documents[0], current_user):
+            raise HTTPException(status_code=403, detail="Not allowed to access this file")
+        return str(documents[0].get("filename", ""))
+
     for category in ("summaries", "keywords", "chats"):
         if file_results[category]:
+            if current_user and not _record_belongs_to_user(file_results[category][0], current_user):
+                raise HTTPException(status_code=403, detail="Not allowed to access this file")
             return str(file_results[category][0].get("filename", ""))
     return ""
+
+
+def _filter_records_for_user(data: Dict[str, List[Dict[str, Any]]], current_user: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
+    if _is_admin_user(current_user):
+        return data
+
+    return {
+        category: [
+            item for item in items
+            if _record_belongs_to_user(item, current_user)
+        ]
+        for category, items in data.items()
+    }
 
 
 @app.get("/")
@@ -290,7 +350,10 @@ async def logout_user():
 
 
 @app.post("/upload")
-async def upload_pdf(file: UploadFile = File(...)):
+async def upload_pdf(
+    file: UploadFile = File(...),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Only PDF uploads are supported")
 
@@ -348,6 +411,7 @@ async def upload_pdf(file: UploadFile = File(...)):
         "text_length": len(text),
         "chunk_count": len(chunks),
         "status": "ready",
+        **_user_identity(current_user),
     }
     document_record = {
         "file_id": file_id,
@@ -356,6 +420,7 @@ async def upload_pdf(file: UploadFile = File(...)):
         "chunk_count": len(chunks),
         "status": "ready",
         "created_at": created_at,
+        **_user_identity(current_user),
     }
     _safe_save_result("documents", document_record)
 
@@ -371,11 +436,20 @@ async def upload_pdf(file: UploadFile = File(...)):
 
 
 @app.post("/query")
-async def query_notes(request: QueryRequest):
+async def query_notes(
+    request: QueryRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
     question = request.question.strip()
 
     if not question:
         raise HTTPException(status_code=400, detail="question must not be empty")
+
+    if not request.file_id and not _is_admin_user(current_user):
+        raise HTTPException(status_code=400, detail="file_id is required")
+
+    if request.file_id:
+        _get_file_record(request.file_id, current_user)
 
     try:
         result = rag_service.answer_question(
@@ -389,11 +463,12 @@ async def query_notes(request: QueryRequest):
     created_at = datetime.now(timezone.utc).isoformat()
     chat_record = {
         "file_id": request.file_id,
-        "filename": _filename_for_file_id(request.file_id),
+        "filename": _filename_for_file_id(request.file_id, current_user),
         "question": question,
         "answer": result.get("answer", ""),
         "sources": result.get("sources", []),
         "created_at": created_at,
+        **_user_identity(current_user),
     }
 
     chat_history.append(chat_record)
@@ -403,36 +478,61 @@ async def query_notes(request: QueryRequest):
 
 
 @app.get("/history")
-async def get_history():
-    return {"history": chat_history}
+async def get_history(current_user: Dict[str, Any] = Depends(get_current_user)):
+    return {
+        "history": [
+            item for item in chat_history
+            if _record_belongs_to_user(item, current_user)
+        ]
+    }
 
 
 @app.delete("/history")
-async def clear_history():
-    chat_history.clear()
+async def clear_history(current_user: Dict[str, Any] = Depends(get_current_user)):
+    if _is_admin_user(current_user):
+        chat_history.clear()
+        return {"message": "Chat history cleared"}
+
+    chat_history[:] = [
+        item for item in chat_history
+        if not _record_belongs_to_user(item, current_user)
+    ]
     return {"message": "Chat history cleared"}
 
 
 @app.get("/files")
-async def list_files():
-    return {"files": list(uploaded_files.values())}
+async def list_files(current_user: Dict[str, Any] = Depends(get_current_user)):
+    identity = _user_identity(current_user)
+    files = result_store.list_documents(
+        user_id=identity["user_id"],
+        user_email=identity["user_email"],
+        include_all=_is_admin_user(current_user),
+    )
+    return {"files": files}
 
 
 @app.get("/files/{file_id}")
-async def get_file(file_id: str):
-    return _get_file_record(file_id)
+async def get_file(
+    file_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    return _get_file_record(file_id, current_user)
 
 
 @app.get("/results")
-async def get_results():
-    return result_store.load()
+async def get_results(current_user: Dict[str, Any] = Depends(get_current_user)):
+    return _filter_records_for_user(result_store.load(), current_user)
 
 
 @app.get("/results/{file_id}")
-async def get_file_results(file_id: str):
-    file_record = uploaded_files.get(file_id)
+async def get_file_results(
+    file_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    file_record = _get_file_record(file_id, current_user)
     file_results = result_store.get_by_file_id(file_id)
-    filename = file_record.get("filename") if file_record else _filename_for_file_id(file_id)
+    file_results = _filter_records_for_user(file_results, current_user)
+    filename = file_record.get("filename") or _filename_for_file_id(file_id, current_user)
 
     return {
         "file_id": file_id,
@@ -442,9 +542,12 @@ async def get_file_results(file_id: str):
 
 
 @app.delete("/results/{file_id}")
-async def delete_file_results(file_id: str):
-    file_record = uploaded_files.get(file_id)
-    filename = file_record.get("filename") if file_record else _filename_for_file_id(file_id)
+async def delete_file_results(
+    file_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    file_record = _get_file_record(file_id, current_user)
+    filename = file_record.get("filename") or _filename_for_file_id(file_id, current_user)
     deleted_counts = result_store.delete_by_file_id(file_id)
 
     return {
@@ -456,7 +559,7 @@ async def delete_file_results(file_id: str):
 
 
 @app.get("/analysis")
-async def get_analysis():
+async def get_analysis(current_user: Dict[str, Any] = Depends(get_current_user)):
     return {
         "analysis": [
             {
@@ -468,6 +571,7 @@ async def get_analysis():
                 "status": file_record.get("status", "unknown"),
             }
             for file_record in uploaded_files.values()
+            if _record_belongs_to_user(file_record, current_user)
         ]
     }
 
@@ -538,15 +642,18 @@ async def download_conversion(filename: str):
 
 
 @app.post("/summary")
-async def summarize_document(request: SummaryRequest):
-    text = _read_uploaded_file_text(request.file_id)
+async def summarize_document(
+    request: SummaryRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    text = _read_uploaded_file_text(request.file_id, current_user)
 
     try:
         summary = rag_service.summarize_text(text, request.summary_type)
     except ValueError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    file_record = _get_file_record(request.file_id)
+    file_record = _get_file_record(request.file_id, current_user)
     created_at = datetime.now(timezone.utc).isoformat()
     summary_record = {
         "file_id": request.file_id,
@@ -554,6 +661,7 @@ async def summarize_document(request: SummaryRequest):
         "summary_type": request.summary_type,
         "summary": summary,
         "created_at": created_at,
+        **_user_identity(current_user),
     }
     _safe_save_result("summary_results", summary_record)
 
@@ -567,8 +675,11 @@ async def summarize_document(request: SummaryRequest):
 
 
 @app.post("/keywords")
-async def extract_keywords(request: KeywordRequest):
-    text = _read_uploaded_file_text(request.file_id)
+async def extract_keywords(
+    request: KeywordRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    text = _read_uploaded_file_text(request.file_id, current_user)
 
     try:
         result = rag_service.extract_keywords_from_text(
@@ -579,7 +690,7 @@ async def extract_keywords(request: KeywordRequest):
     except ValueError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    file_record = _get_file_record(request.file_id)
+    file_record = _get_file_record(request.file_id, current_user)
     created_at = datetime.now(timezone.utc).isoformat()
     keyword_record = {
         "file_id": request.file_id,
@@ -589,6 +700,7 @@ async def extract_keywords(request: KeywordRequest):
         "keywords": result.get("keywords", []),
         "topics": result.get("topics", []),
         "created_at": created_at,
+        **_user_identity(current_user),
     }
     _safe_save_result("keyword_results", keyword_record)
 
@@ -604,16 +716,18 @@ async def extract_keywords(request: KeywordRequest):
 
 
 @app.delete("/files/{file_id}")
-async def delete_file(file_id: str):
-    file_record = uploaded_files.pop(file_id, None)
-
-    if not file_record:
-        raise HTTPException(status_code=404, detail="File not found")
+async def delete_file(
+    file_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    file_record = _get_file_record(file_id, current_user)
+    uploaded_files.pop(file_id, None)
 
     filename = file_record["filename"]
-    upload_path = Path(file_record["upload_path"])
+    upload_path_value = file_record.get("upload_path")
 
-    if upload_path.exists():
+    if upload_path_value and Path(upload_path_value).exists():
+        upload_path = Path(upload_path_value)
         upload_path.unlink()
 
     deleted_chunks = 0
