@@ -13,6 +13,7 @@ import os
 import re
 import shutil
 import uuid
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
@@ -38,6 +39,7 @@ load_dotenv(BASE_DIR / "backend" / ".env", override=False)
 UPLOAD_DIR = BASE_DIR / "data" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 RESULTS_PATH = BASE_DIR / "backend" / "data" / "results.json"
+TAROT_READINGS_PATH = BASE_DIR / "backend" / "data" / "tarot_readings.json"
 USERS_PATH = BASE_DIR / "backend" / "data" / "users.json"
 CONVERSION_DIR = BASE_DIR / "backend" / "data" / "conversions"
 CONVERSION_DIR.mkdir(parents=True, exist_ok=True)
@@ -103,6 +105,54 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=254)
     password: str = Field(..., min_length=1, max_length=128)
+
+
+class TarotCardRequest(BaseModel):
+    position: str = Field(..., min_length=1, max_length=20)
+    name: str = Field(..., min_length=1, max_length=80)
+    englishName: str = Field(..., min_length=1, max_length=80)
+    keywords: List[str] = Field(default_factory=list, max_length=12)
+    uprightMeaning: str = Field(..., min_length=1, max_length=600)
+
+
+class TarotReadingRequest(BaseModel):
+    category: str = Field(default="오늘의 운세", min_length=1, max_length=80)
+    question: str = Field(default="", max_length=500)
+    birth_date: Optional[str] = Field(default=None, max_length=20)
+    calendar_type: Optional[Literal["solar", "lunar"]] = None
+    cards: List[TarotCardRequest] = Field(..., min_length=3, max_length=3)
+
+
+class TarotReadingResponse(BaseModel):
+    overallSummary: str
+    pastInsight: str
+    presentInsight: str
+    futureInsight: str
+    advice: str
+    caution: str
+    finalMessage: str
+    source: Literal["openai"]
+
+
+class TarotSavedReading(BaseModel):
+    overallSummary: str
+    pastInsight: str
+    presentInsight: str
+    futureInsight: str
+    advice: str
+    caution: str
+    finalMessage: str
+    source: str = Field(..., min_length=1, max_length=20)
+
+
+class SaveTarotReadingRequest(BaseModel):
+    category: str = Field(..., min_length=1, max_length=80)
+    question: str = Field(default="", max_length=500)
+    birth_date: Optional[str] = Field(default=None, max_length=20)
+    calendar_type: Optional[Literal["solar", "lunar"]] = None
+    cards: List[TarotCardRequest] = Field(..., min_length=3, max_length=3)
+    reading: TarotSavedReading
+    source: str = Field(..., min_length=1, max_length=20)
 
 
 def _public_user(user: Dict[str, Any]) -> Dict[str, Any]:
@@ -290,6 +340,95 @@ def _filter_records_for_user(data: Dict[str, List[Dict[str, Any]]], current_user
     }
 
 
+def _parse_json_object(text: str) -> Dict[str, Any]:
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", cleaned, flags=re.DOTALL)
+        if not match:
+            raise ValueError("OpenAI response was not valid JSON")
+        parsed = json.loads(match.group(0))
+
+    if not isinstance(parsed, dict):
+        raise ValueError("OpenAI response JSON must be an object")
+    return parsed
+
+
+def _save_tarot_reading_record(record: Dict[str, Any]) -> None:
+    mongodb_uri = os.getenv("MONGODB_URI")
+    if mongodb_uri:
+        try:
+            from pymongo import MongoClient
+
+            client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=3000)
+            db = client["noteflow"]
+            db["tarot_readings"].insert_one(dict(record))
+            return
+        except Exception as exc:
+            print(f"Tarot reading MongoDB save failed, falling back to JSON: {exc}")
+
+    TAROT_READINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        if TAROT_READINGS_PATH.exists():
+            with TAROT_READINGS_PATH.open("r", encoding="utf-8") as file:
+                data = json.load(file)
+        else:
+            data = []
+    except (json.JSONDecodeError, OSError):
+        data = []
+
+    if not isinstance(data, list):
+        data = []
+
+    data.append(record)
+    with TAROT_READINGS_PATH.open("w", encoding="utf-8") as file:
+        json.dump(data, file, ensure_ascii=False, indent=2)
+
+
+def _list_tarot_reading_records(current_user: Dict[str, Any], limit: int) -> List[Dict[str, Any]]:
+    identity = _user_identity(current_user)
+    mongodb_uri = os.getenv("MONGODB_URI")
+
+    if mongodb_uri:
+        try:
+            from pymongo import MongoClient
+
+            client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=3000)
+            collection = client["noteflow"]["tarot_readings"]
+            cursor = (
+                collection.find({"user_id": identity["user_id"]})
+                .sort("created_at", -1)
+                .limit(limit)
+            )
+            return [
+                {key: value for key, value in item.items() if key not in {"_id", "user_id", "user_email"}}
+                for item in cursor
+            ]
+        except Exception as exc:
+            print(f"Tarot reading MongoDB list failed, falling back to JSON: {exc}")
+
+    try:
+        with TAROT_READINGS_PATH.open("r", encoding="utf-8") as file:
+            data = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        data = []
+
+    if not isinstance(data, list):
+        data = []
+
+    readings = [
+        {key: value for key, value in item.items() if key not in {"user_id", "user_email"}}
+        for item in data
+        if item.get("user_id") == identity["user_id"]
+    ]
+    return sorted(readings, key=lambda item: str(item.get("created_at", "")), reverse=True)[:limit]
+
+
 @app.get("/")
 def root():
     return {"status": "ok", "service": "NoteFlow AI"}
@@ -350,6 +489,162 @@ async def login_user(request: LoginRequest):
 @app.get("/auth/me")
 async def get_me(current_user: Dict[str, Any] = Depends(get_current_user)):
     return {"user": _public_user(current_user)}
+
+
+@app.post("/tarot/reading", response_model=TarotReadingResponse)
+async def create_tarot_reading(
+    request: TarotReadingRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=500,
+            detail="OPENAI_API_KEY is not configured. Use local tarot reading fallback.",
+        )
+
+    cards_payload = [
+        {
+            "position": card.position,
+            "name": card.name,
+            "englishName": card.englishName,
+            "keywords": card.keywords,
+            "uprightMeaning": card.uprightMeaning,
+        }
+        for card in request.cards
+    ]
+    today_label = datetime.now(timezone.utc).astimezone().strftime("%Y년 %m월 %d일")
+    category_guides = {
+        "오늘의 운세": "오늘 하루의 흐름, 감정 변화, 선택의 순간, 주의할 점을 중심으로 해석하세요. overallSummary에는 반드시 오늘 날짜를 자연스럽게 포함하세요.",
+        "연애운": "관계의 흐름, 감정, 상대와의 거리감, 소통 방식, 선택의 타이밍을 중심으로 해석하세요.",
+        "취업/진로운": "일, 진로 선택, 준비 상태, 기회, 방향성, 현실적인 다음 행동을 중심으로 해석하세요.",
+        "재물운": "돈의 흐름, 소비와 절약, 기회, 신중함, 무리하지 않는 판단을 중심으로 해석하세요. 투자 확정 조언은 피하세요.",
+        "학업운": "집중력, 공부 흐름, 시험과 과제, 꾸준함, 학습 전략을 중심으로 해석하세요.",
+        "자유 질문": "사용자의 question을 최우선 주제로 삼고, 모든 항목을 그 질문에 직접 연결해 해석하세요.",
+    }
+    category_guide = category_guides.get(
+        request.category,
+        "요청된 카테고리를 해석의 중심 주제로 삼고, 모든 항목을 그 관점에 맞춰 작성하세요.",
+    )
+    normalized_birth_date = (request.birth_date or "").strip()
+    calendar_label = "음력" if request.calendar_type == "lunar" else "양력"
+    personalization_text = (
+        f"사용자 생년월일: {normalized_birth_date} ({calendar_label}). "
+        "이 정보는 의학적, 과학적, 운명론적 확정 근거가 아니라 재미와 자기성찰을 위한 개인화 참고 정보로만 부드럽게 반영하세요."
+        if normalized_birth_date
+        else "사용자 생년월일 정보 없음. 생년월일 기반 개인화 표현은 쓰지 마세요."
+    )
+    prompt = f"""
+당신은 한국어로 따뜻하고 현실적인 타로 리딩을 작성하는 도우미입니다.
+아래 3장 카드 정보를 바탕으로 과거/현재/미래 흐름을 해석하세요.
+요청 category는 반드시 해석의 중심 주제입니다. 모든 JSON 항목은 category 관점에서 작성하세요.
+다른 카테고리처럼 보이는 일반 해석을 쓰지 말고, 아래 카테고리별 가이드를 우선 적용하세요.
+
+주의:
+- 지나치게 단정하거나 불안감을 주지 마세요.
+- 건강, 법률, 투자, 진로 결정은 확정적으로 지시하지 말고 참고용 메시지로 작성하세요.
+- 사용자가 스스로 선택할 수 있도록 부드러운 조언으로 표현하세요.
+- 각 JSON 값은 짧은 1~2문장으로 작성하세요.
+- 반드시 JSON 객체만 반환하세요. 마크다운 코드블록이나 추가 설명은 쓰지 마세요.
+- 자유 질문이고 질문이 제공되었다면 question의 핵심 표현을 해석에 반드시 반영하세요.
+- 오늘의 운세라면 overallSummary에 "{today_label}" 날짜를 자연스럽게 포함하세요.
+- 생년월일 정보가 제공된 경우 재미와 자기성찰용 개인화 참고 정보로만 반영하고, 성격이나 미래를 확정적으로 단정하지 마세요.
+
+서버 기준 오늘 날짜: {today_label}
+카테고리: {request.category}
+카테고리별 해석 가이드: {category_guide}
+질문: {request.question or "특정 질문 없음"}
+개인화 정보: {personalization_text}
+카드:
+{json.dumps(cards_payload, ensure_ascii=False)}
+
+반환 JSON 스키마:
+{{
+  "overallSummary": "category 관점의 전체 흐름 요약",
+  "pastInsight": "category 관점에서 본 과거의 원인",
+  "presentInsight": "category 관점에서 본 현재의 핵심",
+  "futureInsight": "category 관점에서 본 미래 가능성",
+  "advice": "category 관점의 조언",
+  "caution": "category 관점의 주의점",
+  "finalMessage": "category와 question을 반영한 따뜻한 한 줄 메시지"
+}}
+""".strip()
+
+    try:
+        model = rag_service._get_chat_model()
+        message = model.invoke(prompt)
+        content = str(getattr(message, "content", "")).strip()
+        parsed = _parse_json_object(content)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"OpenAI tarot reading failed. Use local tarot reading fallback. Reason: {exc}",
+        ) from exc
+
+    required_fields = (
+        "overallSummary",
+        "pastInsight",
+        "presentInsight",
+        "futureInsight",
+        "advice",
+        "caution",
+        "finalMessage",
+    )
+    missing_fields = [field for field in required_fields if not str(parsed.get(field, "")).strip()]
+    if missing_fields:
+        raise HTTPException(
+            status_code=500,
+            detail=f"OpenAI tarot reading response missing fields: {', '.join(missing_fields)}. Use local tarot reading fallback.",
+        )
+
+    return {
+        **{field: str(parsed[field]).strip() for field in required_fields},
+        "source": "openai",
+    }
+
+
+@app.post("/tarot/readings")
+async def save_tarot_reading(
+    request: SaveTarotReadingRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    created_at = datetime.now(timezone.utc).isoformat()
+    reading_id = uuid.uuid4().hex
+    normalized_birth_date = (request.birth_date or "").strip()
+    record = {
+        "reading_id": reading_id,
+        "category": request.category,
+        "question": request.question,
+        "birth_date": normalized_birth_date or None,
+        "calendar_type": request.calendar_type if normalized_birth_date else None,
+        "cards": [card.dict() for card in request.cards],
+        "reading": request.reading.dict(),
+        "source": request.source,
+        "created_at": created_at,
+        **_user_identity(current_user),
+    }
+
+    try:
+        _save_tarot_reading_record(record)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to save tarot reading: {exc}",
+        ) from exc
+
+    return {
+        "message": "타로 결과가 저장되었습니다.",
+        "reading_id": reading_id,
+        "created_at": created_at,
+    }
+
+
+@app.get("/tarot/readings")
+async def list_tarot_readings(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    return {"readings": _list_tarot_reading_records(current_user, limit)}
 
 
 @app.get("/admin/dashboard")
