@@ -436,6 +436,10 @@ def root():
 
 @app.post("/auth/register")
 async def register_user(request: RegisterRequest):
+    # Registration is temporarily disabled. Keep the original creation flow below
+    # so it can be restored quickly when signups are allowed again.
+    raise HTTPException(status_code=403, detail="현재 회원가입은 제한되어 있습니다.")
+
     email = _normalize_email(request.email)
     name = request.name.strip() if request.name else email.split("@", 1)[0]
     _validate_email(email)

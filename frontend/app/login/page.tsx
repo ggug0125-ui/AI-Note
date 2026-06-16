@@ -144,7 +144,7 @@ export default function LoginPage() {
                   <input type="checkbox" className="h-4 w-4 shrink-0 rounded border-neutral-300 accent-coral" />
                   <span className="whitespace-nowrap">Remember me</span>
                 </label>
-                <Link href="/register" className="shrink-0 font-bold text-coral">
+                <Link href="/register" className="!hidden shrink-0 font-bold text-coral" aria-hidden="true" tabIndex={-1}>
                   회원가입
                 </Link>
               </div>

@@ -115,7 +115,7 @@ export function SiteHeader() {
             )}
             <Link
               href="/login"
-              className="hidden rounded-full bg-coral px-5 py-3 text-sm font-extrabold text-white shadow-soft transition hover:bg-red-500 sm:inline-flex"
+              className="!hidden rounded-full bg-coral px-5 py-3 text-sm font-extrabold text-white shadow-soft transition hover:bg-red-500"
             >
               무료로 시작하기
             </Link>
@@ -162,7 +162,7 @@ export function SiteHeader() {
               )}
               <Link
                 href="/login"
-                className="rounded-2xl bg-coral px-4 py-3 text-center text-sm font-extrabold text-white shadow-soft transition hover:bg-red-500"
+                className="!hidden rounded-2xl bg-coral px-4 py-3 text-center text-sm font-extrabold text-white shadow-soft transition hover:bg-red-500"
               >
                 무료로 시작하기
               </Link>
