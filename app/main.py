@@ -155,6 +155,16 @@ class SaveTarotReadingRequest(BaseModel):
     source: str = Field(..., min_length=1, max_length=20)
 
 
+class UpdateFileMetadataRequest(BaseModel):
+    display_name: Optional[str] = Field(default=None, max_length=120)
+    memo: Optional[str] = Field(default=None, max_length=1000)
+
+
+class UpdateRecordMetadataRequest(BaseModel):
+    display_title: Optional[str] = Field(default=None, max_length=160)
+    memo: Optional[str] = Field(default=None, max_length=1000)
+
+
 def _public_user(user: Dict[str, Any]) -> Dict[str, Any]:
     is_admin = _normalize_email(str(user["email"])) == _normalize_email(ADMIN_EMAIL)
     return {
@@ -281,13 +291,17 @@ def _get_file_record(file_id: str, current_user: Dict[str, Any]) -> Dict[str, An
 def _read_uploaded_file_text(file_id: str, current_user: Dict[str, Any]) -> str:
     file_record = _get_file_record(file_id, current_user)
     upload_path_value = file_record.get("upload_path")
-    if not upload_path_value:
-        raise HTTPException(status_code=404, detail="Uploaded PDF file is missing on disk")
-
-    upload_path = Path(upload_path_value)
+    if upload_path_value:
+        upload_path = Path(upload_path_value)
+    else:
+        upload_path = UPLOAD_DIR / f"{file_id}.pdf"
 
     if not upload_path.exists():
-        raise HTTPException(status_code=404, detail="Uploaded PDF file is missing on disk")
+        fallback_path = UPLOAD_DIR / f"{file_id}.pdf"
+        if fallback_path.exists():
+            upload_path = fallback_path
+        else:
+            raise HTTPException(status_code=404, detail="업로드된 PDF 파일을 찾지 못했습니다. 해당 문서를 다시 업로드해주세요.")
 
     text = rag_service.extract_text_from_pdf(str(upload_path))
     if not text or not text.strip():
@@ -337,6 +351,15 @@ def _filter_records_for_user(data: Dict[str, List[Dict[str, Any]]], current_user
             if _record_belongs_to_user(item, current_user)
         ]
         for category, items in data.items()
+    }
+
+
+def _metadata_updates(request: BaseModel, allowed_fields: List[str]) -> Dict[str, Any]:
+    payload = request.dict(exclude_unset=True)
+    return {
+        field: payload[field]
+        for field in allowed_fields
+        if field in payload and payload[field] is not None
     }
 
 
@@ -393,6 +416,7 @@ def _save_tarot_reading_record(record: Dict[str, Any]) -> None:
 def _list_tarot_reading_records(current_user: Dict[str, Any], limit: int) -> List[Dict[str, Any]]:
     identity = _user_identity(current_user)
     mongodb_uri = os.getenv("MONGODB_URI")
+    include_all = _is_admin_user(current_user)
 
     if mongodb_uri:
         try:
@@ -401,7 +425,7 @@ def _list_tarot_reading_records(current_user: Dict[str, Any], limit: int) -> Lis
             client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=3000)
             collection = client["noteflow"]["tarot_readings"]
             cursor = (
-                collection.find({"user_id": identity["user_id"]})
+                collection.find({} if include_all else {"user_id": identity["user_id"]})
                 .sort("created_at", -1)
                 .limit(limit)
             )
@@ -424,9 +448,103 @@ def _list_tarot_reading_records(current_user: Dict[str, Any], limit: int) -> Lis
     readings = [
         {key: value for key, value in item.items() if key not in {"user_id", "user_email"}}
         for item in data
-        if item.get("user_id") == identity["user_id"]
+        if include_all or item.get("user_id") == identity["user_id"]
     ]
     return sorted(readings, key=lambda item: str(item.get("created_at", "")), reverse=True)[:limit]
+
+
+def _delete_tarot_reading_record(reading_id: str, current_user: Dict[str, Any]) -> int:
+    mongodb_uri = os.getenv("MONGODB_URI")
+
+    if mongodb_uri:
+        try:
+            from pymongo import MongoClient
+
+            client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=3000)
+            client.admin.command("ping")
+            delete_filter = {"reading_id": reading_id}
+            if not _is_admin_user(current_user):
+                delete_filter["user_id"] = _user_identity(current_user)["user_id"]
+
+            collection = client["noteflow"]["tarot_readings"]
+            delete_result = collection.delete_one(delete_filter)
+            return int(delete_result.deleted_count)
+        except Exception as exc:
+            print(f"Tarot reading MongoDB delete failed, falling back to JSON: {exc}")
+
+    try:
+        with TAROT_READINGS_PATH.open("r", encoding="utf-8") as file:
+            data = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        data = []
+
+    if not isinstance(data, list):
+        data = []
+
+    target_record = next(
+        (item for item in data if isinstance(item, dict) and item.get("reading_id") == reading_id),
+        None,
+    )
+
+    if not target_record:
+        return 0
+
+    if not _is_admin_user(current_user) and target_record.get("user_id") != _user_identity(current_user)["user_id"]:
+        raise HTTPException(status_code=403, detail="Not allowed to delete this tarot reading")
+
+    next_data = [
+        item
+        for item in data
+        if not (isinstance(item, dict) and item.get("reading_id") == reading_id)
+    ]
+    TAROT_READINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with TAROT_READINGS_PATH.open("w", encoding="utf-8") as file:
+        json.dump(next_data, file, ensure_ascii=False, indent=2)
+
+    return 1
+
+
+def _delete_tarot_reading_records_for_user(user_id: str, user_email: str) -> int:
+    mongodb_uri = os.getenv("MONGODB_URI")
+
+    if mongodb_uri:
+        try:
+            from pymongo import MongoClient
+
+            client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=3000)
+            client.admin.command("ping")
+            result = client["noteflow"]["tarot_readings"].delete_many({
+                "$or": [
+                    {"user_id": user_id},
+                    {"user_email": user_email},
+                ]
+            })
+            return int(result.deleted_count)
+        except Exception as exc:
+            print(f"Tarot reading MongoDB user delete failed, falling back to JSON: {exc}")
+
+    try:
+        with TAROT_READINGS_PATH.open("r", encoding="utf-8") as file:
+            data = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        data = []
+
+    if not isinstance(data, list):
+        data = []
+
+    next_data = [
+        item for item in data
+        if not (
+            isinstance(item, dict)
+            and (item.get("user_id") == user_id or item.get("user_email") == user_email)
+        )
+    ]
+    deleted_count = len(data) - len(next_data)
+    TAROT_READINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with TAROT_READINGS_PATH.open("w", encoding="utf-8") as file:
+        json.dump(next_data, file, ensure_ascii=False, indent=2)
+
+    return deleted_count
 
 
 @app.get("/")
@@ -493,6 +611,98 @@ async def login_user(request: LoginRequest):
 @app.get("/auth/me")
 async def get_me(current_user: Dict[str, Any] = Depends(get_current_user)):
     return {"user": _public_user(current_user)}
+
+
+@app.delete("/auth/me")
+async def delete_me(current_user: Dict[str, Any] = Depends(get_current_user)):
+    if _is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail="관리자 계정은 탈퇴할 수 없습니다.")
+
+    identity = _user_identity(current_user)
+    result_delete = result_store.delete_user_records(
+        user_id=identity["user_id"],
+        user_email=identity["user_email"],
+    )
+    deleted_results = result_delete.get("deleted", {})
+    document_records = result_delete.get("documents", [])
+    if not isinstance(document_records, list):
+        document_records = []
+
+    deleted_uploaded_files = 0
+    deleted_chroma_chunks = 0
+    deleted_file_ids: set[str] = set()
+
+    for document in document_records:
+        if not isinstance(document, dict):
+            continue
+
+        file_id = str(document.get("file_id", ""))
+        upload_path_value = document.get("upload_path")
+
+        if file_id:
+            deleted_file_ids.add(file_id)
+
+        if upload_path_value:
+            upload_path = Path(str(upload_path_value))
+        elif file_id:
+            upload_path = UPLOAD_DIR / f"{file_id}.pdf"
+        else:
+            upload_path = None
+
+        if upload_path and upload_path.exists() and upload_path.is_file():
+            upload_path.unlink()
+            deleted_uploaded_files += 1
+
+        if file_id:
+            try:
+                deleted_chroma_chunks += rag_service.delete_documents_by_file_id(
+                    file_id,
+                    collection_name="noteflow",
+                )
+            except Exception as exc:
+                print(f"Failed to delete Chroma chunks for withdrawn user file_id={file_id}: {exc}")
+
+    for file_id, file_record in list(uploaded_files.items()):
+        if not _record_belongs_to_user(file_record, current_user):
+            continue
+
+        if file_id not in deleted_file_ids:
+            upload_path_value = file_record.get("upload_path")
+            upload_path = Path(str(upload_path_value)) if upload_path_value else UPLOAD_DIR / f"{file_id}.pdf"
+            if upload_path.exists() and upload_path.is_file():
+                upload_path.unlink()
+                deleted_uploaded_files += 1
+            try:
+                deleted_chroma_chunks += rag_service.delete_documents_by_file_id(
+                    file_id,
+                    collection_name="noteflow",
+                )
+            except Exception as exc:
+                print(f"Failed to delete Chroma chunks for withdrawn in-memory file_id={file_id}: {exc}")
+        uploaded_files.pop(file_id, None)
+
+    tarot_deleted_count = _delete_tarot_reading_records_for_user(
+        identity["user_id"],
+        identity["user_email"],
+    )
+    user_deleted_count = user_store.delete_user(
+        identity["user_id"],
+        identity["user_email"],
+    )
+
+    return {
+        "message": "회원탈퇴가 완료되었습니다.",
+        "deleted": {
+            "user": user_deleted_count,
+            "documents": int(deleted_results.get("documents", 0)),
+            "chat_history": int(deleted_results.get("chat_history", 0)),
+            "summaries": int(deleted_results.get("summaries", 0)),
+            "keywords": int(deleted_results.get("keywords", 0)),
+            "tarot_readings": tarot_deleted_count,
+            "uploaded_files": deleted_uploaded_files,
+            "chroma_chunks": deleted_chroma_chunks,
+        },
+    }
 
 
 @app.post("/tarot/reading", response_model=TarotReadingResponse)
@@ -651,6 +861,22 @@ async def list_tarot_readings(
     return {"readings": _list_tarot_reading_records(current_user, limit)}
 
 
+@app.delete("/tarot/readings/{reading_id}")
+async def delete_tarot_reading(
+    reading_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    deleted_count = _delete_tarot_reading_record(reading_id, current_user)
+    if deleted_count <= 0:
+        raise HTTPException(status_code=404, detail="Tarot reading not found")
+
+    return {
+        "message": "타로 기록이 삭제되었습니다.",
+        "reading_id": reading_id,
+        "deleted_count": deleted_count,
+    }
+
+
 @app.get("/admin/dashboard")
 async def get_admin_dashboard(current_user: Dict[str, Any] = Depends(get_current_user)):
     if not _is_admin_user(current_user):
@@ -719,6 +945,7 @@ async def upload_pdf(
                 "file_id": file_id,
                 "filename": filename,
                 "chunk_index": index,
+                "created_at": created_at,
             }
             for index, _ in enumerate(chunks)
         ],
@@ -737,6 +964,7 @@ async def upload_pdf(
     document_record = {
         "file_id": file_id,
         "filename": filename,
+        "upload_path": str(dest_path),
         "text_length": len(text),
         "chunk_count": len(chunks),
         "status": "ready",
@@ -752,6 +980,7 @@ async def upload_pdf(
             "text_length": len(text),
             "chunk_count": len(chunks),
             "status": "ready",
+            "created_at": created_at,
         }
     )
 
@@ -842,6 +1071,11 @@ async def list_files(current_user: Dict[str, Any] = Depends(get_current_user)):
         user_email=identity["user_email"],
         include_all=_is_admin_user(current_user),
     )
+    files = sorted(
+        files,
+        key=lambda item: str(item.get("created_at") or item.get("uploaded_at") or ""),
+        reverse=True,
+    )
     return {"files": files}
 
 
@@ -853,9 +1087,106 @@ async def get_file(
     return _get_file_record(file_id, current_user)
 
 
+@app.patch("/files/{file_id}")
+async def update_file_metadata(
+    file_id: str,
+    request: UpdateFileMetadataRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    _get_file_record(file_id, current_user)
+    identity = _user_identity(current_user)
+    updates = _metadata_updates(request, ["display_name", "memo"])
+
+    updated_record = result_store.update_document_metadata(
+        file_id=file_id,
+        updates=updates,
+        user_id=identity["user_id"],
+        user_email=identity["user_email"],
+        include_all=_is_admin_user(current_user),
+    )
+
+    if not updated_record:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    if file_id in uploaded_files:
+        uploaded_files[file_id].update(updates)
+
+    return {"document": updated_record}
+
+
 @app.get("/results")
 async def get_results(current_user: Dict[str, Any] = Depends(get_current_user)):
     return _filter_records_for_user(result_store.load(), current_user)
+
+
+@app.patch("/records/{record_type}/{record_id}")
+async def update_record_metadata(
+    record_type: Literal["summaries", "keywords", "chats"],
+    record_id: str,
+    request: UpdateRecordMetadataRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    category_by_record_type = {
+        "summaries": "summary_results",
+        "keywords": "keyword_results",
+        "chats": "chat_results",
+    }
+    identity = _user_identity(current_user)
+    updates = _metadata_updates(request, ["display_title", "memo"])
+    updated_record = result_store.update_record_metadata(
+        category=category_by_record_type[record_type],
+        record_id=record_id,
+        updates=updates,
+        user_id=identity["user_id"],
+        user_email=identity["user_email"],
+        include_all=_is_admin_user(current_user),
+    )
+
+    if not updated_record:
+        raise HTTPException(status_code=404, detail="Record not found")
+
+    return {"record": updated_record}
+
+
+@app.delete("/records/{record_type}/{record_id}")
+async def delete_record_metadata(
+    record_type: Literal["summaries", "keywords", "chats"],
+    record_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    category_by_record_type = {
+        "summaries": "summary_results",
+        "keywords": "keyword_results",
+        "chats": "chat_results",
+    }
+    identity = _user_identity(current_user)
+    target_record = result_store.get_record_by_created_at(
+        category=category_by_record_type[record_type],
+        record_id=record_id,
+        user_id=identity["user_id"],
+        user_email=identity["user_email"],
+        include_all=_is_admin_user(current_user),
+    )
+
+    if not target_record:
+        raise HTTPException(status_code=404, detail="Record not found")
+
+    file_id = str(target_record.get("file_id", "")).strip()
+    if not file_id:
+        raise HTTPException(status_code=404, detail="Record file_id not found")
+
+    deleted = result_store.delete_ai_records_by_file_id(
+        file_id=file_id,
+        user_id=identity["user_id"],
+        user_email=identity["user_email"],
+        include_all=_is_admin_user(current_user),
+    )
+
+    return {
+        "message": "문서 및 관련 AI 기록이 삭제되었습니다.",
+        "file_id": file_id,
+        "deleted": deleted,
+    }
 
 
 @app.get("/results/{file_id}")

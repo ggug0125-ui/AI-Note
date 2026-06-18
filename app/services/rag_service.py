@@ -86,14 +86,9 @@ class RAGService:
         This uses LangChain's `Chroma.from_texts` helper to build a vectorstore.
         For larger documents you should chunk text before creating embeddings.
         """
-        # Create or overwrite vectorstore for the provided collection
-        self.vectorstore = Chroma.from_texts(
-            texts,
-            embedding=self._get_embeddings(),
-            metadatas=metadatas,
-            persist_directory=self.persist_directory,
-            collection_name=collection_name,
-        )
+        vectorstore = self._get_vectorstore(collection_name)
+        vectorstore.add_texts(texts=texts, metadatas=metadatas)
+        self.vectorstore = vectorstore
         # Chroma persists automatically when persist_directory is provided.
 
     def _get_vectorstore(self, collection_name: str = "noteflow") -> Chroma:
@@ -162,7 +157,7 @@ class RAGService:
 
         if not sources:
             return {
-                "answer": "I could not find relevant context in the noteflow collection.",
+                "answer": "문서 검색 인덱스를 찾지 못했습니다. 해당 문서를 다시 업로드해주세요.",
                 "sources": [],
             }
 

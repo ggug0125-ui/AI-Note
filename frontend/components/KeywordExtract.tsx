@@ -7,6 +7,8 @@ import { API_BASE_URL, authenticatedFetch } from "@/lib/api";
 type UploadedFile = {
   file_id: string;
   filename: string;
+  created_at?: string;
+  uploaded_at?: string;
 };
 
 type KeywordHistoryItem = {
@@ -17,6 +19,52 @@ type KeywordHistoryItem = {
   created_at?: string;
 };
 
+function getFileTimestamp(file: UploadedFile) {
+  return file.created_at || file.uploaded_at || "";
+}
+
+function sortFilesByLatest(files: UploadedFile[]) {
+  return [...files].sort((a, b) => getFileTimestamp(b).localeCompare(getFileTimestamp(a)));
+}
+
+function formatFileDate(file: UploadedFile) {
+  const timestamp = getFileTimestamp(file);
+  if (!timestamp) {
+    return "날짜 없음";
+  }
+
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return timestamp;
+  }
+
+  const day = date.toLocaleDateString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).replace(/\.\s?/g, ".").replace(/\.$/, "");
+  const time = date.toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  });
+  return `${day} ${time}`;
+}
+
+function getFileOptionLabel(file: UploadedFile) {
+  return `${file.filename} · ${formatFileDate(file)}`;
+}
+
+function getAssistantErrorMessage(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : fallback;
+  if (message.includes("Uploaded PDF file is missing")) {
+    return "업로드된 PDF 파일을 찾지 못했습니다. 해당 문서를 다시 업로드해주세요.";
+  }
+  if (message.includes("OPENAI_API_KEY")) {
+    return "AI 키워드 추출을 실행하려면 서버의 OpenAI API 키 설정이 필요합니다.";
+  }
+  return message || fallback;
+}
 
 export function KeywordExtract() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -38,9 +86,13 @@ export function KeywordExtract() {
         throw new Error("파일 목록을 불러오지 못했습니다.");
       }
       const data = await response.json();
-      const nextFiles = data.files ?? [];
+      const nextFiles = sortFilesByLatest(data.files ?? []);
       setFiles(nextFiles);
-      setSelectedFileId((current) => current || nextFiles[0]?.file_id || "");
+      setSelectedFileId((current) => (
+        nextFiles.some((file: UploadedFile) => file.file_id === current)
+          ? current
+          : nextFiles[0]?.file_id || ""
+      ));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "파일 목록을 불러오지 못했습니다.");
     }
@@ -118,7 +170,7 @@ export function KeywordExtract() {
       setStatus("");
       await loadHistory();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "키워드 추출에 실패했습니다.");
+      setStatus(getAssistantErrorMessage(error, "키워드 추출에 실패했습니다."));
     } finally {
       setIsLoading(false);
     }
@@ -205,7 +257,7 @@ export function KeywordExtract() {
               <option value="">문서를 선택해주세요</option>
               {files.map((file) => (
                 <option key={file.file_id} value={file.file_id}>
-                  {file.filename}
+                  {getFileOptionLabel(file)}
                 </option>
               ))}
             </select>

@@ -328,6 +328,7 @@ export default function TarotPage() {
   const [isLoadingSavedReadings, setIsLoadingSavedReadings] = useState(false);
   const [savedReadingsError, setSavedReadingsError] = useState(false);
   const [savedReadingFilter, setSavedReadingFilter] = useState("전체");
+  const [deletingReadingId, setDeletingReadingId] = useState<string | null>(null);
   const analysisTimerRef = useRef<number | null>(null);
   const shuffleTimerRef = useRef<number | null>(null);
   const autoSavedKeysRef = useRef<Set<string>>(new Set());
@@ -641,6 +642,31 @@ export default function TarotPage() {
     }
   }
 
+  async function deleteSavedReading(readingId: string) {
+    if (deletingReadingId || !window.confirm("정말 삭제하시겠습니까?")) {
+      return;
+    }
+
+    setDeletingReadingId(readingId);
+    setSavedReadingsError(false);
+
+    try {
+      const response = await authenticatedFetch(`${API_BASE_URL}/tarot/readings/${readingId}`, {
+        method: "DELETE"
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete tarot reading");
+      }
+
+      await loadSavedReadings();
+    } catch {
+      setSavedReadingsError(true);
+    } finally {
+      setDeletingReadingId(null);
+    }
+  }
+
   function openSavedReading(reading: SavedTarotReading) {
     const restoredCards = restoreSavedCards(reading.cards);
     setSelectedCards(restoredCards);
@@ -946,13 +972,23 @@ export default function TarotPage() {
                             <p className="text-xs font-bold text-emerald-100/65">{formatSavedReadingDate(reading.created_at)}</p>
                             <h4 className="mt-1 truncate text-sm font-black text-yellow-100">{reading.category}</h4>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => openSavedReading(reading)}
-                            className="inline-flex h-8 shrink-0 items-center justify-center rounded-full bg-emerald-300 px-3 text-xs font-black text-[#042015] transition hover:-translate-y-0.5 hover:bg-emerald-200"
-                          >
-                            다시 보기
-                          </button>
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => openSavedReading(reading)}
+                              className="inline-flex h-8 items-center justify-center rounded-full bg-emerald-300 px-3 text-xs font-black text-[#042015] transition hover:-translate-y-0.5 hover:bg-emerald-200"
+                            >
+                              다시 보기
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void deleteSavedReading(reading.reading_id)}
+                              disabled={deletingReadingId === reading.reading_id}
+                              className="inline-flex h-8 items-center justify-center rounded-full border border-yellow-300/35 bg-yellow-300/10 px-3 text-xs font-black text-yellow-100 transition hover:-translate-y-0.5 hover:border-yellow-200 hover:bg-yellow-300/20 disabled:cursor-not-allowed disabled:opacity-45"
+                            >
+                              {deletingReadingId === reading.reading_id ? "삭제 중..." : "삭제"}
+                            </button>
+                          </div>
                         </div>
                         {reading.question && (
                           <p className="mt-2 truncate text-xs font-bold leading-5 text-emerald-100/78">질문: {reading.question}</p>

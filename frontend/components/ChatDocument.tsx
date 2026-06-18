@@ -9,6 +9,7 @@ type UploadedFile = {
   filename: string;
   upload_path: string;
   created_at?: string;
+  uploaded_at?: string;
   text_length?: number;
   chunk_count?: number;
 };
@@ -31,6 +32,53 @@ type ChatHistoryItem = {
   created_at?: string;
 };
 
+function getFileTimestamp(file: UploadedFile) {
+  return file.created_at || file.uploaded_at || "";
+}
+
+function sortFilesByLatest(files: UploadedFile[]) {
+  return [...files].sort((a, b) => getFileTimestamp(b).localeCompare(getFileTimestamp(a)));
+}
+
+function formatFileDate(file: UploadedFile) {
+  const timestamp = getFileTimestamp(file);
+  if (!timestamp) {
+    return "날짜 없음";
+  }
+
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return timestamp;
+  }
+
+  const day = date.toLocaleDateString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).replace(/\.\s?/g, ".").replace(/\.$/, "");
+  const time = date.toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  });
+  return `${day} ${time}`;
+}
+
+function getFileOptionLabel(file: UploadedFile) {
+  return `${file.filename} · ${formatFileDate(file)}`;
+}
+
+function getAssistantErrorMessage(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : fallback;
+  if (message.includes("I could not find relevant context") || message.includes("noteflow collection")) {
+    return "문서 검색 인덱스를 찾지 못했습니다. 해당 문서를 다시 업로드해주세요.";
+  }
+  if (message.includes("Uploaded PDF file is missing")) {
+    return "업로드된 PDF 파일을 찾지 못했습니다. 해당 문서를 다시 업로드해주세요.";
+  }
+  return message || fallback;
+}
+
 
 export function ChatDocument({ isAdmin = true }: { isAdmin?: boolean }) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -49,7 +97,10 @@ export function ChatDocument({ isAdmin = true }: { isAdmin?: boolean }) {
   const [deletingFileId, setDeletingFileId] = useState("");
 
   const canUpload = useMemo(() => isAdmin && selectedFile !== null && !isUploading, [isAdmin, selectedFile, isUploading]);
-  const canAsk = useMemo(() => isAdmin && question.trim().length > 0 && !isAsking, [isAdmin, question, isAsking]);
+  const canAsk = useMemo(
+    () => isAdmin && selectedChatFileId.length > 0 && question.trim().length > 0 && !isAsking,
+    [isAdmin, selectedChatFileId, question, isAsking]
+  );
 
   async function loadFiles() {
     const response = await authenticatedFetch(`${API_BASE_URL}/files`);
@@ -57,7 +108,7 @@ export function ChatDocument({ isAdmin = true }: { isAdmin?: boolean }) {
       throw new Error("파일 목록을 불러오지 못했습니다.");
     }
     const data = await response.json();
-    const nextFiles = data.files ?? [];
+    const nextFiles = sortFilesByLatest(data.files ?? []);
     setFiles(nextFiles);
     setSelectedChatFileId((current) => (
       nextFiles.some((file: UploadedFile) => file.file_id === current)
@@ -237,7 +288,7 @@ export function ChatDocument({ isAdmin = true }: { isAdmin?: boolean }) {
       setQueryStatus("");
       await loadChatHistory();
     } catch (error) {
-      setQueryStatus(error instanceof Error ? error.message : "질문 처리에 실패했습니다.");
+      setQueryStatus(getAssistantErrorMessage(error, "질문 처리에 실패했습니다."));
     } finally {
       setIsAsking(false);
     }
@@ -308,7 +359,7 @@ export function ChatDocument({ isAdmin = true }: { isAdmin?: boolean }) {
                 <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-neutral-500">
                   <span>{file.chunk_count ?? "-"} chunks</span>
                   <span>{file.text_length ?? "-"} chars</span>
-                  <span>{file.created_at ? new Date(file.created_at).toLocaleString() : "-"}</span>
+                  <span>{formatFileDate(file)}</span>
                 </div>
               </article>
             ))
@@ -334,7 +385,7 @@ export function ChatDocument({ isAdmin = true }: { isAdmin?: boolean }) {
               <option value="">문서를 선택해주세요</option>
               {files.map((file) => (
                 <option key={file.file_id} value={file.file_id}>
-                  {file.filename}
+                  {getFileOptionLabel(file)}
                 </option>
               ))}
             </select>

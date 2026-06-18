@@ -217,6 +217,258 @@ class ResultStore:
             self._write_unlocked(data)
             return deleted_counts
 
+    def delete_user_records(
+        self,
+        user_id: Optional[str] = None,
+        user_email: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        query = self._user_query(user_id, user_email)
+
+        if self._collections is not None:
+            documents = [
+                self._public_record(item)
+                for item in self._collections["documents"].find(query)
+            ]
+            deleted = {
+                "documents": int(self._collections["documents"].delete_many(query).deleted_count),
+                "chat_history": int(self._collections["chat_results"].delete_many(query).deleted_count),
+                "summaries": int(self._collections["summary_results"].delete_many(query).deleted_count),
+                "keywords": int(self._collections["keyword_results"].delete_many(query).deleted_count),
+            }
+            return {"deleted": deleted, "documents": documents}
+
+        with self._lock:
+            data = self._load_unlocked()
+            documents = [
+                dict(item)
+                for item in data.get("documents", [])
+                if self._matches_user(item, user_id, user_email)
+            ]
+            before_counts = {
+                "documents": len(data.get("documents", [])),
+                "chat_history": len(data.get("chat_results", [])),
+                "summaries": len(data.get("summary_results", [])),
+                "keywords": len(data.get("keyword_results", [])),
+            }
+
+            data["documents"] = [
+                item for item in data.get("documents", [])
+                if not self._matches_user(item, user_id, user_email)
+            ]
+            data["chat_results"] = [
+                item for item in data.get("chat_results", [])
+                if not self._matches_user(item, user_id, user_email)
+            ]
+            data["summary_results"] = [
+                item for item in data.get("summary_results", [])
+                if not self._matches_user(item, user_id, user_email)
+            ]
+            data["keyword_results"] = [
+                item for item in data.get("keyword_results", [])
+                if not self._matches_user(item, user_id, user_email)
+            ]
+
+            deleted = {
+                "documents": before_counts["documents"] - len(data["documents"]),
+                "chat_history": before_counts["chat_history"] - len(data["chat_results"]),
+                "summaries": before_counts["summaries"] - len(data["summary_results"]),
+                "keywords": before_counts["keywords"] - len(data["keyword_results"]),
+            }
+            self._write_unlocked(data)
+            return {"deleted": deleted, "documents": documents}
+
+    def update_document_metadata(
+        self,
+        file_id: str,
+        updates: Dict[str, Any],
+        user_id: Optional[str] = None,
+        user_email: Optional[str] = None,
+        include_all: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        query: Dict[str, Any] = {"file_id": file_id}
+        if not include_all:
+            user_query = self._user_query(user_id, user_email)
+            query = {"$and": [query, user_query]}
+
+        if self._collections is not None:
+            collection = self._collections["documents"]
+            if updates:
+                collection.update_one(query, {"$set": dict(updates)})
+            record = collection.find_one(query)
+            return self._public_record(record) if record else None
+
+        with self._lock:
+            data = self._load_unlocked()
+            for item in data.get("documents", []):
+                if item.get("file_id") != file_id:
+                    continue
+                if not include_all and not self._matches_user(item, user_id, user_email):
+                    continue
+                item.update(updates)
+                self._write_unlocked(data)
+                return dict(item)
+        return None
+
+    def update_record_metadata(
+        self,
+        category: str,
+        record_id: str,
+        updates: Dict[str, Any],
+        user_id: Optional[str] = None,
+        user_email: Optional[str] = None,
+        include_all: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        if category not in {"summary_results", "keyword_results", "chat_results"}:
+            raise ValueError(f"Unknown result category: {category}")
+
+        query: Dict[str, Any] = {"created_at": record_id}
+        if not include_all:
+            user_query = self._user_query(user_id, user_email)
+            query = {"$and": [query, user_query]}
+
+        if self._collections is not None:
+            collection = self._collections[category]
+            if updates:
+                collection.update_one(query, {"$set": dict(updates)})
+            record = collection.find_one(query)
+            if not record:
+                return None
+            if category == "chat_results":
+                return self._chat_record(record)
+            return self._public_record(record)
+
+        with self._lock:
+            data = self._load_unlocked()
+            for item in data.get(category, []):
+                if item.get("created_at") != record_id:
+                    continue
+                if not include_all and not self._matches_user(item, user_id, user_email):
+                    continue
+                item.update(updates)
+                self._write_unlocked(data)
+                return self._chat_record(item) if category == "chat_results" else dict(item)
+        return None
+
+    def get_record_by_created_at(
+        self,
+        category: str,
+        record_id: str,
+        user_id: Optional[str] = None,
+        user_email: Optional[str] = None,
+        include_all: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        if category not in {"summary_results", "keyword_results", "chat_results"}:
+            raise ValueError(f"Unknown result category: {category}")
+
+        query: Dict[str, Any] = {"created_at": record_id}
+        if not include_all:
+            user_query = self._user_query(user_id, user_email)
+            query = {"$and": [query, user_query]}
+
+        if self._collections is not None:
+            record = self._collections[category].find_one(query)
+            if not record:
+                return None
+            if category == "chat_results":
+                return self._chat_record(record)
+            return self._public_record(record)
+
+        with self._lock:
+            data = self._load_unlocked()
+            for item in data.get(category, []):
+                if item.get("created_at") != record_id:
+                    continue
+                if not include_all and not self._matches_user(item, user_id, user_email):
+                    continue
+                return self._chat_record(item) if category == "chat_results" else dict(item)
+        return None
+
+    def delete_record_by_created_at(
+        self,
+        category: str,
+        record_id: str,
+        user_id: Optional[str] = None,
+        user_email: Optional[str] = None,
+        include_all: bool = False,
+    ) -> int:
+        if category not in {"summary_results", "keyword_results", "chat_results"}:
+            raise ValueError(f"Unknown result category: {category}")
+
+        query: Dict[str, Any] = {"created_at": record_id}
+        if not include_all:
+            user_query = self._user_query(user_id, user_email)
+            query = {"$and": [query, user_query]}
+
+        if self._collections is not None:
+            result = self._collections[category].delete_one(query)
+            return int(result.deleted_count)
+
+        with self._lock:
+            data = self._load_unlocked()
+            records = data.get(category, [])
+            next_records = []
+            deleted_count = 0
+
+            for item in records:
+                matches_record = item.get("created_at") == record_id
+                matches_user = include_all or self._matches_user(item, user_id, user_email)
+                if matches_record and matches_user and deleted_count == 0:
+                    deleted_count = 1
+                    continue
+                next_records.append(item)
+
+            if deleted_count:
+                data[category] = next_records
+                self._write_unlocked(data)
+
+            return deleted_count
+
+    def delete_ai_records_by_file_id(
+        self,
+        file_id: str,
+        user_id: Optional[str] = None,
+        user_email: Optional[str] = None,
+        include_all: bool = False,
+    ) -> Dict[str, int]:
+        category_keys = {
+            "summary_results": "summaries",
+            "keyword_results": "keywords",
+            "chat_results": "chats",
+        }
+
+        if self._collections is not None:
+            deleted: Dict[str, int] = {}
+            for category, key in category_keys.items():
+                query: Dict[str, Any] = {"file_id": file_id}
+                if not include_all:
+                    query = {"$and": [query, self._user_query(user_id, user_email)]}
+                result = self._collections[category].delete_many(query)
+                deleted[key] = int(result.deleted_count)
+            return deleted
+
+        with self._lock:
+            data = self._load_unlocked()
+            deleted = {}
+
+            for category, key in category_keys.items():
+                records = data.get(category, [])
+                next_records = []
+                deleted_count = 0
+
+                for item in records:
+                    matches_file = item.get("file_id") == file_id
+                    matches_user = include_all or self._matches_user(item, user_id, user_email)
+                    if matches_file and matches_user:
+                        deleted_count += 1
+                        continue
+                    next_records.append(item)
+
+                data[category] = next_records
+                deleted[key] = deleted_count
+
+            self._write_unlocked(data)
+            return deleted
+
     def _find_by_file_id(self, category: str, file_id: str) -> List[Dict[str, Any]]:
         if self._collections is None:
             return []
@@ -265,6 +517,9 @@ class ResultStore:
             "answer": record.get("answer", ""),
             "sources": record.get("sources", []),
             "created_at": record.get("created_at", ""),
+            "display_title": record.get("display_title", ""),
+            "memo": record.get("memo", ""),
+            "user_id": record.get("user_id", ""),
             "user_email": record.get("user_email", ""),
         }
 

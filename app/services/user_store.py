@@ -86,6 +86,28 @@ class UserStore:
             self._write_unlocked(users)
             return next_user
 
+    def delete_user(self, user_id: str, email: str) -> int:
+        normalized_email = str(email).strip().lower()
+
+        if self._collection is not None:
+            result = self._collection.delete_one({
+                "$or": [
+                    {"user_id": user_id},
+                    {"email": normalized_email},
+                ]
+            })
+            return int(result.deleted_count)
+
+        with self._lock:
+            users = self._load_unlocked()
+            next_users = [
+                user for user in users
+                if user.get("user_id") != user_id and str(user.get("email", "")).lower() != normalized_email
+            ]
+            deleted_count = len(users) - len(next_users)
+            self._write_unlocked(next_users)
+            return deleted_count
+
     @staticmethod
     def _public_record(user: Dict[str, Any]) -> Dict[str, Any]:
         return {key: value for key, value in user.items() if key != "_id"}

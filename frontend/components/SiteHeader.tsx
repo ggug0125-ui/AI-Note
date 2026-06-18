@@ -12,6 +12,7 @@ const navItems = [
   { label: "사용법", href: "#how" },
   { label: "AI 어시스턴트", href: "/dashboard" },
   { label: "AI 타로", href: "/tarot" },
+  { label: "내정보", href: "/mypage" },
   { label: "요금", href: "#pricing" },
   { label: "후기", href: "#reviews" }
 ];
