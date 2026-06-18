@@ -1344,7 +1344,7 @@ function ProfilePanel({ user }: { user: AuthUser }) {
       <PanelHeader
         eyebrow="Profile"
         title="내정보 관리"
-        description="localStorage에 저장된 계정 정보를 기준으로 표시합니다."
+        description="로그인된 계정 정보를 기준으로 표시합니다."
       />
       <section className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm md:p-6">
         <div className="grid gap-4 md:grid-cols-2">
