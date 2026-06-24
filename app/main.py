@@ -118,6 +118,7 @@ class TarotCardRequest(BaseModel):
 class TarotReadingRequest(BaseModel):
     category: str = Field(default="오늘의 운세", min_length=1, max_length=80)
     question: str = Field(default="", max_length=500)
+    theme: Literal["witch", "fairy"] = "witch"
     birth_date: Optional[str] = Field(default=None, max_length=20)
     calendar_type: Optional[Literal["solar", "lunar"]] = None
     cards: List[TarotCardRequest] = Field(..., min_length=3, max_length=3)
@@ -148,6 +149,7 @@ class TarotSavedReading(BaseModel):
 class SaveTarotReadingRequest(BaseModel):
     category: str = Field(..., min_length=1, max_length=80)
     question: str = Field(default="", max_length=500)
+    theme: Literal["witch", "fairy"] = "witch"
     birth_date: Optional[str] = Field(default=None, max_length=20)
     calendar_type: Optional[Literal["solar", "lunar"]] = None
     cards: List[TarotCardRequest] = Field(..., min_length=3, max_length=3)
@@ -740,6 +742,7 @@ async def create_tarot_reading(
         request.category,
         "요청된 카테고리를 해석의 중심 주제로 삼고, 모든 항목을 그 관점에 맞춰 작성하세요.",
     )
+    theme_label = "요정 카드" if request.theme == "fairy" else "마녀 카드"
     normalized_birth_date = (request.birth_date or "").strip()
     calendar_label = "음력" if request.calendar_type == "lunar" else "양력"
     personalization_text = (
@@ -767,6 +770,7 @@ async def create_tarot_reading(
 서버 기준 오늘 날짜: {today_label}
 카테고리: {request.category}
 카테고리별 해석 가이드: {category_guide}
+카드 테마: {theme_label}
 질문: {request.question or "특정 질문 없음"}
 개인화 정보: {personalization_text}
 카드:
@@ -829,6 +833,7 @@ async def save_tarot_reading(
         "reading_id": reading_id,
         "category": request.category,
         "question": request.question,
+        "theme": request.theme,
         "birth_date": normalized_birth_date or None,
         "calendar_type": request.calendar_type if normalized_birth_date else None,
         "cards": [card.dict() for card in request.cards],
