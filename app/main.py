@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 
 from app.services.conversion_service import ConversionError, UnsupportedConversionError, convert_file
 from app.services.auth_service import create_access_token, decode_access_token, hash_password, verify_password
+from app.services.credit_store import CreditStore
 from app.services.rag_service import RAGService
 from app.services.result_store import ResultStore
 from app.services.user_store import UserStore
@@ -41,6 +42,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 RESULTS_PATH = BASE_DIR / "backend" / "data" / "results.json"
 TAROT_READINGS_PATH = BASE_DIR / "backend" / "data" / "tarot_readings.json"
 USERS_PATH = BASE_DIR / "backend" / "data" / "users.json"
+CREDIT_TRANSACTIONS_PATH = BASE_DIR / "backend" / "data" / "credit_transactions.json"
 CONVERSION_DIR = BASE_DIR / "backend" / "data" / "conversions"
 CONVERSION_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -65,6 +67,7 @@ rag_service = RAGService(
 )
 result_store = ResultStore(RESULTS_PATH)
 user_store = UserStore(USERS_PATH)
+credit_store = CreditStore(CREDIT_TRANSACTIONS_PATH)
 bearer_scheme = HTTPBearer(auto_error=False)
 ADMIN_EMAIL = "ggug0125@gmail.com"
 ADMIN_NAME = "관리자"
@@ -78,6 +81,7 @@ uploaded_files: Dict[str, Dict[str, Any]] = {}
 
 SummaryType = Literal["핵심 요약", "회의록 요약", "보고서 요약", "액션아이템"]
 ConvertTarget = Literal["csv", "pdf", "txt"]
+TAROT_READING_CREDIT_COST = 2
 
 
 class QueryRequest(BaseModel):
@@ -105,6 +109,12 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=254)
     password: str = Field(..., min_length=1, max_length=128)
+
+
+class AdminCreditAdjustRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=254)
+    amount: int = Field(..., ge=-100000, le=100000)
+    description: str = Field(default="Admin credit adjustment", max_length=300)
 
 
 class TarotCardRequest(BaseModel):
@@ -175,6 +185,7 @@ def _public_user(user: Dict[str, Any]) -> Dict[str, Any]:
         "name": user["name"],
         "role": "admin" if is_admin else "user",
         "plan": "Admin" if is_admin else "Free",
+        "credits": int(user.get("credits", 0) or 0),
     }
 
 
@@ -201,6 +212,7 @@ def seed_admin_user() -> None:
         "name": ADMIN_NAME,
         "hashed_password": hash_password(ADMIN_PASSWORD),
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "credits": 0,
     }
 
     try:
@@ -576,6 +588,7 @@ async def register_user(request: RegisterRequest):
         "name": name,
         "hashed_password": hash_password(request.password),
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "credits": 0,
     }
 
     try:
@@ -613,6 +626,74 @@ async def login_user(request: LoginRequest):
 @app.get("/auth/me")
 async def get_me(current_user: Dict[str, Any] = Depends(get_current_user)):
     return {"user": _public_user(current_user)}
+
+
+@app.get("/credits/me")
+async def get_my_credits(current_user: Dict[str, Any] = Depends(get_current_user)):
+    return {
+        "credits": int(current_user.get("credits", 0) or 0),
+        "user": _public_user(current_user),
+    }
+
+
+@app.get("/credits/transactions")
+async def list_credit_transactions(
+    limit: int = Query(default=50, ge=1, le=200),
+    include_all: bool = Query(default=False),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    can_include_all = include_all and _is_admin_user(current_user)
+    identity = _user_identity(current_user)
+    transactions = credit_store.list_transactions(
+        user_id=identity["user_id"],
+        user_email=identity["user_email"],
+        include_all=can_include_all,
+        limit=limit,
+    )
+    return {"transactions": transactions}
+
+
+@app.post("/credits/admin/adjust")
+async def adjust_user_credits(
+    request: AdminCreditAdjustRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    require_admin_user(current_user)
+
+    if request.amount == 0:
+        raise HTTPException(status_code=400, detail="Credit adjustment amount cannot be zero")
+
+    normalized_email = _normalize_email(request.email)
+    target_user = user_store.get_by_email(normalized_email)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    updated_user = user_store.update_credits(str(target_user["user_id"]), request.amount)
+    if not updated_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    balance_after = int(updated_user.get("credits", 0) or 0)
+    transaction = {
+        "transaction_id": uuid.uuid4().hex,
+        "user_id": target_user["user_id"],
+        "user_email": normalized_email,
+        "type": "adjust",
+        "amount": request.amount,
+        "balance_after": balance_after,
+        "description": request.description,
+        "metadata": {
+            "admin_user_id": current_user["user_id"],
+            "admin_email": current_user["email"],
+        },
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    saved_transaction = credit_store.append_transaction(transaction)
+
+    return {
+        "message": "크레딧이 조정되었습니다.",
+        "user": _public_user(updated_user),
+        "transaction": saved_transaction,
+    }
 
 
 @app.delete("/auth/me")
@@ -712,6 +793,10 @@ async def create_tarot_reading(
     request: TarotReadingRequest,
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
+    current_credits = int(current_user.get("credits", 0) or 0)
+    if current_credits < TAROT_READING_CREDIT_COST:
+        raise HTTPException(status_code=402, detail="크레딧이 부족합니다.")
+
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise HTTPException(
@@ -814,6 +899,27 @@ async def create_tarot_reading(
             status_code=500,
             detail=f"OpenAI tarot reading response missing fields: {', '.join(missing_fields)}. Use local tarot reading fallback.",
         )
+
+    updated_user = user_store.update_credits(str(current_user["user_id"]), -TAROT_READING_CREDIT_COST)
+    if not updated_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    balance_after = int(updated_user.get("credits", 0) or 0)
+    identity = _user_identity(updated_user)
+    credit_store.append_transaction({
+        "transaction_id": uuid.uuid4().hex,
+        "user_id": identity["user_id"],
+        "user_email": identity["user_email"],
+        "type": "tarot_use",
+        "amount": -TAROT_READING_CREDIT_COST,
+        "balance_after": balance_after,
+        "description": "AI 타로 이용",
+        "metadata": {
+            "category": request.category,
+            "theme": request.theme,
+        },
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
 
     return {
         **{field: str(parsed[field]).strip() for field in required_fields},

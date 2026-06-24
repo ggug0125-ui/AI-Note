@@ -4,6 +4,7 @@ import { BarChart3, FileText, FileUp, History, LogOut, Menu, MessageSquareText, 
 import { useState } from "react";
 import { Logo } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
+import { CreditBadge } from "./CreditBadge";
 
 export type DashboardTab = "assistant" | "pdf-analysis" | "summary" | "keywords" | "history" | "convert" | "mypage";
 
@@ -27,6 +28,7 @@ type NavbarProps = {
   activeTab: DashboardTab;
   onTabChange: (tab: DashboardTab) => void;
   userName?: string;
+  credits?: number;
   onLogout?: () => void;
 };
 
@@ -38,7 +40,7 @@ function StatusBadge() {
   );
 }
 
-export function Navbar({ activeTab, onTabChange, userName, onLogout }: NavbarProps) {
+export function Navbar({ activeTab, onTabChange, userName, credits, onLogout }: NavbarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   function handleTabClick(tab: DashboardTab) {
@@ -81,6 +83,7 @@ export function Navbar({ activeTab, onTabChange, userName, onLogout }: NavbarPro
           </nav>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
+            <CreditBadge credits={credits} tone="blue" className="hidden lg:inline-flex" />
             {userName && (
               <span className="hidden max-w-28 truncate whitespace-nowrap text-xs font-bold text-neutral-600 dark:text-neutral-300 lg:inline">
                 {userName}
@@ -114,6 +117,7 @@ export function Navbar({ activeTab, onTabChange, userName, onLogout }: NavbarPro
             {userName && (
               <div className="flex items-center justify-between gap-3 rounded-xl bg-white/70 px-3 py-2 text-sm font-bold text-neutral-600 dark:bg-white/5 dark:text-neutral-300">
                 <span className="truncate">{userName}</span>
+                <CreditBadge credits={credits} tone="blue" />
                 {onLogout && (
                   <button type="button" onClick={onLogout} className="shrink-0 text-coral">
                     로그아웃

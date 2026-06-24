@@ -20,6 +20,7 @@ type AuthUser = {
   name: string;
   role: "admin" | "user";
   plan: "Admin" | "Free";
+  credits?: number;
 };
 
 const tabCopy: Record<DashboardTab, { eyebrow: string; title: string; description: string }> = {
@@ -130,7 +131,7 @@ export default function DashboardPage() {
 
   return (
     <main className="dashboard-shell min-h-screen overflow-x-hidden bg-[#F5F2EC] text-ink">
-      <Navbar activeTab={activeTab} onTabChange={setActiveTab} userName={user?.name} onLogout={handleLogout} />
+      <Navbar activeTab={activeTab} onTabChange={setActiveTab} userName={user?.name} credits={user?.credits} onLogout={handleLogout} />
 
       <div className="mx-auto max-w-7xl px-4 py-5 md:px-8 md:py-8">
         <section className="mb-5 max-w-full rounded-2xl border border-black/10 bg-white p-4 shadow-sm md:mb-6 md:p-6">

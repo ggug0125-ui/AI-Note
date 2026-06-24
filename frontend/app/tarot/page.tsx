@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { API_BASE_URL, authenticatedFetch } from "@/lib/api";
+import { CreditBadge } from "@/components/CreditBadge";
 import {
   getTarotCardBackImage,
   getTarotCardsForTheme,
@@ -79,6 +80,8 @@ const fairyMascotImages = ["/images/tarot/yojung-sub.png"];
 const cardPositions = ["과거", "현재", "미래"];
 const TOKEN_KEY = "access_token";
 const USER_KEY = "user";
+const TAROT_READING_CREDIT_COST = 2;
+const CREDIT_SHORTAGE_MESSAGE = "크레딧이 부족합니다. 충전 후 다시 이용해주세요.";
 
 const tarotThemeOptions: Array<{
   theme: TarotTheme;
@@ -568,6 +571,10 @@ async function fetchOpenAITarotReading(cards: TarotCard[], context: TarotReading
   });
 
   if (!response.ok) {
+    if (response.status === 402) {
+      throw new Error(CREDIT_SHORTAGE_MESSAGE);
+    }
+
     let message = "OpenAI tarot reading request failed.";
     try {
       const error = await response.json();
@@ -712,6 +719,8 @@ export default function TarotPage() {
   const [savedReadingFilter, setSavedReadingFilter] = useState("전체");
   const [deletingReadingId, setDeletingReadingId] = useState<string | null>(null);
   const [pendingTarotStart, setPendingTarotStart] = useState<PendingTarotStart | null>(null);
+  const [credits, setCredits] = useState(0);
+  const [tarotCreditError, setTarotCreditError] = useState("");
   const analysisTimerRef = useRef<number | null>(null);
   const shuffleTimerRef = useRef<number | null>(null);
   const autoSavedKeysRef = useRef<Set<string>>(new Set());
@@ -747,6 +756,23 @@ export default function TarotPage() {
     return reading.category === savedReadingFilter;
   });
 
+  async function loadCredits() {
+    try {
+      const response = await authenticatedFetch(`${API_BASE_URL}/credits/me`);
+      if (!response.ok) {
+        return;
+      }
+      const data = await response.json();
+      const nextCredits = Number(data.credits || data.user?.credits || 0);
+      setCredits(nextCredits);
+      if (data.user) {
+        window.localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+      }
+    } catch {
+      // Credit display should not block the tarot experience.
+    }
+  }
+
   useEffect(() => {
     const checkAuth = () => {
       const token = window.localStorage.getItem(TOKEN_KEY)?.trim();
@@ -764,7 +790,8 @@ export default function TarotPage() {
 
       if (rawUser) {
         try {
-          const user = JSON.parse(rawUser) as { name?: string; email?: string };
+          const user = JSON.parse(rawUser) as { name?: string; email?: string; credits?: number };
+          setCredits(Number(user.credits || 0));
           if (user.name?.trim()) {
             nextAuthLabel = `${user.name.trim()}님`;
           } else if (user.email?.trim()) {
@@ -795,6 +822,7 @@ export default function TarotPage() {
   useEffect(() => {
     if (authChecked && authStatus === "authenticated") {
       void loadSavedReadings();
+      void loadCredits();
     }
   }, [authChecked, authStatus]);
 
@@ -830,6 +858,7 @@ export default function TarotPage() {
     setSelectedCards([]);
     setTarotReading(null);
     setSaveStatus("idle");
+    setTarotCreditError("");
     setIsSavingReading(false);
     setReadingCategory(category);
     setReadingQuestion(category === "자유 질문" ? nextQuestion.trim() || "자유 질문" : "");
@@ -932,6 +961,7 @@ export default function TarotPage() {
 
   async function completeTarotReading(cards: TarotCard[]) {
     setIsTarotAnalyzing(true);
+    setTarotCreditError("");
     const readingContext = {
       category: selectedCategory,
       question: currentQuestion,
@@ -948,8 +978,25 @@ export default function TarotPage() {
     });
 
     const fallbackReading = buildLocalTarotReading(cards);
-    const readingPromise = fetchOpenAITarotReading(cards, readingContext).catch(() => fallbackReading);
-    const [reading] = await Promise.all([readingPromise, minimumDelay]);
+    let reading: LocalTarotReading | null = null;
+
+    try {
+      reading = await fetchOpenAITarotReading(cards, readingContext);
+      await loadCredits();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("크레딧이 부족")) {
+        await minimumDelay;
+        setIsTarotAnalyzing(false);
+        setSelectedCards([]);
+        setTarotCreditError(CREDIT_SHORTAGE_MESSAGE);
+        return;
+      }
+
+      reading = fallbackReading;
+    }
+
+    await minimumDelay;
 
     if (reading) {
       setTarotReading(reading);
@@ -1232,6 +1279,7 @@ export default function TarotPage() {
             NoteFlow AI
           </Link>
           <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+            <CreditBadge credits={credits} tone={isFairyTheme ? "fairy" : "witch"} />
             <div className="rounded-full border border-emerald-200/20 bg-black/25 px-4 py-2 text-xs font-extrabold text-emerald-100 backdrop-blur">
               {authLabel}
             </div>
@@ -1843,7 +1891,10 @@ export default function TarotPage() {
                 </div>
               )}
                 {!isFreeQuestionCategory && (
-                  <div className="mt-5 flex justify-end">
+                  <div className="mt-5 flex flex-col items-end gap-2">
+                    <p className={["text-xs font-black", isFairyTheme ? "text-[#6d1645]" : "text-emerald-100/75"].join(" ")}>
+                      💎 AI 타로 해석에는 {TAROT_READING_CREDIT_COST} Credits가 사용됩니다.
+                    </p>
                     <button
                       type="button"
                       onClick={() => requestReadingStart(selectedCategory, "", birthDate, calendarType)}
@@ -1930,7 +1981,10 @@ export default function TarotPage() {
                       : "border-yellow-300/35 bg-black/75 text-emerald-50 placeholder:text-emerald-100/45 focus:border-yellow-200/70 focus:shadow-[0_0_24px_rgba(250,204,21,0.16)]"
                   ].join(" ")}
                 />
-                <div className="mt-4 flex justify-end">
+                <div className="mt-4 flex flex-col items-end gap-2">
+                  <p className={["text-xs font-black", isFairyTheme ? "text-[#6d1645]" : "text-emerald-100/75"].join(" ")}>
+                    💎 AI 타로 해석에는 {TAROT_READING_CREDIT_COST} Credits가 사용됩니다.
+                  </p>
                   <button
                     type="button"
                     onClick={() => requestReadingStart(freeQuestionCategoryTitle, question.trim() || freeQuestionCategoryTitle, birthDate, calendarType)}
@@ -2031,6 +2085,12 @@ export default function TarotPage() {
                 <p className={["mt-2 text-sm font-bold sm:text-base", isReadingFairyTheme ? "text-pink-50/88" : "text-emerald-100/82"].join(" ")}>
                   {deckCopy.description}
                 </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <CreditBadge credits={credits} tone={isReadingFairyTheme ? "fairy" : "witch"} />
+                  <span className={["rounded-full border px-3 py-2 text-xs font-black", isReadingFairyTheme ? "border-pink-200/45 bg-white/12 text-pink-50" : "border-emerald-200/20 bg-black/24 text-emerald-100"].join(" ")}>
+                    AI 타로 해석에는 {TAROT_READING_CREDIT_COST} Credits가 사용됩니다.
+                  </span>
+                </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <button
@@ -2051,6 +2111,11 @@ export default function TarotPage() {
             </div>
 
             <div className="relative z-10 flex flex-1 flex-col overflow-hidden pt-4 sm:pt-6">
+              {tarotCreditError && (
+                <div className="mb-3 rounded-2xl border border-red-300/65 bg-red-500/14 px-4 py-3 text-sm font-black text-red-100 shadow-[0_0_22px_rgba(248,113,113,0.18)]">
+                  {tarotCreditError}
+                </div>
+              )}
               <div className={["pointer-events-none absolute inset-x-6 bottom-10 h-28 rounded-full blur-3xl", isReadingFairyTheme ? "bg-pink-300/24" : "bg-emerald-300/12"].join(" ")} />
               <div className="relative mx-auto grid h-44 w-full max-w-4xl grid-cols-3 items-start gap-3 px-1 sm:h-52 sm:gap-7 sm:px-4 md:h-56 lg:gap-8">
                 {cardPositions.map((position, index) => {

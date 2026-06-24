@@ -15,15 +15,17 @@ class UserStore:
         self._lock = threading.Lock()
         self._collection: Optional[Any] = None
         self._duplicate_key_error: Optional[type[Exception]] = None
+        self._return_document_after: Optional[Any] = None
 
         uri = mongodb_uri or os.getenv("MONGODB_URI")
         if uri:
-            from pymongo import ASCENDING, MongoClient
+            from pymongo import ASCENDING, MongoClient, ReturnDocument
             from pymongo.errors import DuplicateKeyError
 
             client = MongoClient(uri)
             self._collection = client["noteflow"]["users"]
             self._duplicate_key_error = DuplicateKeyError
+            self._return_document_after = ReturnDocument.AFTER
             self._collection.create_index([("email", ASCENDING)], unique=True)
         else:
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -33,7 +35,7 @@ class UserStore:
             return [self._public_record(user) for user in self._collection.find({})]
 
         with self._lock:
-            return self._load_unlocked()
+            return [self._public_record(user) for user in self._load_unlocked()]
 
     def count_users(self) -> int:
         if self._collection is not None:
@@ -47,24 +49,26 @@ class UserStore:
             user = self._collection.find_one({"email": normalized_email})
             return self._public_record(user) if user else None
 
-        return next(
+        user = next(
             (user for user in self.list_users() if user.get("email", "").lower() == normalized_email),
             None,
         )
+        return self._public_record(user) if user else None
 
     def get_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
         if self._collection is not None:
             user = self._collection.find_one({"user_id": user_id})
             return self._public_record(user) if user else None
 
-        return next(
+        user = next(
             (user for user in self.list_users() if user.get("user_id") == user_id),
             None,
         )
+        return self._public_record(user) if user else None
 
     def create_user(self, user: Dict[str, Any]) -> Dict[str, Any]:
         normalized_email = str(user["email"]).strip().lower()
-        next_user = {**user, "email": normalized_email}
+        next_user = {**user, "email": normalized_email, "credits": int(user.get("credits", 0) or 0)}
 
         if self._collection is not None:
             duplicate_key_error = self._duplicate_key_error
@@ -85,6 +89,25 @@ class UserStore:
             users.append(next_user)
             self._write_unlocked(users)
             return next_user
+
+    def update_credits(self, user_id: str, amount: int) -> Optional[Dict[str, Any]]:
+        if self._collection is not None:
+            updated_user = self._collection.find_one_and_update(
+                {"user_id": user_id},
+                {"$inc": {"credits": int(amount)}},
+                return_document=self._return_document_after,
+            )
+            return self._public_record(updated_user) if updated_user else None
+
+        with self._lock:
+            users = self._load_unlocked()
+            for user in users:
+                if user.get("user_id") == user_id:
+                    user["credits"] = int(user.get("credits", 0) or 0) + int(amount)
+                    self._write_unlocked(users)
+                    return self._public_record(user)
+
+        return None
 
     def delete_user(self, user_id: str, email: str) -> int:
         normalized_email = str(email).strip().lower()
@@ -110,7 +133,9 @@ class UserStore:
 
     @staticmethod
     def _public_record(user: Dict[str, Any]) -> Dict[str, Any]:
-        return {key: value for key, value in user.items() if key != "_id"}
+        public_user = {key: value for key, value in user.items() if key != "_id"}
+        public_user["credits"] = int(public_user.get("credits", 0) or 0)
+        return public_user
 
     def _load_unlocked(self) -> List[Dict[str, Any]]:
         if not self.path.exists():

@@ -6,6 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Logo } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
+import { API_BASE_URL, authenticatedFetch } from "@/lib/api";
+import { CreditBadge } from "./CreditBadge";
 
 const navItems = [
   { label: "기능", href: "#features" },
@@ -25,6 +27,7 @@ export function SiteHeader() {
   const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userLabel, setUserLabel] = useState("");
+  const [credits, setCredits] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -35,6 +38,7 @@ export function SiteHeader() {
       if (!hasToken) {
         setIsAuthenticated(false);
         setUserLabel("");
+        setCredits(0);
         return;
       }
 
@@ -43,9 +47,10 @@ export function SiteHeader() {
 
       if (rawUser) {
         try {
-          const user = JSON.parse(rawUser) as { name?: string; email?: string; role?: string };
+          const user = JSON.parse(rawUser) as { name?: string; email?: string; role?: string; credits?: number };
           const name = user.name?.trim();
           const email = user.email?.trim();
+          setCredits(Number(user.credits || 0));
 
           if (name) {
             nextUserLabel = `${name}님`;
@@ -59,6 +64,24 @@ export function SiteHeader() {
 
       setIsAuthenticated(true);
       setUserLabel(nextUserLabel);
+      void refreshCredits();
+    }
+
+    async function refreshCredits() {
+      try {
+        const response = await authenticatedFetch(`${API_BASE_URL}/credits/me`);
+        if (!response.ok) {
+          return;
+        }
+        const data = await response.json();
+        const nextCredits = Number(data.credits || data.user?.credits || 0);
+        setCredits(nextCredits);
+        if (data.user) {
+          window.localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+        }
+      } catch {
+        // Keep the locally cached auth state if credit refresh fails.
+      }
     }
 
     syncAuthState();
@@ -102,6 +125,7 @@ export function SiteHeader() {
                 <span className="max-w-32 truncate text-sm font-semibold text-neutral-700 dark:text-neutral-300">
                   {userLabel}
                 </span>
+                <CreditBadge credits={credits} tone="blue" />
                 <button
                   type="button"
                   onClick={handleLogout}
@@ -150,6 +174,7 @@ export function SiteHeader() {
               {isAuthenticated ? (
                 <div className="flex items-center justify-between gap-3 rounded-2xl bg-neutral-50 px-4 py-3 text-sm font-bold text-neutral-700 dark:bg-white/5 dark:text-neutral-200">
                   <span className="min-w-0 truncate">{userLabel}</span>
+                  <CreditBadge credits={credits} tone="blue" />
                   <button type="button" onClick={handleLogout} className="shrink-0 font-extrabold text-coral">
                     로그아웃
                   </button>
