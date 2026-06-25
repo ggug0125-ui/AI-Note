@@ -258,6 +258,71 @@ export default function LandingPage() {
           <p className="mx-auto mt-6 max-w-2xl text-neutral-600">
             신규 가입 시 모든 기능을 14일간 무료로 체험할 수 있습니다. 신용카드 정보 없이 바로 시작하세요.
           </p>
+          <section className="mx-auto mt-10 max-w-5xl text-left">
+            <div className="text-center">
+              <span className="rounded-full bg-coral/10 px-4 py-2 text-sm font-black text-coral">Credit Guide</span>
+              <h3 className="mt-4 text-2xl font-black text-ink md:text-4xl">크레딧 사용 안내</h3>
+              <p className="mx-auto mt-3 max-w-2xl text-sm font-bold leading-7 text-neutral-600 md:text-base">
+                결제 전에 AI 문서 어시스턴트와 AI 타로에서 크레딧이 어떻게 사용되는지 확인하세요.
+              </p>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <article className="rounded-3xl border border-[#F0C7A6] bg-[#FFF8EE] p-5 shadow-sm md:p-6">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-coral/10 text-coral">
+                    <FileText size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-black text-ink">AI 문서 어시스턴트</h4>
+                    <p className="mt-2 text-sm font-bold leading-6 text-neutral-600">
+                      PDF 문서 페이지 수 기준으로 크레딧이 차감됩니다.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-5 grid gap-3 text-sm font-bold text-neutral-700">
+                  <div className="rounded-2xl border border-[#F3D7B5] bg-white/75 px-4 py-3">
+                    1~2페이지 문서: <span className="font-black text-coral">1 Credit</span>
+                  </div>
+                  <div className="rounded-2xl border border-[#F3D7B5] bg-white/75 px-4 py-3">
+                    3페이지 이상 문서: 페이지당 <span className="font-black text-coral">0.5 Credit</span>
+                  </div>
+                  <div className="rounded-2xl border border-[#E8C77A]/50 bg-[#FFF6D9] px-4 py-3 text-[#7A551D]">
+                    10 pages → 5 Credits
+                  </div>
+                </div>
+                <p className="mt-4 text-sm font-bold leading-6 text-neutral-600">
+                  요약 · 키워드 · 문서 질문은 업로드 분석 비용에 포함됩니다.
+                </p>
+              </article>
+
+              <article className="rounded-3xl border border-[#E8C77A]/60 bg-[#FFFDF7] p-5 shadow-sm md:p-6">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FFF3E5] text-[#A66A1F]">
+                    <Sparkles size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-black text-ink">AI 타로</h4>
+                    <p className="mt-2 text-sm font-bold leading-6 text-neutral-600">
+                      오늘의 운세는 하루 1회 무료로 제공됩니다.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-5 grid gap-3 text-sm font-bold text-neutral-700">
+                  <div className="rounded-2xl border border-[#F3D7B5] bg-white/75 px-4 py-3">
+                    오늘의 운세: <span className="font-black text-coral">하루 1회 무료</span>
+                  </div>
+                  <div className="rounded-2xl border border-[#F3D7B5] bg-white/75 px-4 py-3">
+                    추가 오늘의 운세: <span className="font-black text-coral">1 Credit</span>
+                  </div>
+                  <div className="rounded-2xl border border-[#E8C77A]/50 bg-[#FFF6D9] px-4 py-3 text-[#7A551D]">
+                    연애운 · 재물운 · 취업/진로 · 학업운 · 자유질문: 3 Credits
+                  </div>
+                </div>
+              </article>
+            </div>
+          </section>
+
           <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
             <PrimaryLink href="/login">
               무료 체험 시작하기

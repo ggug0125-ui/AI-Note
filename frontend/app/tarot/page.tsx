@@ -80,8 +80,7 @@ const fairyMascotImages = ["/images/tarot/yojung-sub.png"];
 const cardPositions = ["과거", "현재", "미래"];
 const TOKEN_KEY = "access_token";
 const USER_KEY = "user";
-const TAROT_READING_CREDIT_COST = 2;
-const CREDIT_SHORTAGE_MESSAGE = "크레딧이 부족합니다. 충전 후 다시 이용해주세요.";
+const CREDIT_SHORTAGE_MESSAGE = "크레딧이 부족합니다. 결제 정보에서 크레딧을 충전해주세요.";
 
 const tarotThemeOptions: Array<{
   theme: TarotTheme;
@@ -124,6 +123,16 @@ type LocalTarotReading = {
   caution: string;
   finalMessage: string;
   source: TarotReadingSource;
+  credit_usage?: TarotCreditUsage;
+};
+
+type TarotCreditUsage = {
+  service: "tarot";
+  category: string;
+  credit_cost: number;
+  free_daily: boolean;
+  credits_before: number;
+  credits_after: number;
 };
 
 type TarotReadingContext = {
@@ -234,6 +243,37 @@ function formatCalendarDate(year: number, month: number, day: number) {
     String(month).padStart(2, "0"),
     String(day).padStart(2, "0")
   ].join("-");
+}
+
+function formatCreditAmount(credits: number) {
+  return Number.isInteger(credits) ? String(credits) : credits.toFixed(1);
+}
+
+function getTarotCreditPolicyText(category: string) {
+  if (category === categories[0]?.title) {
+    return "오늘의 운세: 하루 1회 무료, 추가 이용 시 1 Credit";
+  }
+
+  return "연애운/재물운/취업·진로/학업운/자유질문: 3 Credits";
+}
+
+function getTarotExpectedCreditLabel(category: string) {
+  if (category === categories[0]?.title) {
+    return "하루 1회 무료 / 추가 1 Credit";
+  }
+
+  return "3 Credits";
+}
+
+function getTarotCreditUsageMessage(usage: TarotCreditUsage) {
+  if (usage.free_daily) {
+    return "오늘의 운세 무료 이용이 적용되었습니다.";
+  }
+  if (usage.credit_cost <= 0) {
+    return "크레딧 차감 없이 결과가 저장되었습니다.";
+  }
+
+  return `${formatCreditAmount(usage.credit_cost)} Credits가 차감되었습니다. 현재 보유 크레딧: ${usage.credits_after.toLocaleString("en-US")} Credits`;
 }
 
 function getBirthDateParts(value: string) {
@@ -594,7 +634,8 @@ async function fetchOpenAITarotReading(cards: TarotCard[], context: TarotReading
     advice: data.advice,
     caution: data.caution,
     finalMessage: data.finalMessage,
-    source: "openai"
+    source: "openai",
+    credit_usage: data.credit_usage
   };
 }
 
@@ -719,11 +760,15 @@ export default function TarotPage() {
   const [savedReadingFilter, setSavedReadingFilter] = useState("전체");
   const [deletingReadingId, setDeletingReadingId] = useState<string | null>(null);
   const [pendingTarotStart, setPendingTarotStart] = useState<PendingTarotStart | null>(null);
+  const [pendingCreditConfirm, setPendingCreditConfirm] = useState<PendingTarotStart | null>(null);
   const [credits, setCredits] = useState(0);
   const [tarotCreditError, setTarotCreditError] = useState("");
+  const [tarotCreditNotice, setTarotCreditNotice] = useState("");
   const analysisTimerRef = useRef<number | null>(null);
   const shuffleTimerRef = useRef<number | null>(null);
   const autoSavedKeysRef = useRef<Set<string>>(new Set());
+  const savingKeysRef = useRef<Set<string>>(new Set());
+  const analysisInFlightRef = useRef(false);
   const isReadingComplete = selectedCards.length === 3;
   const localTarotReading = isReadingComplete ? tarotReading ?? buildLocalTarotReading(selectedCards) : null;
   const loveCategoryTitle = categories[1]?.title ?? "연애운";
@@ -859,6 +904,7 @@ export default function TarotPage() {
     setTarotReading(null);
     setSaveStatus("idle");
     setTarotCreditError("");
+    setTarotCreditNotice("");
     setIsSavingReading(false);
     setReadingCategory(category);
     setReadingQuestion(category === "자유 질문" ? nextQuestion.trim() || "자유 질문" : "");
@@ -867,6 +913,7 @@ export default function TarotPage() {
     setReadingTheme(selectedTheme);
     setIsTarotAnalyzing(false);
     setIsDeckShuffling(false);
+    analysisInFlightRef.current = false;
     setIsResultModalOpen(false);
     setIsCategoryModalOpen(false);
     setIsReadingStarted(true);
@@ -894,7 +941,13 @@ export default function TarotPage() {
       return;
     }
 
-    beginReadingWithCategory(category, nextQuestion, nextBirthDate, nextCalendarType);
+    setPendingCreditConfirm({
+      category,
+      question: nextQuestion,
+      birthDate: nextBirthDate,
+      calendarType: nextCalendarType
+    });
+    void loadCredits();
   }
 
   function confirmPendingTarotStart() {
@@ -904,20 +957,36 @@ export default function TarotPage() {
 
     const nextStart = pendingTarotStart;
     setPendingTarotStart(null);
+    setPendingCreditConfirm(nextStart);
+    void loadCredits();
+  }
+
+  function startReading() {
+    setPendingCreditConfirm({
+      category: readingCategory || selectedCategory,
+      question: readingQuestion || currentQuestion,
+      birthDate: readingBirthDate || currentBirthDate,
+      calendarType: readingCalendarType
+    });
+    void loadCredits();
+  }
+
+  function cancelCreditConfirm() {
+    setPendingCreditConfirm(null);
+  }
+
+  function confirmCreditStart() {
+    if (!pendingCreditConfirm) {
+      return;
+    }
+
+    const nextStart = pendingCreditConfirm;
+    setPendingCreditConfirm(null);
     beginReadingWithCategory(
       nextStart.category,
       nextStart.question,
       nextStart.birthDate,
       nextStart.calendarType
-    );
-  }
-
-  function startReading() {
-    beginReadingWithCategory(
-      readingCategory || selectedCategory,
-      readingQuestion || currentQuestion,
-      readingBirthDate || currentBirthDate,
-      readingCalendarType
     );
   }
 
@@ -942,21 +1011,20 @@ export default function TarotPage() {
     if (
       !isReadingStarted ||
       isTarotAnalyzing ||
+      analysisInFlightRef.current ||
       isReadingComplete ||
       selectedCards.some((selected) => selected.id === card.id)
     ) {
       return;
     }
 
-    setSelectedCards((current) => {
-      const nextCards = [...current, card];
+    const nextCards = [...selectedCards, card];
+    setSelectedCards(nextCards);
 
-      if (nextCards.length === 3) {
-        void completeTarotReading(nextCards);
-      }
-
-      return nextCards;
-    });
+    if (nextCards.length === 3) {
+      analysisInFlightRef.current = true;
+      void completeTarotReading(nextCards);
+    }
   }
 
   async function completeTarotReading(cards: TarotCard[]) {
@@ -982,12 +1050,12 @@ export default function TarotPage() {
 
     try {
       reading = await fetchOpenAITarotReading(cards, readingContext);
-      await loadCredits();
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      if (message.includes("크레딧이 부족")) {
+      if (message.includes("크레딧이 부족") || message === CREDIT_SHORTAGE_MESSAGE) {
         await minimumDelay;
         setIsTarotAnalyzing(false);
+        analysisInFlightRef.current = false;
         setSelectedCards([]);
         setTarotCreditError(CREDIT_SHORTAGE_MESSAGE);
         return;
@@ -1009,6 +1077,7 @@ export default function TarotPage() {
 
     setIsDeckModalOpen(false);
     setIsTarotAnalyzing(false);
+    analysisInFlightRef.current = false;
     setIsResultModalOpen(true);
 
     if (reading) {
@@ -1071,11 +1140,12 @@ export default function TarotPage() {
   ) {
     const normalizedBirthDate = savedBirthDate.trim();
     const saveKey = buildSavedReadingKey(cards, reading, category, savedQuestion, normalizedBirthDate, savedCalendarType, theme);
-    if (autoSavedKeysRef.current.has(saveKey)) {
+    if (autoSavedKeysRef.current.has(saveKey) || savingKeysRef.current.has(saveKey)) {
       setSaveStatus("success");
       return;
     }
 
+    savingKeysRef.current.add(saveKey);
     setIsSavingReading(true);
     setSaveStatus("idle");
 
@@ -1104,15 +1174,41 @@ export default function TarotPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to save tarot reading");
+        if (response.status === 402) {
+          throw new Error(CREDIT_SHORTAGE_MESSAGE);
+        }
+
+        let message = "Failed to save tarot reading";
+        try {
+          const error = await response.json();
+          message = String(error.detail || error.message || message);
+        } catch {
+          // Keep the generic message if the response body is not JSON.
+        }
+        throw new Error(message);
+      }
+
+      const data = (await response.json()) as { credit_usage?: TarotCreditUsage };
+      if (data.credit_usage) {
+        setTarotCreditNotice(getTarotCreditUsageMessage(data.credit_usage));
+        setCredits(Number(data.credit_usage.credits_after ?? credits));
+        setTarotReading((current) => (
+          current === reading ? { ...current, credit_usage: data.credit_usage } : current
+        ));
+        await loadCredits();
       }
 
       autoSavedKeysRef.current.add(saveKey);
       setSaveStatus("success");
       await loadSavedReadings();
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("크레딧이 부족") || message === CREDIT_SHORTAGE_MESSAGE) {
+        setTarotCreditNotice(CREDIT_SHORTAGE_MESSAGE);
+      }
       setSaveStatus("error");
     } finally {
+      savingKeysRef.current.delete(saveKey);
       setIsSavingReading(false);
     }
   }
@@ -1893,7 +1989,7 @@ export default function TarotPage() {
                 {!isFreeQuestionCategory && (
                   <div className="mt-5 flex flex-col items-end gap-2">
                     <p className={["text-xs font-black", isFairyTheme ? "text-[#6d1645]" : "text-emerald-100/75"].join(" ")}>
-                      💎 AI 타로 해석에는 {TAROT_READING_CREDIT_COST} Credits가 사용됩니다.
+                      💎 {getTarotCreditPolicyText(selectedCategory)}
                     </p>
                     <button
                       type="button"
@@ -1983,7 +2079,7 @@ export default function TarotPage() {
                 />
                 <div className="mt-4 flex flex-col items-end gap-2">
                   <p className={["text-xs font-black", isFairyTheme ? "text-[#6d1645]" : "text-emerald-100/75"].join(" ")}>
-                    💎 AI 타로 해석에는 {TAROT_READING_CREDIT_COST} Credits가 사용됩니다.
+                    💎 {getTarotCreditPolicyText(freeQuestionCategoryTitle)}
                   </p>
                   <button
                     type="button"
@@ -2056,6 +2152,94 @@ export default function TarotPage() {
         </div>
       )}
 
+      {pendingCreditConfirm && (
+        <div
+          className={[
+            "fixed inset-0 z-[75] flex items-center justify-center px-4 py-6 backdrop-blur-md",
+            isFairyTheme ? "bg-fuchsia-950/58" : "bg-black/70"
+          ].join(" ")}
+        >
+          <section
+            className={[
+              "relative w-full max-w-md rounded-2xl border p-5 text-left shadow-[0_24px_80px_rgba(0,0,0,0.48)]",
+              isFairyTheme
+                ? "border-pink-300/75 bg-[linear-gradient(145deg,rgba(253,242,248,0.98),rgba(251,207,232,0.92),rgba(192,132,252,0.74))] text-[#4a0f2f]"
+                : "border-yellow-300/40 bg-[radial-gradient(circle_at_18%_10%,rgba(250,204,21,0.16),transparent_30%),linear-gradient(145deg,rgba(3,21,14,0.98),rgba(6,78,59,0.95),rgba(0,0,0,0.92))] text-emerald-50"
+            ].join(" ")}
+          >
+            <p className={["text-xs font-black uppercase tracking-wide", isFairyTheme ? "text-[#6d1645]" : "text-yellow-100"].join(" ")}>
+              Credit Confirmation
+            </p>
+            <h3 className={["mt-2 text-xl font-black", isFairyTheme ? "text-[#4a0f2f]" : "text-white"].join(" ")}>
+              AI 타로 해석 시작
+            </h3>
+
+            <div className="mt-5 grid gap-3 text-sm font-bold">
+              <div className={["rounded-2xl border px-4 py-3", isFairyTheme ? "border-pink-200/70 bg-white/58" : "border-emerald-200/18 bg-black/28"].join(" ")}>
+                <span className={["block text-xs font-black uppercase tracking-wide", isFairyTheme ? "text-[#7a2b52]" : "text-emerald-100/70"].join(" ")}>
+                  선택한 카테고리
+                </span>
+                <strong className={["mt-1 block text-lg font-black", isFairyTheme ? "text-[#4a0f2f]" : "text-yellow-100"].join(" ")}>
+                  {pendingCreditConfirm.category}
+                </strong>
+              </div>
+
+              <div className={["rounded-2xl border px-4 py-3", isFairyTheme ? "border-pink-200/75 bg-pink-50/72" : "border-yellow-300/45 bg-yellow-300/12"].join(" ")}>
+                <span className={["block text-xs font-black uppercase tracking-wide", isFairyTheme ? "text-[#7a2b52]" : "text-yellow-100/75"].join(" ")}>
+                  예상 차감 크레딧
+                </span>
+                <span className={["mt-2 inline-flex rounded-full border px-3 py-2 text-base font-black", isFairyTheme ? "border-pink-300/80 bg-white/76 text-[#9d174d]" : "border-yellow-300/55 bg-yellow-300/18 text-yellow-100"].join(" ")}>
+                  {getTarotExpectedCreditLabel(pendingCreditConfirm.category)}
+                </span>
+              </div>
+
+              <div className={["rounded-2xl border px-4 py-3", isFairyTheme ? "border-pink-200/70 bg-white/58" : "border-emerald-200/18 bg-black/28"].join(" ")}>
+                <span className={["block text-xs font-black uppercase tracking-wide", isFairyTheme ? "text-[#7a2b52]" : "text-emerald-100/70"].join(" ")}>
+                  현재 보유 크레딧
+                </span>
+                <strong className={["mt-1 block text-lg font-black", isFairyTheme ? "text-[#4a0f2f]" : "text-emerald-50"].join(" ")}>
+                  {credits.toLocaleString("en-US")} Credits
+                </strong>
+              </div>
+            </div>
+
+            <div className={["mt-5 rounded-2xl border px-4 py-3 text-sm font-bold leading-6", isFairyTheme ? "border-pink-200/70 bg-white/54 text-[#6f3f2b]" : "border-yellow-300/30 bg-black/24 text-emerald-100/82"].join(" ")}>
+              <p>{getTarotCreditPolicyText(pendingCreditConfirm.category)}</p>
+              <p className={["mt-2 font-black", isFairyTheme ? "text-[#9d174d]" : "text-yellow-100"].join(" ")}>
+                타로 해석이 성공적으로 완료된 경우에만 크레딧이 차감됩니다.
+              </p>
+            </div>
+
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={cancelCreditConfirm}
+                className={[
+                  "inline-flex min-h-12 items-center justify-center rounded-full border px-4 py-3 text-sm font-black transition hover:-translate-y-0.5",
+                  isFairyTheme
+                    ? "border-pink-300/80 bg-white/72 text-[#6d1645] hover:bg-pink-100"
+                    : "border-emerald-200/25 bg-black/35 text-emerald-50 hover:border-yellow-300/55 hover:bg-yellow-300/10"
+                ].join(" ")}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={confirmCreditStart}
+                className={[
+                  "inline-flex min-h-12 items-center justify-center rounded-full px-4 py-3 text-sm font-black transition hover:-translate-y-0.5",
+                  isFairyTheme
+                    ? "bg-[linear-gradient(135deg,#ec4899,#d946ef,#7c3aed)] text-white shadow-[0_14px_34px_rgba(190,24,93,0.32)] hover:bg-[linear-gradient(135deg,#f472b6,#e879f9,#8b5cf6)]"
+                    : "bg-yellow-300 text-[#042015] shadow-[0_14px_34px_rgba(250,204,21,0.18)] hover:bg-yellow-200"
+                ].join(" ")}
+              >
+                확인하고 해석 시작
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       {isReadingStarted && isDeckModalOpen && (
         <div
           className={[
@@ -2088,7 +2272,7 @@ export default function TarotPage() {
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <CreditBadge credits={credits} tone={isReadingFairyTheme ? "fairy" : "witch"} />
                   <span className={["rounded-full border px-3 py-2 text-xs font-black", isReadingFairyTheme ? "border-pink-200/45 bg-white/12 text-pink-50" : "border-emerald-200/20 bg-black/24 text-emerald-100"].join(" ")}>
-                    AI 타로 해석에는 {TAROT_READING_CREDIT_COST} Credits가 사용됩니다.
+                    {getTarotCreditPolicyText(readingCategory)}
                   </span>
                 </div>
               </div>
@@ -2287,6 +2471,18 @@ export default function TarotPage() {
                 {readingBirthDate && (
                   <p className={["mt-2 text-xs font-bold sm:text-sm", isReadingFairyTheme ? "text-pink-50/78" : "text-emerald-100/75"].join(" ")}>
                     {formatBirthDateLabel(readingBirthDate)} · {getCalendarTypeLabel(readingCalendarType)} 기준 개인화 해석
+                  </p>
+                )}
+                {tarotCreditNotice && (
+                  <p
+                    className={[
+                      "mt-3 inline-flex rounded-full border px-3 py-2 text-xs font-black sm:text-sm",
+                      isReadingFairyTheme
+                        ? "border-pink-200/55 bg-white/16 text-pink-50"
+                        : "border-yellow-300/35 bg-yellow-300/12 text-yellow-100"
+                    ].join(" ")}
+                  >
+                    {tarotCreditNotice}
                   </p>
                 )}
               </div>

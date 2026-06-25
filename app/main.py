@@ -14,12 +14,13 @@ import re
 import shutil
 import uuid
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -28,8 +29,12 @@ from pydantic import BaseModel, Field
 from app.services.conversion_service import ConversionError, UnsupportedConversionError, convert_file
 from app.services.auth_service import create_access_token, decode_access_token, hash_password, verify_password
 from app.services.credit_store import CreditStore
+from app.services.mock_payment_provider import MockProvider
+from app.services.payment_service import PaymentService
+from app.services.payment_store import PaymentStore
 from app.services.rag_service import RAGService
 from app.services.result_store import ResultStore
+from app.services.stripe_payment_provider import StripeProvider
 from app.services.user_store import UserStore
 
 
@@ -43,6 +48,7 @@ RESULTS_PATH = BASE_DIR / "backend" / "data" / "results.json"
 TAROT_READINGS_PATH = BASE_DIR / "backend" / "data" / "tarot_readings.json"
 USERS_PATH = BASE_DIR / "backend" / "data" / "users.json"
 CREDIT_TRANSACTIONS_PATH = BASE_DIR / "backend" / "data" / "credit_transactions.json"
+PAYMENTS_PATH = BASE_DIR / "backend" / "data" / "payments.json"
 CONVERSION_DIR = BASE_DIR / "backend" / "data" / "conversions"
 CONVERSION_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -68,6 +74,17 @@ rag_service = RAGService(
 result_store = ResultStore(RESULTS_PATH)
 user_store = UserStore(USERS_PATH)
 credit_store = CreditStore(CREDIT_TRANSACTIONS_PATH)
+payment_store = PaymentStore(PAYMENTS_PATH)
+
+
+def _get_payment_provider():
+    provider_name = os.getenv("PAYMENT_PROVIDER", "mock").strip().lower()
+    if provider_name == "stripe":
+        return StripeProvider()
+    return MockProvider()
+
+
+payment_service = PaymentService(payment_store, user_store, credit_store, _get_payment_provider())
 bearer_scheme = HTTPBearer(auto_error=False)
 ADMIN_EMAIL = "ggug0125@gmail.com"
 ADMIN_NAME = "관리자"
@@ -81,7 +98,11 @@ uploaded_files: Dict[str, Dict[str, Any]] = {}
 
 SummaryType = Literal["핵심 요약", "회의록 요약", "보고서 요약", "액션아이템"]
 ConvertTarget = Literal["csv", "pdf", "txt"]
-TAROT_READING_CREDIT_COST = 2
+TAROT_TODAY_CATEGORY = "오늘의 운세"
+TAROT_OTHER_READING_CREDIT_COST = 3
+TAROT_EXTRA_TODAY_CREDIT_COST = 1
+TAROT_PRICING_RULE = "tarot_category_based_v1"
+SEOUL_TZ = ZoneInfo("Asia/Seoul")
 
 
 class QueryRequest(BaseModel):
@@ -117,6 +138,18 @@ class AdminCreditAdjustRequest(BaseModel):
     description: str = Field(default="Admin credit adjustment", max_length=300)
 
 
+class PaymentPrepareRequest(BaseModel):
+    product_id: str = Field(..., min_length=1, max_length=80)
+
+
+class PaymentCheckoutRequest(BaseModel):
+    product_id: str = Field(..., min_length=1, max_length=80)
+
+
+class MockPaymentSuccessRequest(BaseModel):
+    payment_id: str = Field(..., min_length=1, max_length=120)
+
+
 class TarotCardRequest(BaseModel):
     position: str = Field(..., min_length=1, max_length=20)
     name: str = Field(..., min_length=1, max_length=80)
@@ -143,6 +176,7 @@ class TarotReadingResponse(BaseModel):
     caution: str
     finalMessage: str
     source: Literal["openai"]
+    credit_usage: Optional[Dict[str, Any]] = None
 
 
 class TarotSavedReading(BaseModel):
@@ -185,7 +219,7 @@ def _public_user(user: Dict[str, Any]) -> Dict[str, Any]:
         "name": user["name"],
         "role": "admin" if is_admin else "user",
         "plan": "Admin" if is_admin else "Free",
-        "credits": int(user.get("credits", 0) or 0),
+        "credits": user.get("credits", 0) or 0,
     }
 
 
@@ -196,6 +230,25 @@ def _normalize_email(email: str) -> str:
 def _validate_email(email: str) -> None:
     if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
         raise HTTPException(status_code=400, detail="Invalid email address")
+
+
+def calculate_document_credits(page_count: int) -> float:
+    if page_count <= 0:
+        return 0
+    if page_count <= 2:
+        return 1
+    return page_count * 0.5
+
+
+def _format_credit_amount(amount: float) -> str:
+    return str(int(amount)) if float(amount).is_integer() else str(amount)
+
+
+def _get_pdf_page_count(pdf_path: Path) -> int:
+    from pypdf import PdfReader
+
+    reader = PdfReader(str(pdf_path))
+    return len(reader.pages)
 
 
 @app.on_event("startup")
@@ -282,6 +335,31 @@ def _record_belongs_to_user(record: Dict[str, Any], user: Dict[str, Any]) -> boo
         bool(record.get("user_id") and record.get("user_id") == identity["user_id"])
         or bool(record.get("user_email") and record.get("user_email") == identity["user_email"])
     )
+
+
+def _build_ready_payment(product: Dict[str, Any], current_user: Dict[str, Any]) -> Dict[str, Any]:
+    identity = _user_identity(current_user)
+    now = datetime.now(timezone.utc).isoformat()
+    return {
+        "payment_id": uuid.uuid4().hex,
+        "user_id": identity["user_id"],
+        "user_email": identity["user_email"],
+        "product_id": product["product_id"],
+        "product_name": product["name"],
+        "product_type": product["product_type"],
+        "base_credits": int(product.get("base_credits", product.get("credits", 0)) or 0),
+        "bonus_credits": int(product.get("bonus_credits", 0) or 0),
+        "credits": int(product.get("credits", 0) or 0),
+        "amount": product["price"],
+        "amount_cents": int(product.get("amount_cents", 0) or 0),
+        "currency": product.get("currency", "USD"),
+        "status": "ready",
+        "provider": payment_service.provider.name,
+        "provider_payment_id": None,
+        "checkout_url": None,
+        "created_at": now,
+        "updated_at": now,
+    }
 
 
 def _get_file_record(file_id: str, current_user: Dict[str, Any]) -> Dict[str, Any]:
@@ -394,6 +472,105 @@ def _parse_json_object(text: str) -> Dict[str, Any]:
     if not isinstance(parsed, dict):
         raise ValueError("OpenAI response JSON must be an object")
     return parsed
+
+
+def _is_today_tarot_category(category: str) -> bool:
+    return category.strip() == TAROT_TODAY_CATEGORY
+
+
+def _parse_datetime(value: Any) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if not value:
+        return None
+
+    try:
+        text = str(value).strip()
+        if text.endswith("Z"):
+            text = f"{text[:-1]}+00:00"
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _seoul_day_bounds(now: Optional[datetime] = None) -> tuple[datetime, datetime]:
+    seoul_now = (now or datetime.now(timezone.utc)).astimezone(SEOUL_TZ)
+    day_start = seoul_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    return day_start, day_start.replace(day=day_start.day) + timedelta(days=1)
+
+
+def _has_used_free_today_tarot(current_user: Dict[str, Any], now: Optional[datetime] = None) -> bool:
+    identity = _user_identity(current_user)
+    seoul_start, seoul_end = _seoul_day_bounds(now)
+    utc_start = seoul_start.astimezone(timezone.utc).isoformat()
+    utc_end = seoul_end.astimezone(timezone.utc).isoformat()
+
+    mongodb_uri = os.getenv("MONGODB_URI")
+    if mongodb_uri:
+        try:
+            from pymongo import MongoClient
+
+            client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=3000)
+            collection = client["noteflow"]["tarot_readings"]
+            return collection.find_one({
+                "user_id": identity["user_id"],
+                "category": TAROT_TODAY_CATEGORY,
+                "source": "openai",
+                "created_at": {"$gte": utc_start, "$lt": utc_end},
+            }) is not None
+        except Exception as exc:
+            print(f"Tarot daily free MongoDB check failed, falling back to JSON: {exc}")
+
+    try:
+        with TAROT_READINGS_PATH.open("r", encoding="utf-8") as file:
+            data = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        data = []
+
+    if not isinstance(data, list):
+        return False
+
+    for item in data:
+        if (
+            item.get("user_id") != identity["user_id"]
+            or item.get("category") != TAROT_TODAY_CATEGORY
+            or item.get("source") != "openai"
+        ):
+            continue
+
+        created_at = _parse_datetime(item.get("created_at"))
+        if not created_at:
+            continue
+
+        seoul_created_at = created_at.astimezone(SEOUL_TZ)
+        if seoul_start <= seoul_created_at < seoul_end:
+            return True
+
+    return False
+
+
+def _get_tarot_credit_policy(category: str, current_user: Dict[str, Any]) -> Dict[str, Any]:
+    if _is_today_tarot_category(category):
+        free_daily = not _has_used_free_today_tarot(current_user)
+        return {
+            "credit_cost": 0 if free_daily else TAROT_EXTRA_TODAY_CREDIT_COST,
+            "free_daily": free_daily,
+        }
+
+    return {
+        "credit_cost": TAROT_OTHER_READING_CREDIT_COST,
+        "free_daily": False,
+    }
+
+
+def _format_credit_shortage(required: float, current: float) -> str:
+    return (
+        "크레딧이 부족합니다. "
+        f"필요한 크레딧: {_format_credit_amount(required)}, "
+        f"보유 크레딧: {_format_credit_amount(current)}"
+    )
 
 
 def _save_tarot_reading_record(record: Dict[str, Any]) -> None:
@@ -631,9 +808,178 @@ async def get_me(current_user: Dict[str, Any] = Depends(get_current_user)):
 @app.get("/credits/me")
 async def get_my_credits(current_user: Dict[str, Any] = Depends(get_current_user)):
     return {
-        "credits": int(current_user.get("credits", 0) or 0),
+        "credits": current_user.get("credits", 0) or 0,
         "user": _public_user(current_user),
     }
+
+
+@app.get("/payments/products")
+async def list_payment_products(current_user: Dict[str, Any] = Depends(get_current_user)):
+    payment_store.create_default_credit_products()
+    return payment_store.get_credit_products()
+
+
+@app.post("/payments/prepare")
+async def prepare_payment(
+    request: PaymentPrepareRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    payment_store.create_default_credit_products()
+    product = payment_store.get_product(request.product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Payment product not found")
+
+    saved_payment = payment_store.create_payment(_build_ready_payment(product, current_user))
+
+    return {
+        "payment_id": saved_payment["payment_id"],
+        "product_id": saved_payment["product_id"],
+        "product_name": saved_payment["product_name"],
+        "base_credits": saved_payment["base_credits"],
+        "bonus_credits": saved_payment["bonus_credits"],
+        "credits": saved_payment["credits"],
+        "amount": saved_payment["amount"],
+        "amount_cents": saved_payment["amount_cents"],
+        "currency": saved_payment["currency"],
+        "status": saved_payment["status"],
+        "provider": saved_payment["provider"],
+    }
+
+
+@app.post("/payments/checkout")
+async def create_payment_checkout(
+    request: PaymentCheckoutRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    if not _is_admin_user(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="결제 기능은 현재 준비 중입니다. 정식 오픈 후 이용 가능합니다.",
+        )
+
+    payment_store.create_default_credit_products()
+    product = payment_store.get_product(request.product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Payment product not found")
+
+    try:
+        payment = payment_service.create_checkout(product, current_user)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to create checkout: {exc}") from exc
+
+    return {
+        "payment_id": payment["payment_id"],
+        "product_id": payment.get("product_id"),
+        "product_name": payment.get("product_name"),
+        "plan_name": payment.get("plan_name"),
+        "base_credits": payment.get("base_credits"),
+        "bonus_credits": payment.get("bonus_credits"),
+        "credits": payment.get("credits"),
+        "amount": payment.get("amount"),
+        "amount_cents": payment.get("amount_cents"),
+        "currency": payment.get("currency"),
+        "checkout_url": payment.get("checkout_url"),
+        "provider": payment.get("provider"),
+        "provider_payment_id": payment.get("provider_payment_id"),
+        "status": payment.get("status"),
+    }
+
+
+@app.post("/payments/mock/success")
+async def mock_payment_success(
+    request: MockPaymentSuccessRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    payment = payment_store.get_payment(request.payment_id)
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+
+    identity = _user_identity(current_user)
+    if payment.get("user_id") != identity["user_id"] and not _is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail="Not allowed to complete this payment")
+
+    try:
+        result = payment_service.handle_webhook_success(request.payment_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Mock payment success failed: {exc}") from exc
+
+    return {
+        "message": "Mock payment completed",
+        **result,
+    }
+
+
+@app.post("/payments/webhook/mock")
+async def mock_payment_webhook(request: MockPaymentSuccessRequest):
+    try:
+        result = payment_service.handle_webhook_success(request.payment_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Mock webhook failed: {exc}") from exc
+
+    return {
+        "message": "Mock webhook processed",
+        **result,
+    }
+
+
+@app.post("/payments/webhook/stripe")
+async def stripe_payment_webhook(
+    request: Request,
+    stripe_signature: Optional[str] = Header(default=None, alias="stripe-signature"),
+):
+    if payment_service.provider.name != "stripe":
+        raise HTTPException(status_code=400, detail="Stripe provider is not enabled")
+
+    payload = await request.body()
+    try:
+        event = payment_service.provider.webhook(payload, stripe_signature)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid Stripe webhook: {exc}") from exc
+
+    if event.get("status") == "ignored":
+        return {
+            "message": "Stripe webhook ignored",
+            "event_type": event.get("event_type"),
+        }
+
+    payment_id = str(event.get("payment_id") or "").strip()
+    if not payment_id:
+        raise HTTPException(status_code=400, detail="Stripe webhook missing payment_id")
+
+    try:
+        result = payment_service.handle_webhook_success(payment_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Stripe webhook processing failed: {exc}") from exc
+
+    return {
+        "message": "Stripe webhook processed",
+        "event_type": event.get("event_type"),
+        **result,
+    }
+
+
+@app.get("/payments/me")
+async def list_my_payments(
+    limit: int = Query(default=50, ge=1, le=200),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    identity = _user_identity(current_user)
+    return payment_store.get_user_payments(identity["user_id"], limit=limit)
+
+
+@app.get("/payments/history")
+async def list_payment_history(
+    limit: int = Query(default=50, ge=1, le=200),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    identity = _user_identity(current_user)
+    return payment_store.get_user_payments(identity["user_id"], limit=limit)
 
 
 @app.get("/credits/transactions")
@@ -793,9 +1139,14 @@ async def create_tarot_reading(
     request: TarotReadingRequest,
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
-    current_credits = int(current_user.get("credits", 0) or 0)
-    if current_credits < TAROT_READING_CREDIT_COST:
-        raise HTTPException(status_code=402, detail="크레딧이 부족합니다.")
+    tarot_policy = _get_tarot_credit_policy(request.category, current_user)
+    credit_cost = float(tarot_policy["credit_cost"])
+    current_credits = float(current_user.get("credits", 0) or 0)
+    if current_credits < credit_cost:
+        raise HTTPException(
+            status_code=402,
+            detail=_format_credit_shortage(credit_cost, current_credits),
+        )
 
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -900,27 +1251,6 @@ async def create_tarot_reading(
             detail=f"OpenAI tarot reading response missing fields: {', '.join(missing_fields)}. Use local tarot reading fallback.",
         )
 
-    updated_user = user_store.update_credits(str(current_user["user_id"]), -TAROT_READING_CREDIT_COST)
-    if not updated_user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    balance_after = int(updated_user.get("credits", 0) or 0)
-    identity = _user_identity(updated_user)
-    credit_store.append_transaction({
-        "transaction_id": uuid.uuid4().hex,
-        "user_id": identity["user_id"],
-        "user_email": identity["user_email"],
-        "type": "tarot_use",
-        "amount": -TAROT_READING_CREDIT_COST,
-        "balance_after": balance_after,
-        "description": "AI 타로 이용",
-        "metadata": {
-            "category": request.category,
-            "theme": request.theme,
-        },
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    })
-
     return {
         **{field: str(parsed[field]).strip() for field in required_fields},
         "source": "openai",
@@ -932,6 +1262,21 @@ async def save_tarot_reading(
     request: SaveTarotReadingRequest,
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
+    should_charge = request.source == "openai"
+    tarot_policy = (
+        _get_tarot_credit_policy(request.category, current_user)
+        if should_charge
+        else {"credit_cost": 0, "free_daily": False}
+    )
+    credit_cost = float(tarot_policy["credit_cost"])
+    free_daily = bool(tarot_policy["free_daily"])
+    credits_before = float(current_user.get("credits", 0) or 0)
+    if credits_before < credit_cost:
+        raise HTTPException(
+            status_code=402,
+            detail=_format_credit_shortage(credit_cost, credits_before),
+        )
+
     created_at = datetime.now(timezone.utc).isoformat()
     reading_id = uuid.uuid4().hex
     normalized_birth_date = (request.birth_date or "").strip()
@@ -957,10 +1302,48 @@ async def save_tarot_reading(
             detail=f"Failed to save tarot reading: {exc}",
         ) from exc
 
+    updated_user = current_user
+    credits_after = credits_before
+    if credit_cost > 0:
+        updated_user = user_store.update_credits(str(current_user["user_id"]), -credit_cost)
+        if not updated_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        credits_after = float(updated_user.get("credits", 0) or 0)
+
+    if should_charge:
+        identity = _user_identity(updated_user)
+        credit_store.append_transaction({
+            "transaction_id": uuid.uuid4().hex,
+            "user_id": identity["user_id"],
+            "user_email": identity["user_email"],
+            "type": "usage",
+            "service": "tarot",
+            "amount": -credit_cost,
+            "credits_before": credits_before,
+            "credits_after": credits_after,
+            "description": f"Tarot reading: {request.category}",
+            "metadata": {
+                "category": request.category,
+                "reading_id": reading_id,
+                "credit_cost": credit_cost,
+                "pricing_rule": TAROT_PRICING_RULE,
+                "free_daily": free_daily,
+            },
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+
     return {
         "message": "타로 결과가 저장되었습니다.",
         "reading_id": reading_id,
         "created_at": created_at,
+        "credit_usage": {
+            "service": "tarot",
+            "category": request.category,
+            "credit_cost": credit_cost,
+            "free_daily": free_daily,
+            "credits_before": credits_before,
+            "credits_after": credits_after,
+        },
     }
 
 
@@ -1026,6 +1409,27 @@ async def upload_pdf(
     finally:
         await file.close()
 
+    try:
+        page_count = _get_pdf_page_count(dest_path)
+    except Exception as exc:
+        if dest_path.exists():
+            dest_path.unlink()
+        raise HTTPException(status_code=400, detail=f"Failed to read PDF page count: {exc}") from exc
+
+    credit_cost = calculate_document_credits(page_count)
+    credits_before = float(current_user.get("credits", 0) or 0)
+    if credit_cost > credits_before:
+        if dest_path.exists():
+            dest_path.unlink()
+        raise HTTPException(
+            status_code=402,
+            detail=(
+                "크레딧이 부족합니다. "
+                f"필요한 크레딧: {_format_credit_amount(credit_cost)}, "
+                f"보유 크레딧: {_format_credit_amount(credits_before)}"
+            ),
+        )
+
     text = rag_service.extract_text_from_pdf(str(dest_path))
 
     if not text or not text.strip():
@@ -1069,6 +1473,7 @@ async def upload_pdf(
         "created_at": created_at,
         "text_length": len(text),
         "chunk_count": len(chunks),
+        "page_count": page_count,
         "status": "ready",
         **_user_identity(current_user),
     }
@@ -1078,11 +1483,41 @@ async def upload_pdf(
         "upload_path": str(dest_path),
         "text_length": len(text),
         "chunk_count": len(chunks),
+        "page_count": page_count,
         "status": "ready",
         "created_at": created_at,
         **_user_identity(current_user),
     }
     _safe_save_result("documents", document_record)
+
+    updated_user = current_user
+    credits_after = credits_before
+    if credit_cost > 0:
+        updated_user = user_store.update_credits(str(current_user["user_id"]), -credit_cost)
+        if not updated_user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        credits_after = float(updated_user.get("credits", 0) or 0)
+        identity = _user_identity(updated_user)
+        credit_store.append_transaction({
+            "transaction_id": uuid.uuid4().hex,
+            "user_id": identity["user_id"],
+            "user_email": identity["user_email"],
+            "type": "usage",
+            "service": "document_assistant",
+            "amount": -credit_cost,
+            "credits_before": credits_before,
+            "credits_after": credits_after,
+            "description": f"Document analysis: {filename}, {page_count} pages",
+            "metadata": {
+                "file_id": file_id,
+                "filename": filename,
+                "page_count": page_count,
+                "credit_cost": credit_cost,
+                "pricing_rule": "document_page_based_v1",
+            },
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
 
     return JSONResponse(
         {
@@ -1092,6 +1527,13 @@ async def upload_pdf(
             "chunk_count": len(chunks),
             "status": "ready",
             "created_at": created_at,
+            "credit_usage": {
+                "service": "document_assistant",
+                "page_count": page_count,
+                "credit_cost": credit_cost,
+                "credits_before": credits_before,
+                "credits_after": credits_after,
+            },
         }
     )
 

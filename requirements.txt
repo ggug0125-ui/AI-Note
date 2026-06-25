@@ -16,3 +16,4 @@ openpyxl
 xlrd
 reportlab
 pymongo
+stripe

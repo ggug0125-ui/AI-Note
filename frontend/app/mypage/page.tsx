@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Bot,
@@ -102,6 +102,63 @@ type AssistantRecords = {
   questions: QuestionRecord[];
 };
 
+type CreditProduct = {
+  product_id: string;
+  name: string;
+  product_type: string;
+  credits: number;
+  base_credits?: number;
+  bonus_credits?: number;
+  price: number;
+  amount_cents: number;
+  currency: string;
+  status: string;
+  badge?: string;
+};
+
+type PreparedPayment = {
+  payment_id: string;
+  product_id: string;
+  product_name: string;
+  plan_name?: string;
+  base_credits?: number;
+  bonus_credits?: number;
+  credits: number;
+  amount: number;
+  amount_cents: number;
+  currency: string;
+  status: string;
+  provider: string;
+  checkout_url?: string | null;
+};
+
+type PaymentRecord = {
+  payment_id: string;
+  product_id?: string;
+  product_name: string;
+  plan_name?: string;
+  base_credits?: number;
+  bonus_credits?: number;
+  credits: number;
+  amount: number;
+  amount_cents?: number;
+  currency: string;
+  status: string;
+  provider: string;
+  created_at: string;
+  paid_at?: string | null;
+};
+
+type MockPaymentSuccessResponse = {
+  payment?: PreparedPayment;
+  credit_usage?: {
+    credits_added?: number;
+    credits_before?: number | null;
+    credits_after?: number | null;
+    already_paid?: boolean;
+  } | null;
+};
+
 type MyPageTab = "assistant" | "tarot" | "profile" | "billing" | "payments";
 type AssistantDetailType = "uploads" | "summaries" | "keywords" | "questions";
 type ConfirmationModalType = "logout" | "withdrawal" | null;
@@ -198,6 +255,141 @@ function getPlanLabel(plan: string | undefined) {
   return plan?.trim() || "Free";
 }
 
+function formatPaymentAmount(amount: number | undefined, currency = "USD") {
+  const safeAmount = typeof amount === "number" && Number.isFinite(amount) ? amount : 0;
+  if (currency === "USD") {
+    return `$${safeAmount.toLocaleString("en-US")}`;
+  }
+
+  return `${safeAmount.toLocaleString("en-US")} ${currency}`;
+}
+
+function formatCreditCount(value: number | undefined) {
+  const safeValue = typeof value === "number" && Number.isFinite(value) ? value : 0;
+  return safeValue.toLocaleString("en-US");
+}
+
+function getCreditBreakdown(item: { base_credits?: number; bonus_credits?: number; credits?: number }) {
+  const credits = Number(item.credits || 0);
+  const bonusCredits = Number(item.bonus_credits || 0);
+  const baseCredits = Number(item.base_credits ?? Math.max(credits - bonusCredits, 0));
+
+  return { baseCredits, bonusCredits, credits };
+}
+
+function getExtraPercent(baseCredits: number, bonusCredits: number) {
+  if (baseCredits <= 0 || bonusCredits <= 0) {
+    return 0;
+  }
+
+  return Math.round((bonusCredits / baseCredits) * 100);
+}
+
+function isFeaturedCreditProduct(productId: string) {
+  return productId === "credit_150" || productId === "credit_1000" || productId === "credit_2200";
+}
+
+function getFeaturedLabel(productId: string, fallback = "") {
+  const labels: Record<string, string> = {
+    credit_150: "BEST VALUE",
+    credit_1000: "DOUBLE CREDIT",
+    credit_2200: "ULTIMATE"
+  };
+
+  return labels[productId] || fallback;
+}
+
+function getCreditProductTone(productId: string) {
+  if (productId === "credit_2200") {
+    return {
+      card: "border-[#C99A3C] bg-[linear-gradient(135deg,#FFF8EE_0%,#FFF4DE_100%)] shadow-[0_16px_36px_rgba(124,82,27,0.12)] hover:border-[#B88322]",
+      badge: "border-[#B88322]/70 bg-[#E3B456] text-[#3B260D]",
+      badgePrefix: "♛ ",
+      accent: "text-[#6E4614]",
+      amount: "text-[#2F2418]",
+      panel: "border-[#E4C889] bg-[#FFF8EA]",
+      extra: "border-[#D9B86B]/75 bg-[#FFF1C4] text-[#6E4614]",
+      button: "bg-[linear-gradient(135deg,#D79B34_0%,#EFC36B_100%)]"
+    };
+  }
+
+  if (productId === "credit_1000") {
+    return {
+      card: "border-[#D1A847] bg-[#FFF7E2] shadow-[0_14px_32px_rgba(124,82,27,0.10)] hover:border-[#BF9232] hover:shadow-[0_22px_48px_rgba(124,82,27,0.16)]",
+      badge: "border-[#C89A35]/70 bg-[#FFE7A8] text-[#604019]",
+      badgePrefix: "",
+      accent: "text-[#7A4F16]",
+      amount: "text-[#2F2418]",
+      panel: "border-[#E4C889] bg-[#FFF9EA]",
+      extra: "border-[#D9B86B]/70 bg-[#FFF2C9] text-[#7A4F16]",
+      button: "bg-[linear-gradient(135deg,#DFA84A_0%,#F1C875_100%)]"
+    };
+  }
+
+  if (productId === "credit_360") {
+    return {
+      card: "border-[#DEBD6A] bg-[#FFF9EC] hover:border-[#CEA64B]",
+      badge: "border-[#D3A84F]/70 bg-[#FFEBC0] text-[#73501C]",
+      badgePrefix: "",
+      accent: "text-[#875D1F]",
+      amount: "text-[#2F2418]",
+      panel: "border-[#EAD8AA] bg-[#FFFBF0]",
+      extra: "border-[#E2C985]/70 bg-[#FFF6D9] text-[#7A551D]",
+      button: "bg-[linear-gradient(135deg,#E5AE54_0%,#F2CC82_100%)]"
+    };
+  }
+
+  if (productId === "credit_150") {
+    return {
+      card: "border-[#E5A979] bg-[#FFF1E5] hover:border-[#D99561]",
+      badge: "border-[#D9A23A]/70 bg-[#F4C96F] text-[#4D3212]",
+      badgePrefix: "★ ",
+      accent: "text-[#8A5B1C]",
+      amount: "text-[#2F2418]",
+      panel: "border-[#EABF9D] bg-[#FFF7EF]",
+      extra: "border-[#E5C575]/70 bg-[#FFF4CE] text-[#7B551A]",
+      button: "bg-[linear-gradient(135deg,#E7A15F_0%,#EFC66F_100%)]"
+    };
+  }
+
+  if (productId === "credit_65") {
+    return {
+      card: "border-[#ECC09D] bg-[#FFF5EC] hover:border-[#E3A978]",
+      badge: "border-[#E7A875]/70 bg-[#FFDDBF] text-[#7B4D22]",
+      badgePrefix: "",
+      accent: "text-[#9A6230]",
+      amount: "text-[#2F2418]",
+      panel: "border-[#F1D3B8] bg-[#FFF9F2]",
+      extra: "border-[#E8C77A]/65 bg-[#FFF6D9] text-[#80591D]",
+      button: "bg-[linear-gradient(135deg,#E9A86B_0%,#EFC77E_100%)]"
+    };
+  }
+
+  if (productId === "credit_25") {
+    return {
+      card: "border-[#EBCDB4] bg-[#FFFDF8] hover:border-[#E7B98F]",
+      badge: "border-[#E9BD98]/70 bg-[#FFF0E2] text-[#7A4E2B]",
+      badgePrefix: "",
+      accent: "text-[#5F4128]",
+      amount: "text-[#2F2418]",
+      panel: "border-[#EAD8C1] bg-white/70",
+      extra: "border-[#EAD8C1] bg-[#FFF8EE] text-[#7A6245]",
+      button: "bg-[linear-gradient(135deg,#E8AA73_0%,#EBCB8A_100%)]"
+    };
+  }
+
+  return {
+    card: "border-[#EAD8C1] bg-[#FFFDF8] hover:border-[#EBC8A8]",
+    badge: "border-[#EAD8C1] bg-white/75 text-[#7A6245]",
+    badgePrefix: "",
+    accent: "text-[#7A6245]",
+    amount: "text-[#2F2418]",
+    panel: "border-[#EAD8C1] bg-white/70",
+    extra: "border-[#EAD8C1] bg-[#FFF8EE] text-[#7A6245]",
+    button: "bg-[linear-gradient(135deg,#E6A970_0%,#E9CA8A_100%)]"
+  };
+}
+
 function clearAuthStorage() {
   window.localStorage.removeItem(TOKEN_KEY);
   window.localStorage.removeItem(USER_KEY);
@@ -208,6 +400,7 @@ export default function MyPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [activeTab, setActiveTab] = useState<MyPageTab>("assistant");
+  const [paymentResult, setPaymentResult] = useState<string | null>(null);
   const [savedReadings, setSavedReadings] = useState<SavedTarotReading[]>([]);
   const [isLoadingReadings, setIsLoadingReadings] = useState(false);
   const [readingsError, setReadingsError] = useState(false);
@@ -231,6 +424,36 @@ export default function MyPage() {
   const [tarotActionMessage, setTarotActionMessage] = useState<ActionMessage>(null);
   const [assistantActionMessage, setAssistantActionMessage] = useState<ActionMessage>(null);
   const [withdrawalMessage, setWithdrawalMessage] = useState<ActionMessage>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab") as MyPageTab | null;
+    if (tab && menuItems.some((item) => item.id === tab)) {
+      setActiveTab(tab);
+    }
+    setPaymentResult(params.get("payment"));
+  }, []);
+
+  useEffect(() => {
+    if (paymentResult !== "success") {
+      return;
+    }
+
+    authenticatedFetch(`${API_BASE_URL}/credits/me`)
+      .then(async (response) => {
+        if (!response.ok) {
+          return;
+        }
+        const data = (await response.json()) as { user?: AuthUser };
+        if (data.user) {
+          window.localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+          setUser((current) => current ? { ...current, ...data.user } : data.user ?? current);
+        }
+      })
+      .catch(() => {
+        // Payment return refresh should not block the page.
+      });
+  }, [paymentResult]);
   const [tarotReadingFilter, setTarotReadingFilter] = useState("전체");
 
   useEffect(() => {
@@ -598,6 +821,17 @@ export default function MyPage() {
   return (
     <main className="min-h-screen bg-[#F5F2EC] px-4 py-6 text-ink sm:px-6 lg:px-10">
       <Header />
+
+      {paymentResult === "success" && (
+        <div className="mx-auto mt-6 max-w-7xl rounded-2xl border border-[#E2C985]/70 bg-[#FFF8EE] p-4 text-sm font-bold text-[#7A551D]">
+          결제가 완료되었습니다. Stripe Webhook 확인 후 크레딧이 반영됩니다.
+        </div>
+      )}
+      {paymentResult === "cancel" && (
+        <div className="mx-auto mt-6 max-w-7xl rounded-2xl border border-[#EAD8C1] bg-white/75 p-4 text-sm font-bold text-[#7A6245]">
+          결제가 취소되었습니다. 크레딧은 반영되지 않았습니다.
+        </div>
+      )}
 
       <section className="mx-auto mt-8 grid max-w-7xl gap-5 lg:grid-cols-[280px_1fr]">
         <aside className="h-fit rounded-3xl border border-black/10 bg-white p-4 shadow-sm">
@@ -1359,27 +1593,303 @@ function ProfilePanel({ user }: { user: AuthUser }) {
 }
 
 function BillingPanel({ user }: { user: AuthUser }) {
+  const searchParams = useSearchParams();
+  const [credits, setCredits] = useState(0);
+  const [products, setProducts] = useState<CreditProduct[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isPreparingProductId, setIsPreparingProductId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [preparedPayment, setPreparedPayment] = useState<PreparedPayment | null>(null);
+  const paymentResult = searchParams.get("payment");
+  const isPaymentEnabled = user.role === "admin";
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadBillingData() {
+      setIsLoading(true);
+      setErrorMessage("");
+
+      try {
+        const [creditsResponse, productsResponse] = await Promise.all([
+          authenticatedFetch(`${API_BASE_URL}/credits/me`),
+          authenticatedFetch(`${API_BASE_URL}/payments/products`)
+        ]);
+
+        if (!creditsResponse.ok || !productsResponse.ok) {
+          throw new Error("결제 정보를 불러오지 못했습니다.");
+        }
+
+        const creditsData = (await creditsResponse.json()) as { credits?: number; user?: { credits?: number } };
+        const productsData = (await productsResponse.json()) as CreditProduct[];
+
+        if (!isMounted) {
+          return;
+        }
+
+        setCredits(Number(creditsData.credits ?? creditsData.user?.credits ?? 0));
+        setProducts(Array.isArray(productsData) ? productsData : []);
+      } catch (error) {
+        if (isMounted) {
+          setErrorMessage(error instanceof Error ? error.message : "결제 정보를 불러오지 못했습니다.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadBillingData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  async function handleCheckoutPayment(productId: string) {
+    if (!isPaymentEnabled) {
+      setErrorMessage("결제 기능은 준비 중입니다.");
+      return;
+    }
+
+    setIsPreparingProductId(productId);
+    setPreparedPayment(null);
+    setErrorMessage("");
+
+    try {
+      const response = await authenticatedFetch(`${API_BASE_URL}/payments/checkout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ product_id: productId })
+      });
+
+      if (!response.ok) {
+        throw new Error("결제 준비에 실패했습니다.");
+      }
+
+      const data = (await response.json()) as PreparedPayment;
+      setPreparedPayment(data);
+
+      if (data.provider === "stripe" && data.checkout_url) {
+        window.location.href = data.checkout_url;
+        return;
+      }
+
+      if (data.provider !== "mock") {
+        throw new Error("지원하지 않는 결제 provider입니다.");
+      }
+
+      const successResponse = await authenticatedFetch(`${API_BASE_URL}/payments/mock/success`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ payment_id: data.payment_id })
+      });
+
+      if (!successResponse.ok) {
+        throw new Error("Mock 결제 성공 처리에 실패했습니다.");
+      }
+
+      const successData = (await successResponse.json()) as MockPaymentSuccessResponse;
+      const paidPayment = successData.payment ?? data;
+      setPreparedPayment(paidPayment);
+
+      if (successData.credit_usage?.credits_after !== undefined && successData.credit_usage.credits_after !== null) {
+        setCredits(Number(successData.credit_usage.credits_after));
+      } else {
+        const creditsResponse = await authenticatedFetch(`${API_BASE_URL}/credits/me`);
+        if (creditsResponse.ok) {
+          const creditsData = (await creditsResponse.json()) as { credits?: number; user?: { credits?: number } };
+          setCredits(Number(creditsData.credits ?? creditsData.user?.credits ?? credits));
+        }
+      }
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "결제 준비에 실패했습니다.");
+    } finally {
+      setIsPreparingProductId(null);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <PanelHeader
         eyebrow="Billing"
         title="결제 정보"
-        description="현재 요금제와 업그레이드 정보를 확인하는 공간입니다."
+        description="AI 어시스턴트와 AI 타로에서 사용할 크레딧을 USD 기준으로 충전합니다."
       />
-      <section className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm md:p-6">
-        <div className="rounded-3xl bg-gradient-to-br from-coral/10 to-red-50 p-5">
-          <p className="text-sm font-black text-coral">현재 요금제</p>
-          <h3 className="mt-2 text-4xl font-black text-ink">{getPlanLabel(user.plan)}</h3>
-          <p className="mt-3 text-sm font-bold leading-7 text-neutral-600">
-            업그레이드와 결제 API 연동은 준비중입니다.
-          </p>
-          <button
-            type="button"
-            disabled
-            className="mt-5 inline-flex h-11 cursor-not-allowed items-center justify-center rounded-full bg-neutral-200 px-5 text-sm font-black text-neutral-500"
-          >
-            업그레이드 준비중
-          </button>
+
+      <section className="rounded-3xl border border-[#E9D8BD] bg-[#FFFDF7] p-5 shadow-[0_18px_45px_rgba(124,82,27,0.08)] md:p-6">
+        <div className="rounded-3xl border border-[#E9D8C1] bg-[linear-gradient(135deg,#FFFDF8_0%,#FFF8EE_100%)] p-5 shadow-[0_14px_34px_rgba(124,82,27,0.08)] md:p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-[#8A6A35]">Current Balance</p>
+              <h3 className="mt-2 text-5xl font-black text-[#2F2418] sm:text-6xl">
+                {credits.toLocaleString("en-US")}
+                <span className="ml-2 text-2xl text-[#8A6A35] sm:text-3xl">Credits</span>
+              </h3>
+              <p className="mt-3 text-sm font-bold leading-6 text-[#6F5A40]">
+                Available for AI Assistant & AI Tarot
+              </p>
+            </div>
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#E2C985]/70 bg-white/70 px-4 py-2 text-sm font-black text-[#7A551D]">
+              <CreditCard size={16} />
+              Ready for USD payment
+            </div>
+          </div>
+        </div>
+        {paymentResult === "success" && (
+          <div className="mt-4 rounded-2xl border border-[#E2C985]/70 bg-[#FFF8EE] p-4 text-sm font-bold text-[#7A551D]">
+            결제가 완료되었습니다. 결제 확인 후 크레딧이 반영됩니다.
+          </div>
+        )}
+        {paymentResult === "cancel" && (
+          <div className="mt-4 rounded-2xl border border-[#EAD8C1] bg-white/75 p-4 text-sm font-bold text-[#7A6245]">
+            결제가 취소되었습니다. 크레딧은 아직 반영되지 않았습니다.
+          </div>
+        )}
+        {errorMessage && (
+          <div className="mt-4">
+            <StateMessage text={errorMessage} tone="warning" />
+          </div>
+        )}
+
+        {preparedPayment && (
+          <div className="mt-4 rounded-3xl border border-[#E8C77A]/55 bg-[#FFF8EE] p-5">
+            <p className="text-sm font-black text-[#8A5A14]">
+              결제 준비가 완료되었습니다. 실제 결제 연동은 다음 단계에서 진행됩니다.
+            </p>
+            <div className="mt-4 grid gap-3 text-sm font-bold text-neutral-700 sm:grid-cols-2 lg:grid-cols-5">
+              <span>payment_id: {preparedPayment.payment_id}</span>
+              <span>상품명: {preparedPayment.product_name}</span>
+              <span>금액: {formatPaymentAmount(preparedPayment.amount, preparedPayment.currency)}</span>
+              <span>Base: {formatCreditCount(getCreditBreakdown(preparedPayment).baseCredits)}</span>
+              <span>Bonus: {formatCreditCount(getCreditBreakdown(preparedPayment).bonusCredits)}</span>
+              <span>크레딧: {formatCreditCount(preparedPayment.credits)}</span>
+              <span>상태: {preparedPayment.status}</span>
+            </div>
+            {preparedPayment.provider === "mock" && (
+              <p className="mt-3 text-xs font-bold text-[#8A5A14]/80">
+                Mock 결제가 완료되어 크레딧이 즉시 반영되었습니다.
+              </p>
+            )}
+            {preparedPayment.provider !== "mock" && !preparedPayment.checkout_url && (
+              <p className="mt-3 text-xs font-bold text-[#8A5A14]/80">
+                checkout_url이 아직 생성되지 않아 Stripe Checkout 이동은 진행하지 않습니다.
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="mt-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-[#A66A1F]">Credit Products</p>
+              <h3 className="mt-1 text-2xl font-black text-ink">크레딧 충전 상품</h3>
+            </div>
+          </div>
+
+          {!isPaymentEnabled && (
+            <div className="mt-4 rounded-2xl border border-[#E8C77A]/60 bg-[#FFF8EE] p-4 text-sm font-bold leading-6 text-[#7A551D]">
+              <p className="text-base font-black">🚧 결제 기능 준비 중</p>
+              <p className="mt-2">현재 결제 시스템을 개발 및 테스트 중입니다.</p>
+              <p>정식 서비스 오픈 후 이용 가능합니다.</p>
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="mt-4">
+              <StateMessage text="크레딧 상품을 불러오는 중입니다." />
+            </div>
+          ) : products.length === 0 ? (
+            <div className="mt-4">
+              <StateMessage text="표시할 크레딧 상품이 없습니다." />
+            </div>
+          ) : (
+            <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+              {products.map((product) => {
+                const { baseCredits, bonusCredits, credits: totalCredits } = getCreditBreakdown(product);
+                const extraPercent = getExtraPercent(baseCredits, bonusCredits);
+                const featuredLabel = getFeaturedLabel(product.product_id, product.badge);
+                const isUltimate = product.product_id === "credit_2200";
+                const tone = getCreditProductTone(product.product_id);
+
+                return (
+                  <article
+                    key={product.product_id}
+                    className={[
+                      "rounded-2xl border p-5 transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_42px_rgba(124,82,27,0.13)]",
+                      tone.card,
+                      isUltimate ? "md:col-span-2 xl:col-span-6" : "xl:col-span-2"
+                    ].join(" ")}
+                  >
+                    <div className="flex h-full flex-col">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className={["inline-flex rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wide", tone.badge].join(" ")}>
+                          {tone.badgePrefix}{featuredLabel || "Standard"}
+                        </span>
+                        <span className="text-xs font-bold text-[#8A7354]">{product.currency}</span>
+                      </div>
+
+                      <h4 className="mt-4 text-xl font-black text-[#2F2418]">{product.name}</h4>
+
+                      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-wide text-[#8A7354]">Pay</p>
+                          <p className={["mt-1 text-3xl font-black", tone.amount].join(" ")}>
+                            {formatPaymentAmount(product.price, product.currency)}
+                            <span className="ml-2 text-sm font-bold text-[#8A7354]">USD</span>
+                          </p>
+                        </div>
+                        <div>
+                          <p className={['text-xs font-black uppercase tracking-wide', tone.accent].join(' ')}>Receive</p>
+                          <p className={["mt-1 text-3xl font-black", tone.accent].join(" ")}>
+                            {formatCreditCount(totalCredits)}
+                            <span className="ml-2 text-sm font-bold text-[#8A7354]">Credits</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className={["mt-5 rounded-2xl border p-4", tone.panel].join(" ")}>
+                        <p className="text-xs font-black uppercase tracking-wide text-[#8A7354]">Breakdown</p>
+                        <div className="mt-3 grid gap-3 text-sm font-bold text-[#5F4B32] sm:grid-cols-2">
+                          <div>
+                            <span className="block text-xs font-black uppercase tracking-wide text-[#8A7354]">Base Credits</span>
+                            {formatCreditCount(baseCredits)} Base
+                          </div>
+                          <div>
+                            <span className="block text-xs font-black uppercase tracking-wide text-[#8A7354]">Bonus Credits</span>
+                            {bonusCredits > 0 ? `+${formatCreditCount(bonusCredits)} Bonus` : "기본 충전"}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3">
+                        <span className={["inline-flex rounded-full border px-3 py-1.5 text-xs font-black", tone.extra].join(" ")}>
+                          {bonusCredits > 0 ? `${extraPercent}% Extra` : "No Bonus / Standard Charge"}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => void handleCheckoutPayment(product.product_id)}
+                        disabled={!isPaymentEnabled || isPreparingProductId === product.product_id}
+                        className={[
+                          "mt-5 inline-flex h-12 w-full items-center justify-center rounded-full px-5 text-sm font-black text-[#34220F] shadow-[0_10px_22px_rgba(124,82,27,0.13)] transition hover:-translate-y-0.5 hover:brightness-105 hover:shadow-[0_14px_28px_rgba(124,82,27,0.16)] disabled:cursor-not-allowed disabled:opacity-50",
+                          tone.button
+                        ].join(" ")}
+                      >
+                        {isPreparingProductId === product.product_id ? "준비 중..." : "Charge Credits"}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
     </div>
@@ -1387,21 +1897,89 @@ function BillingPanel({ user }: { user: AuthUser }) {
 }
 
 function PaymentsPanel() {
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadPayments() {
+      setIsLoading(true);
+      setErrorMessage("");
+
+      try {
+        const response = await authenticatedFetch(`${API_BASE_URL}/payments/history`);
+        if (!response.ok) {
+          throw new Error("결제 내역을 불러오지 못했습니다.");
+        }
+
+        const data = (await response.json()) as PaymentRecord[];
+        if (isMounted) {
+          setPayments(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setErrorMessage(error instanceof Error ? error.message : "결제 내역을 불러오지 못했습니다.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadPayments();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <div className="space-y-5">
       <PanelHeader
         eyebrow="Payment History"
         title="결제 내역"
-        description="결제 이력 조회 기능은 아직 준비 중입니다."
+        description="크레딧 충전을 위해 준비된 결제 내역을 최신순으로 확인합니다."
       />
-      <section className="rounded-3xl border border-black/10 bg-white p-8 text-center shadow-sm">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-coral/10 text-coral">
-          <ReceiptText size={28} />
-        </div>
-        <h3 className="mt-5 text-2xl font-black text-ink">결제 내역 준비중</h3>
-        <p className="mt-3 text-sm font-bold text-neutral-600">
-          실제 결제 API가 연결되면 결제일, 상품명, 금액을 이곳에서 확인할 수 있습니다.
-        </p>
+      <section className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm md:p-6">
+        {errorMessage ? (
+          <StateMessage text={errorMessage} tone="warning" />
+        ) : isLoading ? (
+          <StateMessage text="결제 내역을 불러오는 중입니다." />
+        ) : payments.length === 0 ? (
+          <StateMessage text="아직 결제 내역이 없습니다." />
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {payments.map((payment) => {
+              const { baseCredits, bonusCredits, credits: totalCredits } = getCreditBreakdown(payment);
+
+              return (
+                <article key={payment.payment_id} className="rounded-2xl border border-black/10 bg-neutral-50 p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-2 text-xs font-black text-coral">
+                        <CalendarDays size={14} />
+                        {formatSavedReadingDate(payment.created_at)}
+                      </p>
+                      <h3 className="mt-2 truncate text-xl font-black text-ink">{payment.product_name}</h3>
+                    </div>
+                    <span className="w-fit rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-black uppercase text-neutral-700">
+                      {payment.status}
+                    </span>
+                  </div>
+                  <div className="mt-4 grid gap-3 text-sm font-bold text-neutral-700 sm:grid-cols-2">
+                    <span>Amount: {formatPaymentAmount(payment.amount, payment.currency)} {payment.currency}</span>
+                    <span>{formatCreditCount(baseCredits)} 기본 + {formatCreditCount(bonusCredits)} 보너스 = {formatCreditCount(totalCredits)} Credits</span>
+                    <span>provider: {payment.provider}</span>
+                    <span>payment_id: {payment.payment_id}</span>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
       </section>
     </div>
   );

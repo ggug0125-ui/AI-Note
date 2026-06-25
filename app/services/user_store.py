@@ -90,11 +90,11 @@ class UserStore:
             self._write_unlocked(users)
             return next_user
 
-    def update_credits(self, user_id: str, amount: int) -> Optional[Dict[str, Any]]:
+    def update_credits(self, user_id: str, amount: float) -> Optional[Dict[str, Any]]:
         if self._collection is not None:
             updated_user = self._collection.find_one_and_update(
                 {"user_id": user_id},
-                {"$inc": {"credits": int(amount)}},
+                {"$inc": {"credits": float(amount)}},
                 return_document=self._return_document_after,
             )
             return self._public_record(updated_user) if updated_user else None
@@ -103,7 +103,7 @@ class UserStore:
             users = self._load_unlocked()
             for user in users:
                 if user.get("user_id") == user_id:
-                    user["credits"] = int(user.get("credits", 0) or 0) + int(amount)
+                    user["credits"] = float(user.get("credits", 0) or 0) + float(amount)
                     self._write_unlocked(users)
                     return self._public_record(user)
 
@@ -134,7 +134,7 @@ class UserStore:
     @staticmethod
     def _public_record(user: Dict[str, Any]) -> Dict[str, Any]:
         public_user = {key: value for key, value in user.items() if key != "_id"}
-        public_user["credits"] = int(public_user.get("credits", 0) or 0)
+        public_user["credits"] = public_user.get("credits", 0) or 0
         return public_user
 
     def _load_unlocked(self) -> List[Dict[str, Any]]:
