@@ -1,10 +1,14 @@
 # 📄 AI Note (NoteFlow AI)
 
-AI Note(NoteFlow AI)는 PDF 문서를 업로드하여 AI 기반 문서 분석, 자동 요약, 키워드 추출, 문서 질의응답(RAG), 파일 변환 기능을 제공하는 AI 문서 분석 SaaS 프로젝트입니다.
+> **AI-powered Document Assistant + AI Tarot + Credit & Payment Platform**
+
+AI Note(NoteFlow AI)는 **AI 문서 분석**, **RAG 기반 문서 질의응답**, **AI 타로 서비스**, **크레딧 기반 결제 시스템**을 하나의 플랫폼으로 통합한 AI SaaS 프로젝트입니다.
+
+사용자는 PDF 문서를 업로드하여 AI와 대화할 수 있으며, AI 타로를 통해 OpenAI 기반 운세 리딩을 받을 수 있습니다. 또한 크레딧 시스템과 결제 아키텍처를 통해 실제 SaaS 서비스 운영을 목표로 개발되었습니다.
 
 ---
 
-# 🚀 주요 기능
+# ✨ 주요 기능
 
 ## 👤 사용자 인증
 
@@ -13,33 +17,26 @@ AI Note(NoteFlow AI)는 PDF 문서를 업로드하여 AI 기반 문서 분석, �
 * JWT 인증
 * 로그인 유지
 * 로그아웃
-* 보호된 대시보드 접근
+* 보호된 페이지 접근
+* 관리자(Admin) 권한 관리
 
 ---
 
 ## 📄 AI 문서 어시스턴트
 
 * PDF 업로드
-* 파일 목록 조회
-* 문서 선택
-* 문서 기반 질의응답
+* 문서 분석
+* 문서 기반 질의응답(RAG)
+* OpenAI 응답 생성
 * 출처(Source) 표시
 * 문서 삭제
-
----
-
-## 📊 PDF 문서 분석
-
-* 문서 상태 분석
-* 텍스트 길이 확인
-* Chunk 개수 확인
-* 처리 상태 확인
+* 사용자별 문서 관리
 
 ---
 
 ## 📝 AI 자동 요약
 
-지원 요약 유형
+지원 기능
 
 * 핵심 요약
 * 회의록 요약
@@ -48,9 +45,9 @@ AI Note(NoteFlow AI)는 PDF 문서를 업로드하여 AI 기반 문서 분석, �
 
 ---
 
-## 🔑 키워드 추출
+## 🔑 AI 키워드 추출
 
-* 핵심 키워드 추출
+* 핵심 키워드
 * 토픽 추출
 * 키워드 개수 조절
 * 분석 범위 설정
@@ -59,69 +56,173 @@ AI Note(NoteFlow AI)는 PDF 문서를 업로드하여 AI 기반 문서 분석, �
 
 ## 💬 AI 문서 채팅 (RAG)
 
-* 문서 기반 질문
-* 관련 문서 검색
-* ChromaDB 유사도 검색
-* OpenAI 응답 생성
+* ChromaDB 벡터 검색
+* OpenAI 기반 답변
+* 문서 내용 기반 질문
+* 사용자별 대화 기록 저장
 
 ---
 
-## 📚 작업 기록
+## 🔄 문서 변환
 
-* 요약 결과 저장
-* 키워드 결과 저장
-* 질문/답변 저장
-* 문서별 이력 조회
-* 결과 삭제
+지원
 
----
+* Excel → CSV
+* Excel → PDF
+* HWPX → TXT
 
-## 🔄 파일 변환
-
-### 지원 형식
-
-Excel (.xlsx, .xls)
-
-→ CSV
-
-Excel (.xlsx, .xls)
-
-→ PDF
-
-HWPX
-
-→ TXT
-
-### 지원 예정
+예정
 
 * HWP → TXT
+* PDF → Word
 
 ---
 
-# 🏗 시스템 구조
+# 🃏 AI Tarot (Wicked Edition)
+
+AI Note만의 감성 AI 타로 서비스입니다.
+
+## 세계 선택
+
+### 🧙 Chichi
+
+* Wicked Witch World
+* 초록 마녀 컨셉
+* T형(MBTI) 스타일
+
+### 🧚 Lilla
+
+* Fairy World
+* 핑크 요정 컨셉
+* F형(MBTI) 스타일
+
+---
+
+## 타로 기능
+
+* 메이저 아르카나 22장
+* 카드 셔플
+* 3장 선택 (과거 / 현재 / 미래)
+* OpenAI 기반 타로 해석
+* 사용자 질문 기반 리딩
+* 결과 저장
+* 다시보기
+* 삭제
+* MongoDB 저장
+
+### 지원 카테고리
+
+* 오늘의 운세
+* 연애운
+* 재물운
+* 취업·진로
+* 학업운
+* 자유 질문
+
+---
+
+# 💎 Credit System
+
+AI Note는 크레딧 기반 서비스를 제공합니다.
+
+## 문서 AI
+
+* 1~2페이지 : 1 Credit
+* 3페이지 이상 : 0.5 Credit / Page
+
+## AI Tarot
+
+오늘의 운세
+
+* 하루 1회 무료
+* 이후 1 Credit
+
+기타 리딩
+
+* 3 Credits
+
+---
+
+## Credit 기능
+
+* Credit 잔액
+* Credit 사용 내역
+* Credit 충전 내역
+* 관리자 지급
+* 사용자별 Credit 관리
+
+---
+
+# 💳 Payment System
+
+확장 가능한 Payment Provider 구조를 적용했습니다.
+
+## Provider
+
+* MockProvider
+* StripeProvider
+* (예정) TossProvider
+
+## Payment 기능
+
+* PaymentService
+* Payment History
+* Credit Deposit
+* Credit Transaction
+* Stripe Checkout
+* Stripe Webhook
+* 중복 지급 방지
+* 관리자 테스트 모드
+
+---
+
+# 👤 My Page
+
+* AI 문서 기록
+* AI Tarot 기록
+* 결제 정보
+* 결제 내역
+* 사용자 정보
+* 관리자 기능
+
+---
+
+# 📊 관리자 기능
+
+* 관리자 전용 AI 기능
+* 사용자 관리
+* Credit 지급
+* Payment 테스트
+* 서비스 통계
+
+---
+
+# 🏗 시스템 아키텍처
 
 ```text
-사용자
+                    AI Note
 
-↓
+                       │
 
-Next.js Frontend
+            Next.js + React + Tailwind
 
-↓
+                       │
 
-FastAPI Backend
+                 FastAPI Backend
 
-↓
+                       │
 
-OpenAI API
+     ┌────────────┬─────────────┬────────────┐
 
-↓
+   OpenAI      MongoDB       Payment
 
-ChromaDB
+      │            │              │
 
-↓
+   ChromaDB    History      Mock / Stripe
 
-JSON Storage
+      │            │              │
+
+   AI Engine   Credit DB    PaymentService
 ```
 
 ---
@@ -143,20 +244,24 @@ JSON Storage
 ## AI
 
 * OpenAI API
-* ChromaDB
-* Vector Search (RAG)
+* LangChain
+* ChromaDB (RAG)
 
-## Data
+## Database
 
-* JSON Storage
-* Local File Storage
+* MongoDB Atlas
+* JSON Backup
 
-## Document Processing
+## Authentication
 
-* PyPDF
-* Pandas
-* OpenPyXL
-* ReportLab
+* JWT
+
+## Payment
+
+* PaymentProvider
+* Mock Payment
+* Stripe Checkout
+* Stripe Webhook
 
 ---
 
@@ -166,184 +271,124 @@ JSON Storage
 NoteFlowAI/
 
 ├── frontend/
-│   ├── app/
-│   ├── components/
-│   ├── public/
-│   └── package.json
 │
 ├── app/
-│   ├── main.py
-│   └── services/
+│   ├── services/
+│   │   ├── payment_provider.py
+│   │   ├── mock_payment_provider.py
+│   │   ├── stripe_payment_provider.py
+│   │   ├── payment_service.py
+│   │   ├── payment_store.py
+│   │   ├── credit_store.py
+│   │   └── ...
+│   │
+│   └── main.py
 │
 ├── data/
-│   ├── uploads/
-│   ├── conversions/
-│   ├── results.json
-│   └── users.json
-│
 ├── requirements.txt
 └── README.md
 ```
 
 ---
 
-# 🔐 인증 구조
+# 📡 주요 API
 
-```text
-회원가입
-
-↓
-
-로그인
-
-↓
-
-JWT 발급
-
-↓
-
-LocalStorage 저장
-
-↓
-
-대시보드 접근
-
-↓
-
-/auth/me 검증
-
-↓
-
-로그아웃
-```
-
----
-
-# 📡 API 목록
-
-## 인증
+## Authentication
 
 * POST /auth/register
 * POST /auth/login
 * GET /auth/me
-* POST /auth/logout
 
-## 회원가입 활성화
-
-배포 환경에서는 API 남용 방지를 위해 회원가입이 기본적으로 비활성화되어 있습니다.
-신규 회원가입을 허용하려면 `.env`에 아래 값을 설정한 뒤 백엔드 서버를 재시작하세요.
-
-```env
-ALLOW_REGISTER=true
-```
-
-기본값은 `false`이며, 비활성화 상태에서 `POST /auth/register` 요청은 HTTP 403과
-`현재 회원가입이 비활성화되어 있습니다.` 메시지를 반환합니다.
-
-## 문서 관리
+## Document
 
 * POST /upload
 * GET /files
-* GET /files/{file_id}
-* DELETE /files/{file_id}
+* DELETE /files/{id}
 
-## 문서 분석
+## AI
 
-* GET /analysis
 * POST /summary
 * POST /keywords
 * POST /query
 
-## 작업 기록
+## Tarot
 
-* GET /results
-* GET /results/{file_id}
-* DELETE /results/{file_id}
+* POST /tarot/reading
+* GET /tarot/readings
+* DELETE /tarot/readings/{id}
 
-## 파일 변환
+## Credits
 
-* POST /convert
-* GET /downloads/{filename}
+* GET /credits/me
+* GET /credits/transactions
 
----
+## Payment
 
-# ⚙ 실행 방법
-
-## Backend
-
-```bash
-python -m venv venv
-
-venv\Scripts\activate
-
-pip install -r requirements.txt
-
-uvicorn app.main:app --reload
-```
-
-## Frontend
-
-```bash
-cd frontend
-
-npm install
-
-npm run dev
-```
+* GET /payments/products
+* POST /payments/checkout
+* POST /payments/mock/success
+* POST /payments/webhook/stripe
+* GET /payments/history
 
 ---
 
-# 📈 현재 구현 완료 기능
+# 🚀 현재 구현 완료
 
-* PDF 업로드
-* PDF 문서 분석
+* JWT 로그인 시스템
+* MongoDB 사용자 관리
+* AI 문서 분석
+* RAG 문서 채팅
 * AI 자동 요약
-* 키워드 추출
-* AI 문서 채팅
-* 작업 기록
-* 문서 삭제
-* 파일 변환
-* 회원가입
-* 로그인
-* JWT 인증
+* AI 키워드 추출
+* 문서 변환
+* AI Tarot
+* Credit System
+* Payment Architecture
+* Mock Payment
+* Stripe Provider
+* Stripe Webhook
+* Payment History
+* Credit History
+* 관리자 시스템
+* 반응형 UI
 * 다크모드
-* 모바일 반응형 UI
 
 ---
 
-# 🔮 향후 개선 사항
+# 🔮 Roadmap
 
-## AI 기능
+### AI
 
 * OCR 문서 인식
-* 문서 번역
+* AI 보고서 생성
 * PPT 자동 생성
-* 보고서 자동 생성
-* AI 문서 비교
+* 문서 비교
 
-## 사용자 기능
+### Payment
 
-* OAuth 로그인
+* Stripe Live
+* Toss Payments
+* Subscription
 
-  * Google
-  * Kakao
-  * Naver
+### User
 
-* 마이페이지
+* Google Login
+* Kakao Login
+* Naver Login
 
-* 사용자별 문서 관리
+### Platform
 
-## SaaS 기능
-
-* 구독 플랜
-* 사용량 제한
-* 관리자 페이지
-* 결제 시스템
+* Prompt Library
+* AI Workflow
+* Team Workspace
 
 ---
 
 # 👨‍💻 Project
 
-AI Note (NoteFlow AI)
+**AI Note (NoteFlow AI)**
 
-AI 기반 문서 분석 및 문서 업무 자동화를 위한 SaaS 프로젝트
+> **AI Document Assistant + AI Tarot + Credit Platform + Payment System**
+
+AI 기반 문서 업무 자동화와 AI 타로 서비스를 통합한 차세대 AI SaaS 프로젝트입니다.
+
