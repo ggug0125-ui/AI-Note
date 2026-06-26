@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -104,20 +105,27 @@ type AssistantRecords = {
 
 type CreditProduct = {
   product_id: string;
-  name: string;
+  name?: string;
+  product_name?: string;
+  plan_name?: string;
   product_type: string;
+  region?: "kr" | "global" | string;
+  provider?: "toss" | "stripe" | string;
   credits: number;
   base_credits?: number;
   bonus_credits?: number;
-  price: number;
+  price?: number;
+  amount?: number;
   amount_cents: number;
   currency: string;
   status: string;
   badge?: string;
+  description?: string;
 };
 
 type PreparedPayment = {
   payment_id: string;
+  order_id?: string | null;
   product_id: string;
   product_name: string;
   plan_name?: string;
@@ -127,8 +135,9 @@ type PreparedPayment = {
   amount: number;
   amount_cents: number;
   currency: string;
+  region?: string;
   status: string;
-  provider: string;
+  provider: "mock" | "stripe" | "toss" | string;
   checkout_url?: string | null;
 };
 
@@ -257,11 +266,158 @@ function getPlanLabel(plan: string | undefined) {
 
 function formatPaymentAmount(amount: number | undefined, currency = "USD") {
   const safeAmount = typeof amount === "number" && Number.isFinite(amount) ? amount : 0;
+  if (currency === "KRW") {
+    return `\u20a9${safeAmount.toLocaleString("ko-KR")}`;
+  }
+
   if (currency === "USD") {
     return `$${safeAmount.toLocaleString("en-US")}`;
   }
 
   return `${safeAmount.toLocaleString("en-US")} ${currency}`;
+}
+
+function getProductDisplayName(product: CreditProduct) {
+  return product.product_name || product.plan_name || product.name || product.product_id;
+}
+
+function getProductGemIcon(productId: string) {
+  const icons: Record<string, string> = {
+    kr_starter: "/images/credit-starter-gem.png",
+    kr_standard: "/images/credit-premium-gem.png",
+    kr_premium: "/images/credit-standard-gem.png",
+    kr_business: "/images/credit-business-gem.png",
+    global_starter: "/images/credit-starter-gem.png",
+    global_standard: "/images/credit-premium-gem.png",
+    global_premium: "/images/credit-standard-gem.png",
+    global_business: "/images/credit-business-gem.png",
+  };
+
+  return icons[productId] || "";
+}
+
+function getPaymentHistoryGemIcon(payment: Pick<PaymentRecord, "product_id" | "product_name">) {
+  if (payment.product_id) {
+    const productIcon = getProductGemIcon(payment.product_id);
+    if (productIcon) {
+      return productIcon;
+    }
+  }
+
+  const productName = payment.product_name.toLowerCase();
+  if (productName.includes("business")) {
+    return "/images/credit-business-gem.png";
+  }
+  if (productName.includes("premium")) {
+    return "/images/credit-standard-gem.png";
+  }
+  if (productName.includes("standard")) {
+    return "/images/credit-premium-gem.png";
+  }
+  if (productName.includes("starter")) {
+    return "/images/credit-starter-gem.png";
+  }
+
+  return "";
+}
+
+function getProductRank(productId: string) {
+  if (productId.includes("business")) {
+    return "business";
+  }
+  if (productId.includes("premium")) {
+    return "premium";
+  }
+  if (productId.includes("standard")) {
+    return "standard";
+  }
+  return "starter";
+}
+
+function getAmountEffectClass(productId: string) {
+  const rank = getProductRank(productId);
+  const classes: Record<string, string> = {
+    starter: "credit-price-shimmer credit-price-shimmer-soft",
+    standard: "credit-price-shimmer credit-price-shimmer-standard",
+    premium: "credit-price-shimmer credit-price-shimmer-premium",
+    business: "credit-price-shimmer credit-price-shimmer-business",
+  };
+
+  return classes[rank];
+}
+
+function getCreditEffectClass(productId: string) {
+  const rank = getProductRank(productId);
+  const classes: Record<string, string> = {
+    starter: "credit-receive-glow credit-receive-glow-soft",
+    standard: "credit-receive-glow credit-receive-glow-standard",
+    premium: "credit-receive-glow credit-receive-glow-premium",
+    business: "credit-receive-glow credit-receive-glow-business",
+  };
+
+  return classes[rank];
+}
+
+function getCardHoverClass(productId: string) {
+  return getProductRank(productId) === "business"
+    ? "hover:shadow-[0_26px_62px_rgba(124,82,27,0.24)]"
+    : "hover:shadow-[0_22px_52px_rgba(124,82,27,0.17)]";
+}
+
+function getButtonEffectClass(productId: string, isStripeProduct: boolean) {
+  if (isStripeProduct) {
+    return "";
+  }
+
+  return getProductRank(productId) === "business"
+    ? "credit-button-ripple credit-business-button-shimmer"
+    : "credit-button-ripple";
+}
+
+function getPaymentStatusBadgeClass(status: string | undefined) {
+  const normalizedStatus = (status || "").toLowerCase();
+  if (normalizedStatus === "paid") {
+    return "border-[#A9D190]/70 bg-[#F1FAEA] text-[#2F6B1F]";
+  }
+  if (normalizedStatus === "ready") {
+    return "border-[#E2C985]/80 bg-[#FFF6DA] text-[#7A551D]";
+  }
+  if (normalizedStatus === "failed" || normalizedStatus === "canceled" || normalizedStatus === "cancelled") {
+    return "border-[#E8A77A]/70 bg-[#FFF3EE] text-[#9A3E1F]";
+  }
+
+  return "border-[#E2D4BF] bg-white text-[#6F5A40]";
+}
+
+function getProductAmount(product: CreditProduct) {
+  return Number(product.amount ?? product.price ?? 0);
+}
+
+function getProductButtonLabel(product: CreditProduct) {
+  if (product.provider === "stripe") {
+    return "출시 예정";
+  }
+
+  return "Toss 결제하기";
+}
+
+function getProductDescription(product: CreditProduct) {
+  const descriptions: Record<string, string> = {
+    kr_starter: "AI 문서 분석과 AI 타로를 위한 Starter 크레딧. 약 60회 AI 타로 이용 또는 문서 분석 약 60~120페이지",
+    kr_standard: "가장 많이 선택하는 추천 상품. AI Note를 가장 효율적으로 사용할 수 있는 추천 플랜",
+    kr_premium: "AI를 자주 사용하는 사용자 추천. 문서 분석과 AI 타로를 자주 사용하는 사용자에게 적합",
+    kr_business: "전문가와 기업을 위한 대용량 크레딧. 기업 / 연구 / 프로젝트 운영에 적합",
+  };
+
+  return descriptions[product.product_id] || product.description || "";
+}
+
+function getBonusLabel(product: CreditProduct, extraPercent: number) {
+  if (extraPercent <= 0) {
+    return product.region === "kr" ? "기본 충전" : "No Bonus";
+  }
+
+  return product.region === "kr" ? `${extraPercent}% 보너스` : `${extraPercent}% Extra`;
 }
 
 function formatCreditCount(value: number | undefined) {
@@ -293,13 +449,126 @@ function getFeaturedLabel(productId: string, fallback = "") {
   const labels: Record<string, string> = {
     credit_150: "BEST VALUE",
     credit_1000: "DOUBLE CREDIT",
-    credit_2200: "ULTIMATE"
+    credit_2200: "ULTIMATE",
+    kr_starter: "STARTER",
+    kr_standard: "⭐ MOST POPULAR",
+    kr_premium: "PREMIUM",
+    kr_business: "👑 VIP",
+    global_starter: "Coming Soon",
+    global_standard: "Coming Soon",
+    global_premium: "Coming Soon",
+    global_business: "Coming Soon"
   };
 
   return labels[productId] || fallback;
 }
 
 function getCreditProductTone(productId: string) {
+  const serviceProductTones: Record<string, {
+    card: string;
+    badge: string;
+    badgePrefix: string;
+    accent: string;
+    amount: string;
+    panel: string;
+    extra: string;
+    button: string;
+    bar: string;
+  }> = {
+    kr_starter: {
+      card: "border-[#EEE3D2] bg-[#FFFFFB] hover:border-[#DCC393]",
+      badge: "border-[#E7D6B8] bg-white/80 text-[#7A6245]",
+      badgePrefix: "",
+      accent: "text-[#8A6A35]",
+      amount: "text-[#2F2418]",
+      panel: "border-[#EADCC6] bg-white/70",
+      extra: "border-[#E3D0A9] bg-[#FFF8EA] text-[#80612D]",
+      button: "bg-[linear-gradient(135deg,#E8C985_0%,#F1DCA7_100%)] hover:bg-[linear-gradient(135deg,#DDB86D_0%,#EBCF91_100%)]",
+      bar: "bg-[#E8D3A5]",
+    },
+    kr_standard: {
+      card: "border-[#E2C78E] bg-[linear-gradient(135deg,#FFF9EA_0%,#FFF3D9_100%)] hover:border-[#D0AB63]",
+      badge: "border-[#C99745]/75 bg-[#E8C982] text-[#563912]",
+      badgePrefix: "",
+      accent: "text-[#7C551E]",
+      amount: "text-[#2F2418]",
+      panel: "border-[#E4CE9B] bg-[#FFF9EC]",
+      extra: "border-[#DFC27E] bg-[#FFF1C9] text-[#73501C]",
+      button: "bg-[linear-gradient(135deg,#DDB96C_0%,#F0D59B_100%)] hover:bg-[linear-gradient(135deg,#CB9F50_0%,#E3C17D_100%)]",
+      bar: "bg-[#DDB96C]",
+    },
+    kr_premium: {
+      card: "border-[#D4AB61] bg-[linear-gradient(135deg,#FFF5DB_0%,#FBEBC4_100%)] shadow-[0_14px_32px_rgba(124,82,27,0.10)] hover:border-[#BD8D3D]",
+      badge: "border-[#C99E52]/70 bg-[#ECD096] text-[#543915]",
+      badgePrefix: "",
+      accent: "text-[#76501C]",
+      amount: "text-[#2F2418]",
+      panel: "border-[#DDC184] bg-[#FFF7E4]",
+      extra: "border-[#D4AD65] bg-[#FBE8B7] text-[#694715]",
+      button: "bg-[linear-gradient(135deg,#D2A557_0%,#E9CB8F_100%)] hover:bg-[linear-gradient(135deg,#BE8F3F_0%,#DDBB7A_100%)]",
+      bar: "bg-[#CFA154]",
+    },
+    kr_business: {
+      card: "border-[#A8752E] bg-[linear-gradient(135deg,#FFF0C8_0%,#F1D89F_100%)] shadow-[0_18px_40px_rgba(124,82,27,0.14)] hover:border-[#835916]",
+      badge: "border-[#A8752E]/75 bg-[#D6B06B] text-[#432B0E]",
+      badgePrefix: "",
+      accent: "text-[#684412]",
+      amount: "text-[#2F2418]",
+      panel: "border-[#CFA45B] bg-[#FFF1D0]",
+      extra: "border-[#B98536] bg-[#F0D498] text-[#55360D]",
+      button: "bg-[linear-gradient(135deg,#BE8C3C_0%,#E0BD7B_100%)] hover:bg-[linear-gradient(135deg,#D89B22_0%,#D1AA66_100%)]",
+      bar: "bg-[linear-gradient(90deg,#9A641F_0%,#D89B22_48%,#B6782B_100%)]",
+    },
+    global_starter: {
+      card: "border-[#EADDC9] bg-[#FFFDF8] hover:border-[#DFC79F]",
+      badge: "border-[#E7D6B8] bg-white/80 text-[#7A6245]",
+      badgePrefix: "",
+      accent: "text-[#8A6A35]",
+      amount: "text-[#2F2418]",
+      panel: "border-[#EADCC6] bg-white/70",
+      extra: "border-[#E3D0A9] bg-[#FFF8EA] text-[#80612D]",
+      button: "bg-white",
+      bar: "bg-[#E8D3A5]",
+    },
+    global_standard: {
+      card: "border-[#E4CA93] bg-[linear-gradient(135deg,#FFF9EA_0%,#FFF5DF_100%)] hover:border-[#D8B773]",
+      badge: "border-[#D4A94F]/70 bg-[#F4E1AF] text-[#684817]",
+      badgePrefix: "",
+      accent: "text-[#7C551E]",
+      amount: "text-[#2F2418]",
+      panel: "border-[#E4CE9B] bg-[#FFF9EC]",
+      extra: "border-[#DFC27E] bg-[#FFF1C9] text-[#73501C]",
+      button: "bg-white",
+      bar: "bg-[#DDB96C]",
+    },
+    global_premium: {
+      card: "border-[#D8B46E] bg-[linear-gradient(135deg,#FFF6DF_0%,#FDF0CF_100%)] hover:border-[#C99E52]",
+      badge: "border-[#C99E52]/70 bg-[#ECD096] text-[#543915]",
+      badgePrefix: "",
+      accent: "text-[#76501C]",
+      amount: "text-[#2F2418]",
+      panel: "border-[#DDC184] bg-[#FFF7E4]",
+      extra: "border-[#D4AD65] bg-[#FBE8B7] text-[#694715]",
+      button: "bg-white",
+      bar: "bg-[#CFA154]",
+    },
+    global_business: {
+      card: "border-[#A8752E] bg-[linear-gradient(135deg,#FFF0C8_0%,#F1D89F_100%)] shadow-[0_18px_40px_rgba(124,82,27,0.12)] hover:border-[#835916]",
+      badge: "border-[#A8752E]/75 bg-[#D6B06B] text-[#432B0E]",
+      badgePrefix: "",
+      accent: "text-[#684412]",
+      amount: "text-[#2F2418]",
+      panel: "border-[#CFA45B] bg-[#FFF1D0]",
+      extra: "border-[#B98536] bg-[#F0D498] text-[#55360D]",
+      button: "bg-white",
+      bar: "bg-[linear-gradient(90deg,#9A641F_0%,#D89B22_48%,#B6782B_100%)]",
+    },
+  };
+
+  if (serviceProductTones[productId]) {
+    return serviceProductTones[productId];
+  }
+
   if (productId === "credit_2200") {
     return {
       card: "border-[#C99A3C] bg-[linear-gradient(135deg,#FFF8EE_0%,#FFF4DE_100%)] shadow-[0_16px_36px_rgba(124,82,27,0.12)] hover:border-[#B88322]",
@@ -990,6 +1259,120 @@ export default function MyPage() {
         />
       )}
       <style>{`
+        .credit-price-shimmer,
+        .credit-receive-glow {
+          background-clip: text;
+          -webkit-background-clip: text;
+          color: transparent;
+          background-size: 220% 100%;
+        }
+
+        .credit-price-shimmer {
+          background-image: linear-gradient(105deg, #2f2418 0%, #7a551d 32%, #d8a13a 48%, #5f3d13 64%, #2f2418 100%);
+          animation: credit-price-shimmer 5.8s ease-in-out infinite;
+        }
+
+        .credit-price-shimmer-soft {
+          opacity: 0.94;
+        }
+
+        .credit-price-shimmer-standard {
+          animation-duration: 5.6s;
+        }
+
+        .credit-price-shimmer-premium {
+          animation-duration: 5.4s;
+          text-shadow: 0 8px 22px rgba(124, 82, 27, 0.08);
+        }
+
+        .credit-price-shimmer-business {
+          animation-duration: 5.2s;
+          text-shadow: 0 10px 26px rgba(124, 82, 27, 0.14);
+        }
+
+        .credit-receive-glow {
+          background-image: linear-gradient(105deg, #7a551d 0%, #a56f20 40%, #d7a142 52%, #6f4713 100%);
+          text-shadow: 0 7px 18px rgba(124, 82, 27, 0.09);
+        }
+
+        .credit-receive-glow-standard {
+          text-shadow: 0 8px 20px rgba(124, 82, 27, 0.11);
+        }
+
+        .credit-receive-glow-premium {
+          text-shadow: 0 9px 22px rgba(124, 82, 27, 0.13);
+        }
+
+        .credit-receive-glow-business {
+          background-image: linear-gradient(105deg, #684412 0%, #9a621c 38%, #d89b22 54%, #5a350b 100%);
+          text-shadow: 0 10px 26px rgba(124, 82, 27, 0.17);
+        }
+
+        .credit-button-ripple::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          background: radial-gradient(circle at center, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.18) 34%, transparent 68%);
+          opacity: 0;
+          transform: scale(0.72);
+          transition: opacity 0.24s ease, transform 0.28s ease;
+          pointer-events: none;
+        }
+
+        .credit-button-ripple:hover::after {
+          opacity: 1;
+          transform: scale(1);
+        }
+
+        .credit-business-button-shimmer::before {
+          content: "";
+          position: absolute;
+          top: -60%;
+          bottom: -60%;
+          left: -38%;
+          width: 34%;
+          background: linear-gradient(90deg, transparent, rgba(255, 248, 225, 0.48), transparent);
+          transform: rotate(18deg);
+          animation: credit-business-button-shimmer 5.8s ease-in-out infinite;
+          pointer-events: none;
+        }
+
+        @keyframes credit-price-shimmer {
+          0%, 100% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+        }
+
+        @keyframes credit-business-button-shimmer {
+          0%, 58%, 100% {
+            left: -42%;
+            opacity: 0;
+          }
+          68% {
+            opacity: 1;
+          }
+          82% {
+            left: 112%;
+            opacity: 0;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .credit-price-shimmer {
+            animation: none;
+            background-position: 45% 50%;
+          }
+
+          .credit-business-button-shimmer::before {
+            animation: none;
+            opacity: 0;
+          }
+        }
+
         .tarot-archive-scrollbar {
           scrollbar-width: thin;
           scrollbar-color: #d6b94f #06180f;
@@ -1600,8 +1983,10 @@ function BillingPanel({ user }: { user: AuthUser }) {
   const [isPreparingProductId, setIsPreparingProductId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [preparedPayment, setPreparedPayment] = useState<PreparedPayment | null>(null);
+  const [showGlobalProducts, setShowGlobalProducts] = useState(false);
   const paymentResult = searchParams.get("payment");
-  const isPaymentEnabled = user.role === "admin";
+  const isAdmin = user.role === "admin";
+  const isPaymentEnabled = true;
 
   useEffect(() => {
     let isMounted = true;
@@ -1647,12 +2032,22 @@ function BillingPanel({ user }: { user: AuthUser }) {
     };
   }, []);
 
-  async function handleCheckoutPayment(productId: string) {
-    if (!isPaymentEnabled) {
+  async function handleCheckoutPayment(product: CreditProduct | string) {
+    if (typeof product === "string") {
+      const matchedProduct = products.find((item) => item.product_id === product);
+      if (!matchedProduct) {
+        setErrorMessage("Payment product not found");
+        return;
+      }
+      return handleCheckoutPayment(matchedProduct);
+    }
+
+    if (product.provider === "stripe") {
       setErrorMessage("결제 기능은 준비 중입니다.");
       return;
     }
 
+    const productId = product.product_id;
     setIsPreparingProductId(productId);
     setPreparedPayment(null);
     setErrorMessage("");
@@ -1663,7 +2058,7 @@ function BillingPanel({ user }: { user: AuthUser }) {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ product_id: productId })
+        body: JSON.stringify({ product_id: productId, provider: product.provider || "toss" })
       });
 
       if (!response.ok) {
@@ -1672,6 +2067,14 @@ function BillingPanel({ user }: { user: AuthUser }) {
 
       const data = (await response.json()) as PreparedPayment;
       setPreparedPayment(data);
+
+      if (data.provider === "toss") {
+        if (!data.checkout_url) {
+          throw new Error("Toss checkout_url이 응답에 없습니다.");
+        }
+        window.location.href = data.checkout_url;
+        return;
+      }
 
       if (data.provider === "stripe" && data.checkout_url) {
         window.location.href = data.checkout_url;
@@ -1712,6 +2115,137 @@ function BillingPanel({ user }: { user: AuthUser }) {
     } finally {
       setIsPreparingProductId(null);
     }
+  }
+
+  const krProducts = products.filter((product) => product.region === "kr" || product.provider === "toss");
+  const globalProducts = products.filter((product) => product.region === "global" || product.provider === "stripe");
+  const shouldShowGlobalProducts = isAdmin || showGlobalProducts;
+
+  function renderProductSection(title: string, description: string, sectionProducts: CreditProduct[]) {
+    if (sectionProducts.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="mt-5">
+        <div className="flex flex-col gap-1">
+          <h4 className="text-xl font-black text-[#2F2418]">{title}</h4>
+          <p className="text-sm font-bold leading-6 text-[#6F5A40]">{description}</p>
+        </div>
+        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {sectionProducts.map((product) => {
+            const { baseCredits, bonusCredits, credits: totalCredits } = getCreditBreakdown(product);
+            const extraPercent = getExtraPercent(baseCredits, bonusCredits);
+            const featuredLabel = getFeaturedLabel(product.product_id, product.badge);
+            const tone = getCreditProductTone(product.product_id);
+            const isStripeProduct = product.provider === "stripe";
+            const isDisabled = isPreparingProductId === product.product_id || isStripeProduct;
+            const pointBar = "bar" in tone ? tone.bar : "bg-[#E8D3A5]";
+            const productDescription = getProductDescription(product);
+            const bonusLabel = getBonusLabel(product, extraPercent);
+            const gemIcon = getProductGemIcon(product.product_id);
+            const cardHover = getCardHoverClass(product.product_id);
+            const amountEffect = getAmountEffectClass(product.product_id);
+            const creditEffect = getCreditEffectClass(product.product_id);
+            const buttonEffect = getButtonEffectClass(product.product_id, isStripeProduct);
+
+            return (
+              <article
+                key={product.product_id}
+                className={[
+                  "flex min-h-[460px] overflow-hidden rounded-2xl border transition-all duration-[250ms] ease-out hover:-translate-y-1",
+                  cardHover,
+                  tone.card,
+                ].join(" ")}
+              >
+                <div className="flex w-full flex-col">
+                  <div className={["h-1.5 w-full", pointBar].join(" ")} />
+                  <div className="flex h-full flex-col p-5">
+                  <div className="flex min-h-[34px] items-start justify-between gap-3">
+                    <span className={["inline-flex max-w-[138px] items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase leading-none tracking-wide whitespace-nowrap", tone.badge].join(" ")}>
+                      {isStripeProduct ? "Coming Soon" : `${tone.badgePrefix}${featuredLabel || product.badge || "Standard"}`}
+                    </span>
+                    <span className="text-xs font-bold text-[#8A7354]">{product.currency}</span>
+                  </div>
+
+                  <div className="mt-3 flex min-h-[40px] items-center gap-2">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center">
+                      {gemIcon && (
+                        <Image
+                          src={gemIcon}
+                          alt={`${getProductDisplayName(product)} gem icon`}
+                          width={32}
+                          height={32}
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      )}
+                    </span>
+                    <h4 className="min-w-0 text-xl font-black leading-tight text-[#2F2418]">
+                      {getProductDisplayName(product)}
+                    </h4>
+                  </div>
+                  {productDescription && (
+                    <p className="mt-3 min-h-[78px] text-sm font-bold leading-5 text-[#7A6245]">{productDescription}</p>
+                  )}
+
+                  <div className="mt-4 grid gap-3">
+                    <div className="min-h-[84px] rounded-2xl border border-white/70 bg-white/60 p-4">
+                      <p className="text-xs font-black uppercase tracking-wide text-[#8A7354]">Pay</p>
+                      <p className={["mt-1 text-3xl font-black", tone.amount, amountEffect].join(" ")}>
+                        {formatPaymentAmount(getProductAmount(product), product.currency)}
+                        {product.currency === "USD" && <span className="ml-2 text-sm font-bold text-[#8A7354]">USD</span>}
+                      </p>
+                    </div>
+                    <div className="min-h-[84px] rounded-2xl border border-white/70 bg-white/60 p-4">
+                      <p className={["text-xs font-black uppercase tracking-wide", tone.accent].join(" ")}>Receive</p>
+                      <p className={["mt-1 text-3xl font-black", tone.accent, creditEffect].join(" ")}>
+                        {formatCreditCount(totalCredits)}
+                        <span className="ml-2 text-sm font-bold text-[#8A7354]">Credits</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className={["mt-4 min-h-[108px] rounded-2xl border p-4", tone.panel].join(" ")}>
+                    <p className="text-xs font-black uppercase tracking-wide text-[#8A7354]">Breakdown</p>
+                    <div className="mt-3 grid gap-3 text-sm font-bold text-[#5F4B32] sm:grid-cols-2">
+                      <div>
+                        <span className="block text-xs font-black uppercase tracking-wide text-[#8A7354]">Base Credits</span>
+                        {formatCreditCount(baseCredits)} Base
+                      </div>
+                      <div>
+                        <span className="block text-xs font-black uppercase tracking-wide text-[#8A7354]">Bonus Credits</span>
+                        {bonusCredits > 0 ? `+${formatCreditCount(bonusCredits)} Bonus` : "Standard"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    <span className={["inline-flex rounded-full border px-3 py-1.5 text-xs font-black", tone.extra].join(" ")}>
+                      {bonusLabel}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => void handleCheckoutPayment(product)}
+                    disabled={isDisabled}
+                    className={[
+                      "mt-5 inline-flex h-12 w-full items-center justify-center rounded-full px-5 text-sm font-black text-[#34220F] shadow-[0_10px_22px_rgba(124,82,27,0.13)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(124,82,27,0.2)] active:translate-y-0 active:shadow-[0_7px_16px_rgba(124,82,27,0.16)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-[0_10px_22px_rgba(124,82,27,0.13)]",
+                      "relative overflow-hidden",
+                      buttonEffect,
+                      isStripeProduct ? "border border-[#E2C985]/70 bg-white text-[#7A551D] hover:bg-[#FFF8EE]" : tone.button,
+                    ].join(" ")}
+                  >
+                    {isPreparingProductId === product.product_id ? "준비 중..." : getProductButtonLabel(product)}
+                  </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -1764,6 +2298,7 @@ function BillingPanel({ user }: { user: AuthUser }) {
             </p>
             <div className="mt-4 grid gap-3 text-sm font-bold text-neutral-700 sm:grid-cols-2 lg:grid-cols-5">
               <span>payment_id: {preparedPayment.payment_id}</span>
+              {preparedPayment.order_id && <span>order_id: {preparedPayment.order_id}</span>}
               <span>상품명: {preparedPayment.product_name}</span>
               <span>금액: {formatPaymentAmount(preparedPayment.amount, preparedPayment.currency)}</span>
               <span>Base: {formatCreditCount(getCreditBreakdown(preparedPayment).baseCredits)}</span>
@@ -1809,7 +2344,22 @@ function BillingPanel({ user }: { user: AuthUser }) {
               <StateMessage text="표시할 크레딧 상품이 없습니다." />
             </div>
           ) : (
-            <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+            <>
+              {!isAdmin && globalProducts.length > 0 && (
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowGlobalProducts((current) => !current)}
+                    className="inline-flex h-10 items-center justify-center rounded-full border border-[#E2C985]/70 bg-white px-4 text-sm font-black text-[#7A551D] shadow-[0_10px_22px_rgba(124,82,27,0.08)] transition hover:-translate-y-0.5 hover:bg-[#FFF8EE]"
+                  >
+                    {showGlobalProducts ? "국내 결제로 보기" : "해외 결제로 보기"}
+                  </button>
+                </div>
+              )}
+              {renderProductSection("🇰🇷 국내 Toss 결제 상품", "원화 결제와 Toss 테스트 결제창 흐름을 사용합니다.", krProducts)}
+              {shouldShowGlobalProducts &&
+                renderProductSection("🌍 해외 결제 상품", "Stripe 해외 결제 후보 상품입니다. 실제 결제는 아직 준비 중입니다.", globalProducts)}
+              <div className="hidden">
               {products.map((product) => {
                 const { baseCredits, bonusCredits, credits: totalCredits } = getCreditBreakdown(product);
                 const extraPercent = getExtraPercent(baseCredits, bonusCredits);
@@ -1889,6 +2439,7 @@ function BillingPanel({ user }: { user: AuthUser }) {
                 );
               })}
             </div>
+            </>
           )}
         </div>
       </section>
@@ -1954,18 +2505,36 @@ function PaymentsPanel() {
           <div className="grid gap-4 lg:grid-cols-2">
             {payments.map((payment) => {
               const { baseCredits, bonusCredits, credits: totalCredits } = getCreditBreakdown(payment);
+              const historyGemIcon = getPaymentHistoryGemIcon(payment);
+              const statusBadgeClass = getPaymentStatusBadgeClass(payment.status);
 
               return (
-                <article key={payment.payment_id} className="rounded-2xl border border-black/10 bg-neutral-50 p-5">
+                <article
+                  key={payment.payment_id}
+                  className="rounded-2xl border border-[#E9D8BD] bg-[#FFFDF8] p-5 shadow-[0_10px_24px_rgba(124,82,27,0.06)] transition-all duration-[250ms] ease-out hover:-translate-y-1 hover:border-[#D8AE5E] hover:shadow-[0_18px_42px_rgba(124,82,27,0.14)]"
+                >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <p className="flex items-center gap-2 text-xs font-black text-coral">
                         <CalendarDays size={14} />
                         {formatSavedReadingDate(payment.created_at)}
                       </p>
-                      <h3 className="mt-2 truncate text-xl font-black text-ink">{payment.product_name}</h3>
+                      <div className="mt-2 flex min-w-0 items-center gap-2.5">
+                        {historyGemIcon && (
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+                            <Image
+                              src={historyGemIcon}
+                              alt={`${payment.product_name} gem icon`}
+                              width={28}
+                              height={28}
+                              className="max-h-full max-w-full object-contain drop-shadow-[0_5px_9px_rgba(124,82,27,0.20)]"
+                            />
+                          </span>
+                        )}
+                        <h3 className="min-w-0 truncate text-xl font-black text-ink">{payment.product_name}</h3>
+                      </div>
                     </div>
-                    <span className="w-fit rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-black uppercase text-neutral-700">
+                    <span className={["w-fit rounded-full border px-3 py-1 text-xs font-black uppercase", statusBadgeClass].join(" ")}>
                       {payment.status}
                     </span>
                   </div>

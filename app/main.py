@@ -32,6 +32,7 @@ from app.services.credit_store import CreditStore
 from app.services.mock_payment_provider import MockProvider
 from app.services.payment_service import PaymentService
 from app.services.payment_store import PaymentStore
+from app.services.payments.toss_provider import TossProvider
 from app.services.rag_service import RAGService
 from app.services.result_store import ResultStore
 from app.services.stripe_payment_provider import StripeProvider
@@ -77,14 +78,26 @@ credit_store = CreditStore(CREDIT_TRANSACTIONS_PATH)
 payment_store = PaymentStore(PAYMENTS_PATH)
 
 
-def _get_payment_provider():
-    provider_name = os.getenv("PAYMENT_PROVIDER", "mock").strip().lower()
+def _get_payment_provider(provider_name: Optional[str] = None):
+    provider_name = (provider_name or os.getenv("PAYMENT_PROVIDER", "toss")).strip().lower()
+    if provider_name == "toss":
+        return TossProvider()
     if provider_name == "stripe":
         return StripeProvider()
-    return MockProvider()
+    if provider_name == "mock":
+        return MockProvider()
+    raise ValueError(f"Unsupported payment provider: {provider_name}")
 
 
-payment_service = PaymentService(payment_store, user_store, credit_store, _get_payment_provider())
+def _get_payment_service(provider_name: Optional[str] = None) -> PaymentService:
+    return PaymentService(payment_store, user_store, credit_store, _get_payment_provider(provider_name))
+
+
+def _get_payment_service_for_payment(payment: Dict[str, Any]) -> PaymentService:
+    return _get_payment_service(str(payment.get("provider") or ""))
+
+
+payment_service = _get_payment_service()
 bearer_scheme = HTTPBearer(auto_error=False)
 ADMIN_EMAIL = "ggug0125@gmail.com"
 ADMIN_NAME = "관리자"
@@ -144,10 +157,18 @@ class PaymentPrepareRequest(BaseModel):
 
 class PaymentCheckoutRequest(BaseModel):
     product_id: str = Field(..., min_length=1, max_length=80)
+    provider: Optional[str] = Field(default=None, max_length=40)
 
 
 class MockPaymentSuccessRequest(BaseModel):
     payment_id: str = Field(..., min_length=1, max_length=120)
+
+
+class TossPaymentConfirmRequest(BaseModel):
+    payment_id: str = Field(..., min_length=1, max_length=120)
+    order_id: str = Field(..., min_length=1, max_length=120)
+    amount: float
+    payment_key: Optional[str] = None
 
 
 class TarotCardRequest(BaseModel):
@@ -345,16 +366,18 @@ def _build_ready_payment(product: Dict[str, Any], current_user: Dict[str, Any]) 
         "user_id": identity["user_id"],
         "user_email": identity["user_email"],
         "product_id": product["product_id"],
-        "product_name": product["name"],
+        "product_name": product.get("product_name") or product.get("name"),
+        "plan_name": product.get("plan_name") or product.get("product_name") or product.get("name"),
         "product_type": product["product_type"],
+        "region": product.get("region"),
         "base_credits": int(product.get("base_credits", product.get("credits", 0)) or 0),
         "bonus_credits": int(product.get("bonus_credits", 0) or 0),
         "credits": int(product.get("credits", 0) or 0),
-        "amount": product["price"],
+        "amount": product.get("amount", product.get("price", 0)),
         "amount_cents": int(product.get("amount_cents", 0) or 0),
         "currency": product.get("currency", "USD"),
         "status": "ready",
-        "provider": payment_service.provider.name,
+        "provider": product.get("provider") or payment_service.provider.name,
         "provider_payment_id": None,
         "checkout_url": None,
         "created_at": now,
@@ -835,6 +858,7 @@ async def prepare_payment(
         "payment_id": saved_payment["payment_id"],
         "product_id": saved_payment["product_id"],
         "product_name": saved_payment["product_name"],
+        "plan_name": saved_payment.get("plan_name"),
         "base_credits": saved_payment["base_credits"],
         "bonus_credits": saved_payment["bonus_credits"],
         "credits": saved_payment["credits"],
@@ -851,19 +875,26 @@ async def create_payment_checkout(
     request: PaymentCheckoutRequest,
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
-    if not _is_admin_user(current_user):
-        raise HTTPException(
-            status_code=403,
-            detail="결제 기능은 현재 준비 중입니다. 정식 오픈 후 이용 가능합니다.",
-        )
-
     payment_store.create_default_credit_products()
     product = payment_store.get_product(request.product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Payment product not found")
 
+    selected_provider = (request.provider or product.get("provider") or os.getenv("PAYMENT_PROVIDER", "toss")).strip().lower()
+    product_provider = str(product.get("provider") or "").strip().lower()
+    if product_provider and selected_provider != product_provider:
+        raise HTTPException(status_code=400, detail="Payment provider does not match product")
+
+    if selected_provider != "toss" and not _is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail="해외 결제 기능은 현재 준비 중입니다.")
+
     try:
-        payment = payment_service.create_checkout(product, current_user)
+        checkout_service = _get_payment_service(selected_provider)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        payment = checkout_service.create_checkout(product, current_user)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to create checkout: {exc}") from exc
 
@@ -878,10 +909,87 @@ async def create_payment_checkout(
         "amount": payment.get("amount"),
         "amount_cents": payment.get("amount_cents"),
         "currency": payment.get("currency"),
+        "region": payment.get("region"),
         "checkout_url": payment.get("checkout_url"),
         "provider": payment.get("provider"),
+        "order_id": payment.get("order_id"),
         "provider_payment_id": payment.get("provider_payment_id"),
         "status": payment.get("status"),
+    }
+
+
+@app.post("/payments/toss/confirm")
+async def confirm_toss_payment(
+    request: TossPaymentConfirmRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    payment = payment_store.get_payment(request.payment_id)
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+
+    if payment.get("provider") != "toss":
+        raise HTTPException(status_code=400, detail="Payment is not a Toss payment")
+
+    identity = _user_identity(current_user)
+    if payment.get("user_id") != identity["user_id"] and not _is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail="Not allowed to confirm this payment")
+
+    if str(payment.get("order_id") or "") != request.order_id:
+        raise HTTPException(status_code=400, detail="Toss order_id mismatch")
+
+    try:
+        payment_amount = float(payment.get("amount", 0) or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Stored payment amount is invalid")
+
+    if abs(payment_amount - float(request.amount)) > 0.000001:
+        raise HTTPException(status_code=400, detail="Toss amount mismatch")
+
+    if payment.get("status") not in {"ready", "pending", "paid"}:
+        raise HTTPException(status_code=400, detail="Payment is not ready to confirm")
+
+    # 실제 Toss API 승인 호출은 다음 단계에서 연결.
+    # TOSS_PAYMENTS_ENV, TOSS_TEST_SECRET_KEY, TOSS_LIVE_SECRET_KEY 기준으로
+    # Toss Confirm API를 먼저 호출한 뒤 이 성공 처리 로직을 재사용하면 됩니다.
+    try:
+        result = _get_payment_service_for_payment(payment).complete_payment_success(request.payment_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Toss confirm failed: {exc}") from exc
+
+    confirmed_payment = result["payment"]
+    credit_usage = result.get("credit_usage") or {}
+    owner = user_store.get_by_id(str(confirmed_payment.get("user_id") or ""))
+    current_credits = credit_usage.get("credits_after")
+    if current_credits is None and owner:
+        current_credits = owner.get("credits", 0) or 0
+
+    return {
+        "payment_id": confirmed_payment.get("payment_id"),
+        "order_id": confirmed_payment.get("order_id"),
+        "provider": confirmed_payment.get("provider"),
+        "status": confirmed_payment.get("status"),
+        "amount": confirmed_payment.get("amount"),
+        "credits": confirmed_payment.get("credits"),
+        "current_credits": current_credits,
+        "already_paid": bool(credit_usage.get("already_paid")),
+    }
+
+
+@app.post("/payments/webhook/toss")
+async def toss_payment_webhook(request: Request):
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {"raw_body": (await request.body()).decode("utf-8", errors="replace")}
+
+    signature = request.headers.get("Toss-Signature") or request.headers.get("TossPayments-Signature")
+    event = TossProvider().webhook(payload, signature)
+
+    return {
+        "message": "Toss webhook received",
+        "event": event,
     }
 
 
@@ -897,9 +1005,11 @@ async def mock_payment_success(
     identity = _user_identity(current_user)
     if payment.get("user_id") != identity["user_id"] and not _is_admin_user(current_user):
         raise HTTPException(status_code=403, detail="Not allowed to complete this payment")
+    if payment.get("provider") != "mock":
+        raise HTTPException(status_code=400, detail="Payment is not a mock payment")
 
     try:
-        result = payment_service.handle_webhook_success(request.payment_id)
+        result = _get_payment_service_for_payment(payment).handle_webhook_success(request.payment_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -913,8 +1023,14 @@ async def mock_payment_success(
 
 @app.post("/payments/webhook/mock")
 async def mock_payment_webhook(request: MockPaymentSuccessRequest):
+    payment = payment_store.get_payment(request.payment_id)
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if payment.get("provider") != "mock":
+        raise HTTPException(status_code=400, detail="Payment is not a mock payment")
+
     try:
-        result = payment_service.handle_webhook_success(request.payment_id)
+        result = _get_payment_service_for_payment(payment).handle_webhook_success(request.payment_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -931,12 +1047,13 @@ async def stripe_payment_webhook(
     request: Request,
     stripe_signature: Optional[str] = Header(default=None, alias="stripe-signature"),
 ):
-    if payment_service.provider.name != "stripe":
+    stripe_service = _get_payment_service("stripe")
+    if stripe_service.provider.name != "stripe":
         raise HTTPException(status_code=400, detail="Stripe provider is not enabled")
 
     payload = await request.body()
     try:
-        event = payment_service.provider.webhook(payload, stripe_signature)
+        event = stripe_service.provider.webhook(payload, stripe_signature)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Invalid Stripe webhook: {exc}") from exc
 
@@ -951,7 +1068,7 @@ async def stripe_payment_webhook(
         raise HTTPException(status_code=400, detail="Stripe webhook missing payment_id")
 
     try:
-        result = payment_service.handle_webhook_success(payment_id)
+        result = stripe_service.handle_webhook_success(payment_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:

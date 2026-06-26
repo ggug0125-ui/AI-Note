@@ -30,6 +30,9 @@ class PaymentService:
         payment_id = uuid.uuid4().hex
         user_id = str(user.get("user_id", ""))
         user_email = str(user.get("email", "")).strip().lower()
+        product_name = str(product.get("product_name") or product.get("name") or product.get("plan_name") or "Credits")
+        plan_name = str(product.get("plan_name") or product_name)
+        amount = product.get("amount", product.get("price", 0))
         credits = int(product.get("credits", 0) or 0)
         base_credits = int(product.get("base_credits", credits) or 0)
         bonus_credits = int(product.get("bonus_credits", 0) or 0)
@@ -42,13 +45,14 @@ class PaymentService:
             "provider_payment_id": None,
             "checkout_url": None,
             "product_id": product["product_id"],
-            "product_name": product["name"],
-            "plan_name": product["name"],
+            "product_name": product_name,
+            "plan_name": plan_name,
             "product_type": product.get("product_type", "credit"),
+            "region": product.get("region"),
             "base_credits": base_credits,
             "bonus_credits": bonus_credits,
             "credits": credits,
-            "amount": product.get("price", 0),
+            "amount": amount,
             "amount_cents": int(product.get("amount_cents", 0) or 0),
             "currency": product.get("currency", "USD"),
             "status": "pending",
@@ -59,6 +63,7 @@ class PaymentService:
 
         provider_checkout = self.provider.create_checkout(payment)
         payment.update({
+            "order_id": provider_checkout.get("order_id"),
             "provider_payment_id": provider_checkout.get("provider_payment_id"),
             "checkout_url": provider_checkout.get("checkout_url"),
             "status": provider_checkout.get("status") or "pending",
@@ -72,19 +77,8 @@ class PaymentService:
             raise ValueError("Payment not found")
         if payment.get("provider") != self.provider.name:
             raise ValueError("Payment provider mismatch")
-
         if payment.get("status") == "paid":
-            return {
-                "payment": payment,
-                "credit_usage": {
-                    "service": "payment",
-                    "type": "deposit",
-                    "credits_added": 0,
-                    "credits_before": None,
-                    "credits_after": None,
-                    "already_paid": True,
-                },
-            }
+            return self.complete_payment_success(payment_id)
 
         provider_payment_id = str(payment.get("provider_payment_id") or "")
         verified = self.provider.verify_payment(provider_payment_id)
@@ -98,6 +92,28 @@ class PaymentService:
                 },
             ) or payment
             return {"payment": failed_payment, "credit_usage": None}
+
+        return self.complete_payment_success(payment_id)
+
+    def complete_payment_success(self, payment_id: str) -> Dict[str, Any]:
+        payment = self.payment_store.get_payment(payment_id)
+        if not payment:
+            raise ValueError("Payment not found")
+
+        provider_payment_id = str(payment.get("provider_payment_id") or "")
+
+        if payment.get("status") == "paid":
+            return {
+                "payment": payment,
+                "credit_usage": {
+                    "service": "payment",
+                    "type": "deposit",
+                    "credits_added": 0,
+                    "credits_before": None,
+                    "credits_after": None,
+                    "already_paid": True,
+                },
+            }
 
         paid_at = datetime.now(timezone.utc).isoformat()
         updated_payment = self.payment_store.mark_payment_paid(payment_id, paid_at)
