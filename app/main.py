@@ -29,6 +29,8 @@ from pydantic import BaseModel, Field
 from app.services.conversion_service import ConversionError, UnsupportedConversionError, convert_file
 from app.services.auth_service import create_access_token, decode_access_token, hash_password, verify_password
 from app.services.credit_store import CreditStore
+from app.services.extractors.base import ExtractionError
+from app.services.extractors.factory import get_extractor
 from app.services.mock_payment_provider import MockProvider
 from app.services.payment_service import PaymentService
 from app.services.payment_store import PaymentStore
@@ -416,11 +418,28 @@ def _read_uploaded_file_text(file_id: str, current_user: Dict[str, Any]) -> str:
         if fallback_path.exists():
             upload_path = fallback_path
         else:
-            raise HTTPException(status_code=404, detail="업로드된 PDF 파일을 찾지 못했습니다. 해당 문서를 다시 업로드해주세요.")
+            raise HTTPException(status_code=404, detail="업로드된 문서 파일을 찾지 못했습니다. 해당 문서를 다시 업로드해주세요.")
 
-    text = rag_service.extract_text_from_pdf(str(upload_path))
+    extractor_filename = str(file_record.get("filename") or "")
+    if not Path(extractor_filename).suffix:
+        extractor_filename = upload_path.name
+
+    try:
+        extractor = get_extractor(
+            extractor_filename,
+            str(file_record.get("content_type") or ""),
+        )
+        extracted = extractor.extract(upload_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ExtractionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Failed to read uploaded document: {exc}") from exc
+
+    text = extracted.text
     if not text or not text.strip():
-        raise HTTPException(status_code=400, detail="No readable text found in PDF")
+        raise HTTPException(status_code=400, detail="No readable text found in document")
 
     return text
 
@@ -1512,12 +1531,17 @@ async def upload_pdf(
 ):
     require_admin_user(current_user)
 
-    if file.content_type != "application/pdf":
-        raise HTTPException(status_code=400, detail="Only PDF uploads are supported")
-
     file_id = uuid.uuid4().hex
-    filename = file.filename or f"{file_id}.pdf"
-    dest_path = UPLOAD_DIR / f"{file_id}.pdf"
+    original_filename = file.filename or ""
+
+    try:
+        extractor = get_extractor(original_filename, file.content_type)
+    except ValueError as exc:
+        await file.close()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    filename = original_filename or f"{file_id}{extractor.file_extension}"
+    dest_path = UPLOAD_DIR / f"{file_id}{extractor.file_extension}"
     created_at = datetime.now(timezone.utc).isoformat()
 
     try:
@@ -1527,13 +1551,24 @@ async def upload_pdf(
         await file.close()
 
     try:
-        page_count = _get_pdf_page_count(dest_path)
+        extracted = extractor.extract(dest_path)
+    except ExtractionError as exc:
+        if dest_path.exists():
+            dest_path.unlink()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         if dest_path.exists():
             dest_path.unlink()
-        raise HTTPException(status_code=400, detail=f"Failed to read PDF page count: {exc}") from exc
+        raise HTTPException(status_code=400, detail=f"Failed to read {extractor.file_type} document: {exc}") from exc
 
-    credit_cost = calculate_document_credits(page_count)
+    page_count = extracted.page_count
+    if page_count is None:
+        credit_cost = 1
+        pricing_rule = "document_text_basic_v1"
+    else:
+        credit_cost = calculate_document_credits(page_count)
+        pricing_rule = "document_page_based_v1"
+
     credits_before = float(current_user.get("credits", 0) or 0)
     if credit_cost > credits_before:
         if dest_path.exists():
@@ -1547,7 +1582,7 @@ async def upload_pdf(
             ),
         )
 
-    text = rag_service.extract_text_from_pdf(str(dest_path))
+    text = extracted.text
 
     if not text or not text.strip():
         if dest_path.exists():
@@ -1555,7 +1590,7 @@ async def upload_pdf(
 
         raise HTTPException(
             status_code=400,
-            detail="No readable text found in PDF. This may be a scanned or image-based PDF.",
+            detail=f"No readable text found in {extractor.file_type}.",
         )
 
     chunks = rag_service.split_text(text)
@@ -1566,7 +1601,7 @@ async def upload_pdf(
 
         raise HTTPException(
             status_code=400,
-            detail="No text chunks were created from this PDF.",
+            detail=f"No text chunks were created from this {extractor.file_type}.",
         )
 
     rag_service.ingest_documents(
@@ -1576,6 +1611,7 @@ async def upload_pdf(
             {
                 "file_id": file_id,
                 "filename": filename,
+                "file_type": extractor.file_type,
                 "chunk_index": index,
                 "created_at": created_at,
             }
@@ -1586,6 +1622,8 @@ async def upload_pdf(
     uploaded_files[file_id] = {
         "file_id": file_id,
         "filename": filename,
+        "file_type": extractor.file_type,
+        "content_type": file.content_type,
         "upload_path": str(dest_path),
         "created_at": created_at,
         "text_length": len(text),
@@ -1597,6 +1635,8 @@ async def upload_pdf(
     document_record = {
         "file_id": file_id,
         "filename": filename,
+        "file_type": extractor.file_type,
+        "content_type": file.content_type,
         "upload_path": str(dest_path),
         "text_length": len(text),
         "chunk_count": len(chunks),
@@ -1625,13 +1665,18 @@ async def upload_pdf(
             "amount": -credit_cost,
             "credits_before": credits_before,
             "credits_after": credits_after,
-            "description": f"Document analysis: {filename}, {page_count} pages",
+            "description": (
+                f"Document analysis: {filename}, {page_count} pages"
+                if page_count is not None
+                else f"Document analysis: {filename}, TXT"
+            ),
             "metadata": {
                 "file_id": file_id,
                 "filename": filename,
+                "file_type": extractor.file_type,
                 "page_count": page_count,
                 "credit_cost": credit_cost,
-                "pricing_rule": "document_page_based_v1",
+                "pricing_rule": pricing_rule,
             },
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
@@ -1640,6 +1685,7 @@ async def upload_pdf(
         {
             "file_id": file_id,
             "filename": filename,
+            "file_type": extractor.file_type,
             "text_length": len(text),
             "chunk_count": len(chunks),
             "status": "ready",
@@ -1647,6 +1693,7 @@ async def upload_pdf(
             "credit_usage": {
                 "service": "document_assistant",
                 "page_count": page_count,
+                "file_type": extractor.file_type,
                 "credit_cost": credit_cost,
                 "credits_before": credits_before,
                 "credits_after": credits_after,

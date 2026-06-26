@@ -44,6 +44,10 @@ type UploadCreditUsage = {
   credits_after?: number;
 };
 
+function isTxtFile(file: File) {
+  return file.name.toLowerCase().endsWith(".txt") || file.type === "text/plain";
+}
+
 function calculateDocumentCredits(pageCount: number) {
   if (pageCount <= 0) {
     return 0;
@@ -114,7 +118,7 @@ function getAssistantErrorMessage(error: unknown, fallback: string) {
     return "문서 검색 인덱스를 찾지 못했습니다. 해당 문서를 다시 업로드해주세요.";
   }
   if (message.includes("Uploaded PDF file is missing")) {
-    return "업로드된 PDF 파일을 찾지 못했습니다. 해당 문서를 다시 업로드해주세요.";
+    return "업로드된 문서 파일을 찾지 못했습니다. 해당 문서를 다시 업로드해주세요.";
   }
   return message || fallback;
 }
@@ -216,13 +220,13 @@ export function ChatDocument({ isAdmin = true }: { isAdmin?: boolean }) {
 
     try {
       const [pageCount, currentCredits] = await Promise.all([
-        estimatePdfPageCount(selectedFile),
+        isTxtFile(selectedFile) ? Promise.resolve(null) : estimatePdfPageCount(selectedFile),
         loadCurrentCredits()
       ]);
       setCreditPreview({
         file: selectedFile,
         pageCount,
-        credits: pageCount === null ? null : calculateDocumentCredits(pageCount),
+        credits: isTxtFile(selectedFile) ? 1 : pageCount === null ? null : calculateDocumentCredits(pageCount),
         currentCredits
       });
     } finally {
@@ -414,16 +418,16 @@ export function ChatDocument({ isAdmin = true }: { isAdmin?: boolean }) {
         <div className="flex flex-col gap-2">
           <span className="text-xs font-extrabold uppercase tracking-wide text-coral">AI Document Assistant</span>
           <h2 className="text-2xl font-black text-ink">문서 업로드 및 파일 관리</h2>
-          <p className="text-sm leading-6 text-neutral-500">PDF를 업로드하면 어시스턴트가 문서 질의응답에 필요한 검색 인덱스를 생성합니다.</p>
+          <p className="text-sm leading-6 text-neutral-500">PDF/TXT 문서를 업로드하면 어시스턴트가 문서 질의응답에 필요한 검색 인덱스를 생성합니다.</p>
         </div>
 
         <div className="mt-5 grid gap-3 rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-4 sm:grid-cols-[1fr_auto]">
-          <input id="pdf-upload" type="file" accept="application/pdf" className="hidden" onChange={handleFileChange} />
+          <input id="pdf-upload" type="file" accept=".pdf,.txt,application/pdf,text/plain" className="hidden" onChange={handleFileChange} />
           <label
             htmlFor="pdf-upload"
             className="flex min-h-12 cursor-pointer items-center rounded-xl border border-black/10 bg-white px-4 text-sm font-bold text-neutral-600 [overflow-wrap:anywhere]"
           >
-            {selectedFile ? selectedFile.name : "PDF 파일 선택"}
+            {selectedFile ? selectedFile.name : "PDF/TXT 파일 선택"}
           </label>
           <button
             type="button"
@@ -625,9 +629,15 @@ export function ChatDocument({ isAdmin = true }: { isAdmin?: boolean }) {
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-[#F3D7B5] bg-[#FFF8EE] px-4 py-3">
-                <span className="block text-xs font-black uppercase tracking-wide text-[#8A7354]">예상 페이지 수</span>
+                <span className="block text-xs font-black uppercase tracking-wide text-[#8A7354]">
+                  {isTxtFile(creditPreview.file) ? "파일 형식" : "예상 페이지 수"}
+                </span>
                 <span className="mt-1 block text-lg font-black text-ink">
-                  {creditPreview.pageCount === null ? "업로드 후 최종 계산" : `${creditPreview.pageCount} pages`}
+                  {isTxtFile(creditPreview.file)
+                    ? "TXT"
+                    : creditPreview.pageCount === null
+                    ? "업로드 후 최종 계산"
+                    : `${creditPreview.pageCount} pages`}
                 </span>
               </div>
               <div className="rounded-2xl border border-[#E8C77A]/60 bg-[#FFF6D9] px-4 py-3 text-[#7A551D]">
@@ -654,9 +664,14 @@ export function ChatDocument({ isAdmin = true }: { isAdmin?: boolean }) {
               <li className="rounded-xl bg-[#FFF3E5] px-3 py-2 text-center">키워드</li>
               <li className="rounded-xl bg-[#FFF3E5] px-3 py-2 text-center">문서 질문</li>
             </ul>
-            {creditPreview.pageCount === null && (
+            {creditPreview.pageCount === null && !isTxtFile(creditPreview.file) && (
               <p className="mt-3 text-xs font-bold leading-5 text-neutral-500">
                 페이지 수는 업로드 후 서버에서 최종 계산됩니다.
+              </p>
+            )}
+            {isTxtFile(creditPreview.file) && (
+              <p className="mt-3 text-xs font-bold leading-5 text-neutral-500">
+                TXT 문서는 이번 단계에서 1크레딧부터 시작합니다.
               </p>
             )}
           </div>
@@ -702,9 +717,13 @@ export function ChatDocument({ isAdmin = true }: { isAdmin?: boolean }) {
               <span className="text-right text-ink [overflow-wrap:anywhere]">{creditPreview.file.name}</span>
             </div>
             <div className="flex items-center justify-between gap-4 rounded-2xl border border-[#F2D5B8] bg-white/80 px-4 py-3">
-              <span className="text-[#8A7354]">예상 페이지 수</span>
+              <span className="text-[#8A7354]">{isTxtFile(creditPreview.file) ? "파일 형식" : "예상 페이지 수"}</span>
               <span className="text-ink">
-                {creditPreview.pageCount === null ? "업로드 후 최종 계산" : `${creditPreview.pageCount} Pages`}
+                {isTxtFile(creditPreview.file)
+                  ? "TXT"
+                  : creditPreview.pageCount === null
+                  ? "업로드 후 최종 계산"
+                  : `${creditPreview.pageCount} Pages`}
               </span>
             </div>
             <div className="flex items-center justify-between gap-4 rounded-2xl border border-[#E8C77A]/70 bg-[#FFF6D9] px-4 py-3 text-[#7A551D]">

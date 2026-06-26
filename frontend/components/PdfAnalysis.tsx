@@ -14,7 +14,7 @@ type AnalysisItem = {
 };
 
 
-const checks = ["페이지별 텍스트 추출", "문서 길이와 청크 수 계산", "청크 기반 검색 인덱스", "분석 결과 재조회"];
+const checks = ["문서 텍스트 추출", "문서 길이와 청크 수 계산", "청크 기반 검색 인덱스", "분석 결과 재조회"];
 
 export function PdfAnalysis() {
   const [items, setItems] = useState<AnalysisItem[]>([]);
@@ -87,8 +87,8 @@ export function PdfAnalysis() {
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-coral/10 text-coral">
               <FileSearch size={24} />
             </div>
-            <h2 className="mt-5 text-2xl font-black text-ink">PDF 문서 분석</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-neutral-600">업로드된 PDF의 텍스트 길이, 청크 수, 처리 상태를 확인합니다.</p>
+            <h2 className="mt-5 text-2xl font-black text-ink">문서 업로드 및 분석</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-neutral-600">현재 분석 가능한 PDF/TXT 문서의 텍스트 길이, 청크 수, 처리 상태를 확인합니다.</p>
           </div>
           <button
             type="button"
@@ -123,7 +123,7 @@ export function PdfAnalysis() {
 
         <div className="mt-6 grid gap-3">
           {items.length === 0 ? (
-            <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-500">분석할 문서가 없습니다. AI 문서 채팅 메뉴에서 PDF를 먼저 업로드해주세요.</p>
+            <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-500">분석할 문서가 없습니다. AI 문서 채팅 메뉴에서 PDF 또는 TXT를 먼저 업로드해주세요.</p>
           ) : (
             items.map((item) => (
               <article key={item.file_id} className="rounded-2xl border border-black/5 bg-white p-4">

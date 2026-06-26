@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { BarChart3, History, MessageSquareText, UploadCloud } from "lucide-react";
 import { API_BASE_URL, authenticatedFetch } from "@/lib/api";
-import type { WorkspaceTab } from "../../app/dashboard/page";
+import type { WorkspaceTab } from "./types";
 import { DashboardStats } from "./DashboardStats";
 import { QuickActions } from "./QuickActions";
 import { RecentActivity } from "./RecentActivity";

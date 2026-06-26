@@ -13,12 +13,13 @@ import {
 } from "lucide-react";
 import { ChatDocument } from "../../components/ChatDocument";
 import { CreditBadge } from "../../components/CreditBadge";
+import { DocumentCenter } from "../../components/dashboard/documents/DocumentCenter";
 import { Overview } from "../../components/dashboard/Overview";
+import type { WorkspaceTab } from "../../components/dashboard/types";
 import { FileConvert } from "../../components/FileConvert";
 import { HistoryDashboard } from "../../components/HistoryDashboard";
 import { KeywordExtract } from "../../components/KeywordExtract";
 import { Navbar, type DashboardTab } from "../../components/Navbar";
-import { PdfAnalysis } from "../../components/PdfAnalysis";
 import { SiteHeader } from "../../components/SiteHeader";
 import { Summary } from "../../components/Summary";
 import { API_BASE_URL } from "@/lib/api";
@@ -35,7 +36,6 @@ type AuthUser = {
   credits?: number;
 };
 
-export type WorkspaceTab = "overview" | "documents" | "analysis" | "chat" | "convert" | "history";
 type WorkspacePanel = WorkspaceTab | "mypage";
 
 const workspaceTabs: Array<{ id: WorkspaceTab; label: string; icon: typeof FileText }> = [
@@ -216,7 +216,7 @@ export default function DashboardPage() {
         </nav>
 
         {activePanel === "overview" && <Overview onNavigate={handleWorkspaceTabChange} />}
-        {activePanel === "documents" && <PdfAnalysis />}
+        {activePanel === "documents" && <DocumentCenter onNavigate={handleWorkspaceTabChange} />}
         {activePanel === "analysis" && (
           <div className="grid gap-6">
             <Summary />

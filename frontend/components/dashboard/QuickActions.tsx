@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ArrowRightLeft, BarChart3, MessageSquareText, Sparkles, UploadCloud } from "lucide-react";
-import type { WorkspaceTab } from "../../app/dashboard/page";
+import type { WorkspaceTab } from "./types";
 
 type QuickActionsProps = {
   onNavigate: (tab: WorkspaceTab) => void;
