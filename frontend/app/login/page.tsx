@@ -80,7 +80,7 @@ export default function LoginPage() {
 
       window.localStorage.setItem(TOKEN_KEY, data.access_token);
       window.localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-      router.push("/dashboard");
+      router.push("/");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : DEFAULT_LOGIN_ERROR_MESSAGE);
     } finally {
