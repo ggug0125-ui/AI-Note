@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRightLeft,
@@ -10,10 +10,10 @@ import {
   History,
   MessageSquareText,
   Sparkles,
-  UploadCloud,
 } from "lucide-react";
 import { ChatDocument } from "../../components/ChatDocument";
 import { CreditBadge } from "../../components/CreditBadge";
+import { Overview } from "../../components/dashboard/Overview";
 import { FileConvert } from "../../components/FileConvert";
 import { HistoryDashboard } from "../../components/HistoryDashboard";
 import { KeywordExtract } from "../../components/KeywordExtract";
@@ -35,7 +35,7 @@ type AuthUser = {
   credits?: number;
 };
 
-type WorkspaceTab = "overview" | "documents" | "analysis" | "chat" | "convert" | "history";
+export type WorkspaceTab = "overview" | "documents" | "analysis" | "chat" | "convert" | "history";
 type WorkspacePanel = WorkspaceTab | "mypage";
 
 const workspaceTabs: Array<{ id: WorkspaceTab; label: string; icon: typeof FileText }> = [
@@ -45,29 +45,6 @@ const workspaceTabs: Array<{ id: WorkspaceTab; label: string; icon: typeof FileT
   { id: "chat", label: "AI Chat", icon: MessageSquareText },
   { id: "convert", label: "Convert", icon: ArrowRightLeft },
   { id: "history", label: "History", icon: History },
-];
-
-const overviewSteps: Array<{ title: string; description: string; icon: ReactNode }> = [
-  {
-    title: "문서 업로드",
-    description: "PDF 문서를 업로드하고 AI 분석을 위한 검색 인덱스를 준비합니다.",
-    icon: <UploadCloud size={22} />,
-  },
-  {
-    title: "AI 분석",
-    description: "요약과 키워드 추출로 문서의 핵심 내용을 빠르게 정리합니다.",
-    icon: <BarChart3 size={22} />,
-  },
-  {
-    title: "AI 대화",
-    description: "선택한 문서의 내용만 근거로 질문하고 답변을 확인합니다.",
-    icon: <MessageSquareText size={22} />,
-  },
-  {
-    title: "변환 및 기록",
-    description: "업무용 파일로 변환하고 분석 결과와 대화 기록을 관리합니다.",
-    icon: <History size={22} />,
-  },
 ];
 
 function clearAuthStorage() {
@@ -238,7 +215,7 @@ export default function DashboardPage() {
           })}
         </nav>
 
-        {activePanel === "overview" && <Overview />}
+        {activePanel === "overview" && <Overview onNavigate={handleWorkspaceTabChange} />}
         {activePanel === "documents" && <PdfAnalysis />}
         {activePanel === "analysis" && (
           <div className="grid gap-6">
@@ -252,28 +229,6 @@ export default function DashboardPage() {
         {activePanel === "mypage" && user && <MyPage user={user} />}
       </div>
     </main>
-  );
-}
-
-function Overview() {
-  return (
-    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      {overviewSteps.map((step, index) => (
-        <article
-          key={step.title}
-          className="rounded-3xl border border-[#E9D8BD] bg-white p-5 shadow-[0_14px_34px_rgba(124,82,27,0.07)]"
-        >
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFF3E5] text-coral">
-            {step.icon}
-          </div>
-          <p className="mt-5 text-xs font-black uppercase tracking-wide text-[#8A7354]">
-            Step {index + 1}
-          </p>
-          <h2 className="mt-2 text-xl font-black text-[#2F2418]">{step.title}</h2>
-          <p className="mt-3 text-sm font-bold leading-6 text-[#6F5A40]">{step.description}</p>
-        </article>
-      ))}
-    </section>
   );
 }
 
