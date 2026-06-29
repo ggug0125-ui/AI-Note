@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ClipboardList, History, Sparkles } from "lucide-react";
+import { ClipboardList, History, Sparkles, Trash2 } from "lucide-react";
 import { WorkspaceEmptyState } from "./ai-workspace/WorkspaceEmptyState";
 import { WorkspaceLoadingState } from "./ai-workspace/WorkspaceLoadingState";
 import { WorkspaceOptionButton } from "./ai-workspace/WorkspaceOptionButton";
@@ -83,6 +83,7 @@ export function Summary() {
   const [historyStatus, setHistoryStatus] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [deletingRecordId, setDeletingRecordId] = useState("");
 
   async function loadFiles() {
     try {
@@ -180,6 +181,23 @@ export function Summary() {
     }
   }
 
+  function handleDeleteSummary(item: SummaryHistoryItem) {
+    const recordId = item.created_at || "";
+    if (!recordId) {
+      setHistoryStatus("삭제할 요약 이력 정보를 찾지 못했습니다.");
+      return;
+    }
+
+    const didConfirm = window.confirm("이 요약 이력을 삭제할까요? 같은 문서의 관련 AI 기록도 함께 삭제될 수 있습니다.");
+    if (!didConfirm) {
+      return;
+    }
+
+    setDeletingRecordId(recordId);
+    setHistoryStatus("요약 이력 삭제 API 연결 예정입니다.");
+    window.setTimeout(() => setDeletingRecordId(""), 300);
+  }
+
   return (
     <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
       <WorkspaceSection>
@@ -243,15 +261,27 @@ export function Summary() {
 
         <div className="mt-6">
           <h4 className="text-sm font-black text-ink">요약 이력</h4>
-          <div className="mt-3 grid gap-3">
+          <div className="mt-3 grid max-h-[min(52vh,36rem)] gap-3 overflow-y-auto overscroll-contain pr-1 [scrollbar-color:var(--ai-color-border)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--ai-color-border)] [&::-webkit-scrollbar-track]:bg-transparent">
             {history.length === 0 ? (
               <WorkspaceEmptyState>저장된 요약 이력이 없습니다.</WorkspaceEmptyState>
             ) : (
               history.map((item, index) => (
                 <article key={`${item.created_at ?? "summary"}-${index}`} className="ai-panel-compact bg-white p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <strong className="text-sm text-ink">{item.summary_type}</strong>
-                    <span className="ai-badge ai-badge-info">{item.created_at ? new Date(item.created_at).toLocaleString() : "-"}</span>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <strong className="text-sm text-ink">{item.summary_type}</strong>
+                      <span className="ai-badge ai-badge-info mt-2">{item.created_at ? new Date(item.created_at).toLocaleString() : "-"}</span>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="요약 이력 삭제"
+                      title="요약 이력 삭제"
+                      disabled={!item.created_at || deletingRecordId === item.created_at}
+                      onClick={() => handleDeleteSummary(item)}
+                      className="ai-icon-btn h-8 w-8 text-red-700 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   </div>
                   <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm leading-7 text-neutral-700">{item.summary}</p>
                 </article>
