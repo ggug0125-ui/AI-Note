@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRightLeft,
@@ -39,12 +39,12 @@ type AuthUser = {
 type WorkspacePanel = WorkspaceTab | "mypage";
 
 const workspaceTabs: Array<{ id: WorkspaceTab; label: string; icon: typeof FileText }> = [
-  { id: "overview", label: "Overview", icon: Sparkles },
-  { id: "documents", label: "Documents", icon: FileSearch },
-  { id: "analysis", label: "Analysis", icon: BarChart3 },
-  { id: "chat", label: "AI Chat", icon: MessageSquareText },
-  { id: "convert", label: "Convert", icon: ArrowRightLeft },
-  { id: "history", label: "History", icon: History },
+  { id: "overview", label: "대시보드", icon: Sparkles },
+  { id: "documents", label: "문서 업로드", icon: FileSearch },
+  { id: "analysis", label: "문서 분석", icon: BarChart3 },
+  { id: "chat", label: "AI 채팅", icon: MessageSquareText },
+  { id: "convert", label: "파일 변환", icon: ArrowRightLeft },
+  { id: "history", label: "작업기록", icon: History },
 ];
 
 function clearAuthStorage() {
@@ -83,6 +83,7 @@ function dashboardToWorkspacePanel(tab: DashboardTab): WorkspacePanel {
 export default function DashboardPage() {
   const router = useRouter();
   const [activePanel, setActivePanel] = useState<WorkspacePanel>("overview");
+  const [selectedDocumentId, setSelectedDocumentId] = useState("");
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const isAdmin = user?.role === "admin";
@@ -142,6 +143,10 @@ export default function DashboardPage() {
   function handleWorkspaceTabChange(tab: WorkspaceTab) {
     setActivePanel(tab);
   }
+
+  const handleDocumentSelect = useCallback((documentId: string) => {
+    setSelectedDocumentId(documentId);
+  }, []);
 
   if (isCheckingAuth) {
     return (
@@ -204,7 +209,7 @@ export default function DashboardPage() {
                   "inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black transition",
                   isActive
                     ? "bg-[#2F2418] text-white shadow-[0_12px_24px_rgba(47,36,24,0.18)]"
-                    : "border border-black/10 bg-[#FFFDF8] text-[#6F5A40] hover:border-[#D8AE5E] hover:bg-[#FFF8EE] hover:text-[#2F2418]",
+                    : "border border-[#D9B16A] bg-[#FFFDF8] text-[#7A4A12] shadow-[0_8px_18px_rgba(122,74,18,0.08)] hover:border-[#D8A84F] hover:bg-[#F8E8C7] hover:text-[#5F3608]",
                 ].join(" ")}
                 aria-current={isActive ? "page" : undefined}
               >
@@ -216,14 +221,27 @@ export default function DashboardPage() {
         </nav>
 
         {activePanel === "overview" && <Overview onNavigate={handleWorkspaceTabChange} />}
-        {activePanel === "documents" && <DocumentCenter onNavigate={handleWorkspaceTabChange} />}
+        {activePanel === "documents" && (
+          <DocumentCenter
+            onNavigate={handleWorkspaceTabChange}
+            selectedDocumentId={selectedDocumentId}
+            onDocumentSelect={handleDocumentSelect}
+            isAdmin={isAdmin}
+          />
+        )}
         {activePanel === "analysis" && (
           <div className="grid gap-6">
             <Summary />
             <KeywordExtract />
           </div>
         )}
-        {activePanel === "chat" && <ChatDocument isAdmin={isAdmin} />}
+        {activePanel === "chat" && (
+          <ChatDocument
+            isAdmin={isAdmin}
+            selectedFileId={selectedDocumentId}
+            onOpenDocuments={() => handleWorkspaceTabChange("documents")}
+          />
+        )}
         {activePanel === "convert" && <FileConvert />}
         {activePanel === "history" && <HistoryDashboard />}
         {activePanel === "mypage" && user && <MyPage user={user} />}

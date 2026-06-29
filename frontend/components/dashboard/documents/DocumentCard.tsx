@@ -1,5 +1,5 @@
 import { FileText } from "lucide-react";
-import type { DocumentStatus, DocumentViewModel } from "./types";
+import { formatDocumentInfo, type DocumentStatus, type DocumentViewModel } from "./types";
 
 type DocumentCardProps = {
   document: DocumentViewModel;
@@ -44,12 +44,7 @@ function getStatusBadgeClass(status: DocumentStatus) {
 }
 
 export function DocumentCard({ document, isSelected, onSelect }: DocumentCardProps) {
-  const metaText =
-    document.chunkCount !== null
-      ? `${document.chunkCount.toLocaleString("en-US")} chunks`
-      : document.textLength !== null
-      ? `${document.textLength.toLocaleString("en-US")} chars`
-      : "정보 없음";
+  const metaText = formatDocumentInfo(document);
 
   return (
     <button
