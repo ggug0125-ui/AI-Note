@@ -1,169 +1,156 @@
-import { ArrowRight, FileText, Hash, MessageCircle, PlayCircle, Sheet, Sparkles, Stars } from "lucide-react";
-import { PrimaryLink } from "../components/PrimaryLink";
+import Link from "next/link";
+import {
+  ArrowRight,
+  Bot,
+  FileClock,
+  FileText,
+  Hash,
+  HelpCircle,
+  History,
+  MessageSquareText,
+  Sparkles,
+  UploadCloud,
+  WandSparkles,
+} from "lucide-react";
 import { SiteHeader } from "../components/SiteHeader";
-import { WaveBackground } from "../components/WaveBackground";
 
 const features = [
   {
-    title: "PDF 문서 분석",
-    description: "PDF 파일을 업로드하면 AI가 자동으로 텍스트를 추출하고 핵심 내용을 분석합니다.",
+    title: "Document Center",
+    description: "PDF와 TXT 문서를 업로드하고 분석할 문서를 한 곳에서 관리합니다.",
     icon: FileText,
-    metricLabel: "텍스트 인식률",
-    metric: "99.8%",
-    tone: "bg-red-50 text-red-600"
   },
   {
-    title: "AI 자동 요약",
-    description: "긴 문서도 3줄 핵심 요약으로 변환합니다. 중요한 내용을 놓치지 않고 빠르게 파악하세요.",
-    icon: Stars,
-    metricLabel: "요약 정확도",
-    metric: "98%",
-    tone: "bg-amber-50 text-amber-600"
+    title: "AI Summary",
+    description: "긴 문서의 핵심 내용을 목적에 맞는 요약으로 빠르게 정리합니다.",
+    icon: Sparkles,
   },
   {
-    title: "키워드 추출",
-    description: "문서의 핵심 키워드를 자동으로 추출하여 주제 파악과 검색을 용이하게 합니다.",
+    title: "Keyword Extract",
+    description: "주요 키워드와 토픽을 뽑아 문서의 흐름을 바로 파악합니다.",
     icon: Hash,
-    metricLabel: "평균 추출 키워드",
-    metric: "25+",
-    tone: "bg-emerald-50 text-emerald-700"
   },
   {
-    title: "AI 문서 채팅",
-    description: "문서 내용을 기반으로 AI에게 질문하면 정확한 답변과 함께 출처 문단을 보여줍니다.",
-    icon: MessageCircle,
-    metricLabel: "출처 기반 답변",
-    metric: "ON",
-    tone: "bg-red-50 text-red-600"
+    title: "AI Chat",
+    description: "선택한 문서를 기반으로 질문하고 출처와 함께 답변을 확인합니다.",
+    icon: MessageSquareText,
   },
   {
-    title: "엑셀·한글 변환",
-    description: "한글(HWP)과 엑셀(XLSX) 파일도 분석할 수 있도록 확장 가능한 구조를 제공합니다.",
-    icon: Sheet,
-    metricLabel: "지원 예정 포맷",
-    metric: "12+",
-    tone: "bg-amber-50 text-amber-700"
-  }
+    title: "Convert Studio",
+    description: "Excel, HWPX 등 문서를 필요한 형식으로 변환합니다.",
+    icon: WandSparkles,
+  },
+  {
+    title: "History Timeline",
+    description: "업로드, 요약, 키워드, 질문 기록을 타임라인으로 다시 확인합니다.",
+    icon: History,
+  },
 ];
 
-const steps = [
+const workflow = [
   {
     title: "문서 업로드",
-    description: "PDF, 한글, 엑셀 파일을 드래그 앤 드롭으로 간편하게 업로드하세요."
+    description: "분석할 문서를 Document Center에 올리고 선택합니다.",
+    icon: UploadCloud,
   },
   {
-    title: "AI 자동 분석",
-    description: "업로드된 문서를 AI가 실시간으로 분석하여 텍스트를 추출하고 구조화합니다."
+    title: "AI 분석",
+    description: "요약과 키워드 추출로 문서 구조를 빠르게 파악합니다.",
+    icon: Sparkles,
   },
   {
-    title: "요약 & 키워드",
-    description: "핵심 요약과 주요 키워드가 자동 생성됩니다. 대시보드에서 한눈에 확인하세요."
+    title: "AI와 대화",
+    description: "문서 기반 질문과 답변으로 필요한 근거를 찾습니다.",
+    icon: Bot,
   },
   {
-    title: "AI 채팅으로 deep dive",
-    description: "문서 내용에 대해 AI와 자유롭게 대화하며 더 깊은 인사이트를 얻을 수 있습니다."
-  }
+    title: "파일 변환",
+    description: "Convert Studio에서 업무에 맞는 형식으로 변환합니다.",
+    icon: WandSparkles,
+  },
+  {
+    title: "작업 기록 관리",
+    description: "History Timeline에서 이전 작업을 다시 확인합니다.",
+    icon: FileClock,
+  },
 ];
 
-const showcase = [
+const faqs = [
   {
-    title: "연구 논문 분석",
-    description: "복잡한 학술 논문을 요약하고 핵심 방법론과 결과를 자동 추출합니다.",
-    image: "from-stone-100 via-amber-50 to-red-100"
+    question: "어떤 문서를 지원하나요?",
+    answer: "현재 AI Workspace의 문서 분석은 PDF와 TXT 중심으로 동작하며, 변환은 Excel → CSV/PDF, HWPX → TXT를 지원합니다.",
   },
   {
-    title: "비즈니스 리포트",
-    description: "분기별 보고서에서 핵심 수치와 트렌드를 빠르게 찾아줍니다.",
-    image: "from-blue-500 via-sky-400 to-blue-900"
+    question: "AI Chat은 어떤 방식인가요?",
+    answer: "사용자가 선택한 문서의 분석 결과를 기반으로 질문에 답변하고, 가능한 경우 참고 출처를 함께 보여주는 방식입니다.",
   },
   {
-    title: "계약서 검토",
-    description: "중요 조항과 위험 요소를 문맥 기반으로 확인합니다.",
-    image: "from-orange-100 via-white to-stone-200"
+    question: "파일 변환은 어떤 형식을 지원하나요?",
+    answer: "현재 Convert Studio는 Excel → CSV, Excel → PDF, HWPX → TXT를 지원하며 DOCX, PPTX, PDF 변환은 준비 중입니다.",
   },
   {
-    title: "교육 자료 정리",
-    description: "강의 노트와 교재를 체계적으로 정리하고 학습 가이드를 생성합니다.",
-    image: "from-red-100 via-amber-50 to-stone-100"
-  }
+    question: "기록은 저장되나요?",
+    answer: "요약, 키워드, 질문 기록은 작업 기록 화면에서 확인할 수 있습니다. 변환 기록 저장은 추후 지원 예정입니다.",
+  },
 ];
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen overflow-hidden bg-ivory text-ink">
+    <main className="min-h-screen overflow-hidden bg-[var(--ai-color-background)] text-[var(--ai-color-text-primary)]">
       <SiteHeader />
 
-      <section className="relative flex min-h-screen items-center px-4 pb-14 pt-24 md:px-8 md:pb-16 md:pt-28">
-        <WaveBackground />
-        <div className="relative z-10 mx-auto w-full max-w-7xl text-center">
-          <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/75 px-4 py-2 text-sm font-semibold text-neutral-700 shadow-soft">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            AI 문서 분석의 새로운 기준
+      <section className="relative overflow-hidden px-4 pb-12 pt-24 md:px-8 md:pb-16 md:pt-28">
+        <div className="absolute inset-0 bg-[var(--ai-color-background)]" aria-hidden="true" />
+        <div className="relative z-10 mx-auto grid min-h-[78vh] max-w-7xl items-center gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(24rem,1.1fr)] xl:gap-14">
+          <div className="max-w-3xl">
+            <span className="ai-badge ai-badge-primary w-fit">AI Note 2.0</span>
+            <h1 className="mt-6 max-w-3xl text-3xl font-black leading-[1.04] sm:text-4xl lg:text-5xl xl:text-6xl">
+              <span className="block">문서 업무를</span>
+              <span className="block text-[1.09em] text-coral">AI Workspace</span>
+              <span className="block">에서 끝내세요.</span>
+            </h1>
+            <p className="mt-6 max-w-2xl text-base font-bold leading-8 text-[var(--ai-color-text-secondary)] md:text-lg md:leading-9">
+              업로드, 요약, 키워드, AI 채팅, 변환, 기록 관리까지 한 곳에서 처리합니다.
+            </p>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <Link href="/dashboard" className="ai-btn ai-btn-primary min-h-12 px-6">
+                AI Workspace 시작하기
+                <ArrowRight size={18} />
+              </Link>
+              <Link href="/tarot" className="ai-btn ai-btn-secondary min-h-12 px-6">
+                AI Tarot 보기
+              </Link>
+            </div>
+            <div className="mt-12 grid max-w-3xl gap-3 sm:grid-cols-3">
+              <HeroMetric value="6" label="Workspace 메뉴" />
+              <HeroMetric value="PDF / TXT" label="문서 분석 지원" />
+              <HeroMetric value="Credits" label="크레딧 기반 사용" />
+            </div>
           </div>
-          <h1 className="mx-auto mt-7 max-w-4xl text-4xl font-black leading-tight sm:text-5xl md:text-7xl lg:text-8xl">
-            문서를 읽는
-            <br />
-            <span className="text-coral">가장 스마트한</span> 방법
-          </h1>
-          <p className="mx-auto mt-6 max-w-3xl text-base leading-7 text-neutral-600 md:mt-7 md:text-xl md:leading-8">
-            PDF, 한글, 엑셀 파일을 업로드하면 AI가 자동으로 요약과 키워드를 추출해드립니다.
-            문서 내용에 대해 AI와 채팅하며 더 깊은 인사이트를 발견하세요.
-          </p>
-          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <PrimaryLink href="/login">
-              무료로 시작하기
-              <ArrowRight className="ml-2" size={18} />
-            </PrimaryLink>
-            <PrimaryLink href="#features" variant="secondary">
-              <PlayCircle className="mr-2" size={18} />
-              기능 살펴보기
-            </PrimaryLink>
-          </div>
-          <div className="mx-auto mt-14 grid max-w-5xl grid-cols-2 gap-3 sm:gap-4 md:mt-20 md:grid-cols-4">
-            {[
-              ["98%", "요약 정확도"],
-              ["50K+", "분석 문서"],
-              ["3초", "평균 처리 시간"],
-              ["12+", "지원 파일 형식"]
-            ].map(([value, label]) => (
-              <div key={label} className="rounded-2xl border border-white/70 bg-white/75 p-4 shadow-soft backdrop-blur-md md:p-6">
-                <strong className="block text-2xl font-black md:text-3xl">{value}</strong>
-                <span className="mt-2 block text-sm text-neutral-500">{label}</span>
-              </div>
-            ))}
-          </div>
+          <HeroWorkspaceMockup />
         </div>
       </section>
 
-      <section id="features" className="bg-[#F4F2EE] px-4 py-16 md:px-8 md:py-24">
+      <section className="px-4 py-14 md:px-8 md:py-20">
         <div className="mx-auto max-w-7xl">
-          <div className="grid gap-8 md:grid-cols-[0.9fr_1fr] md:items-start">
-            <div>
-              <span className="rounded-full bg-red-100 px-4 py-2 text-sm font-bold text-coral">핵심 기능</span>
-              <h2 className="mt-5 text-3xl font-black leading-tight md:text-6xl">
-                당신의 문서를
-                <br />
-                더 똑똑하게
-              </h2>
-            </div>
-            <p className="max-w-xl pt-2 text-base leading-7 text-neutral-600 md:pt-8 md:text-lg md:leading-8">
-              AI가 문서의 맥락을 이해하고 가장 중요한 정보만 쏙쏙 뽑아드려요. 복잡한 문서도 3초면 끝.
-            </p>
-          </div>
-          <div className="mt-10 grid gap-4 md:mt-16 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
+          <SectionHeader
+            eyebrow="Workspace Features"
+            title="AI Note 2.0의 주요 기능"
+            description="문서를 다루는 반복 업무를 하나의 Workspace 흐름으로 묶었습니다."
+          />
+          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {features.map((feature) => {
               const Icon = feature.icon;
+
               return (
-                <article key={feature.title} className="max-w-full rounded-2xl border border-black/5 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-soft md:p-8">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${feature.tone}`}>
-                    <Icon size={22} />
+                <article key={feature.title} className="ai-card ai-card-hover p-5 md:p-6">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--ai-color-surface)] text-coral">
+                    <Icon size={23} />
                   </div>
-                  <h3 className="mt-6 text-xl font-black">{feature.title}</h3>
-                  <p className="mt-4 min-h-20 leading-7 text-neutral-600">{feature.description}</p>
-                  <div className="mt-6 flex items-end justify-between border-t border-neutral-100 pt-5">
-                    <span className="text-sm text-neutral-500">{feature.metricLabel}</span>
-                    <strong className="text-2xl font-black text-neutral-800">{feature.metric}</strong>
-                  </div>
+                  <h3 className="mt-5 text-xl font-black">{feature.title}</h3>
+                  <p className="mt-3 text-sm font-bold leading-7 text-[var(--ai-color-text-secondary)]">
+                    {feature.description}
+                  </p>
                 </article>
               );
             })}
@@ -171,75 +158,85 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="how" className="bg-white px-4 py-16 md:px-8 md:py-24">
+      <section className="bg-[var(--ai-color-surface)] px-4 py-14 md:px-8 md:py-20">
         <div className="mx-auto max-w-7xl">
-          <span className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">사용 방법</span>
-          <h2 className="mt-5 text-3xl font-black leading-tight md:text-6xl">
-            4단계로 끝나는
-            <br />
-            문서 분석
-          </h2>
-          <div className="mt-10 grid gap-4 md:mt-14 md:grid-cols-4 md:gap-5">
-            {steps.map((step, index) => (
-              <article key={step.title} className="relative max-w-full rounded-2xl border border-black/5 bg-[#F4F2EE] p-5 md:p-6">
-                <span className="text-4xl font-black text-neutral-300">{String(index + 1).padStart(2, "0")}</span>
-                <div className="mt-5 flex h-10 w-10 items-center justify-center rounded-xl bg-white text-neutral-700 shadow-sm">
-                  {index === 0 ? <FileText size={18} /> : index === 1 ? <Sparkles size={18} /> : index === 2 ? <Hash size={18} /> : <MessageCircle size={18} />}
-                </div>
-                <h3 className="mt-6 font-black">{step.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-neutral-600">{step.description}</p>
-              </article>
-            ))}
+          <SectionHeader
+            eyebrow="AI Workspace Flow"
+            title="업로드부터 기록 관리까지"
+            description="사용자가 실제로 문서를 처리하는 순서에 맞춰 Workspace가 움직입니다."
+          />
+          <div className="mt-10 grid gap-4 lg:grid-cols-5">
+            {workflow.map((step, index) => {
+              const Icon = step.icon;
+
+              return (
+                <article key={step.title} className="ai-panel-compact">
+                  <span className="text-3xl font-black text-coral">{String(index + 1).padStart(2, "0")}</span>
+                  <div className="mt-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-coral">
+                    <Icon size={21} />
+                  </div>
+                  <h3 className="mt-5 font-black">{step.title}</h3>
+                  <p className="mt-3 text-sm font-bold leading-6 text-[var(--ai-color-text-secondary)]">
+                    {step.description}
+                  </p>
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      <section id="reviews" className="border-y border-black/5 bg-white px-4 py-16 md:px-8 md:py-24">
-        <div className="mx-auto max-w-4xl text-center">
-          <span className="rounded-full bg-amber-100 px-4 py-2 text-sm font-bold text-amber-700">사용자 후기</span>
-          <h2 className="mt-5 text-3xl font-black leading-tight md:text-5xl">
-            실제 사용자들의
-            <br />
-            생생한 경험담
-          </h2>
-          <article className="mt-10 max-w-full rounded-3xl border border-black/5 bg-[#F4F2EE] p-5 text-left shadow-sm md:mt-14 md:p-10">
-            <div className="inline-flex rounded-full bg-black px-4 py-2 text-sm font-black text-amber-300">★★★★★ 5.0</div>
-            <p className="mt-7 text-base leading-7 text-neutral-800 md:text-xl md:leading-9">
-              “논문 리뷰할 때 정말 혁명적이에요. PDF 50페이지짜리 논문도 3초만에 요약해주고, 궁금한 부분은 바로 채팅으로 물어볼 수 있어서 연구 효율이 크게 올랐습니다.”
+      <section className="px-4 py-14 md:px-8 md:py-20">
+        <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-[1fr_0.9fr] lg:items-stretch">
+          <article className="ai-card p-6 md:p-8">
+            <span className="ai-badge ai-badge-info">AI Tarot</span>
+            <h2 className="mt-5 text-3xl font-black md:text-4xl">Chichi와 Lilla의 작은 세계</h2>
+            <p className="mt-4 text-sm font-bold leading-7 text-[var(--ai-color-text-secondary)] md:text-base md:leading-8">
+              AI Note의 문서 업무 흐름과 별도로, AI Tarot는 Chichi와 Lilla가 안내하는 감성적인 타로 경험을 제공합니다.
+              오늘의 운세와 주제별 리딩을 가볍게 확인할 수 있습니다.
             </p>
-            <div className="mt-8 flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-neutral-200 to-neutral-400" />
-              <div>
-                <strong>김민준</strong>
-                <span className="block text-sm text-neutral-500">대학원생 · 서울대학교</span>
-              </div>
+            <Link href="/tarot" className="ai-btn ai-btn-secondary mt-6 min-h-12 px-6">
+              AI Tarot로 이동
+              <ArrowRight size={18} />
+            </Link>
+          </article>
+
+          <article className="ai-card-premium p-6 md:p-8">
+            <span className="ai-badge ai-badge-warning">Credit / Payment</span>
+            <h2 className="mt-5 text-3xl font-black md:text-4xl">크레딧 기반 사용</h2>
+            <p className="mt-4 text-sm font-bold leading-7 text-[var(--ai-color-text-secondary)] md:text-base md:leading-8">
+              AI 문서 분석과 일부 기능은 크레딧 기반으로 관리됩니다. 결제 시스템은 프로젝트 흐름에 맞춰 단계적으로 연동 중이며,
+              현재 화면에서는 사용 가능한 크레딧과 작업 비용을 확인하는 방향으로 구성되어 있습니다.
+            </p>
+            <div className="mt-6 grid gap-3">
+              <InfoRow label="문서 분석" value="페이지 수 기반 크레딧 사용" />
+              <InfoRow label="AI Tarot" value="일부 리딩은 크레딧 정책 적용" />
+              <InfoRow label="결제" value="Mock / Toss 흐름을 단계적으로 정리 중" />
             </div>
           </article>
         </div>
       </section>
 
-      <section className="bg-[#0E0C09] px-4 py-16 text-white md:px-8 md:py-24">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-8 md:grid-cols-2 md:items-end">
-            <div>
-              <span className="rounded-full bg-white/10 px-4 py-2 text-sm font-bold text-coral">분석 결과</span>
-              <h2 className="mt-5 text-3xl font-black leading-tight md:text-6xl">
-                당신의 문서가
-                <br />
-                이렇게 변합니다
-              </h2>
-            </div>
-            <p className="max-w-xl text-lg leading-8 text-neutral-300">
-              AI가 분석한 결과를 깔끔한 대시보드에서 한눈에 확인하세요. 요약, 키워드, 인사이트까지.
-            </p>
-          </div>
-          <div className="mt-10 grid gap-4 md:mt-14 md:grid-cols-4 md:gap-5">
-            {showcase.map((item) => (
-              <article key={item.title} className="overflow-hidden rounded-2xl bg-white text-ink">
-                <div className={`h-48 bg-gradient-to-br ${item.image}`} />
-                <div className="p-5">
-                  <h3 className="font-black">{item.title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-neutral-600">{item.description}</p>
+      <section className="bg-[var(--ai-color-surface)] px-4 py-14 md:px-8 md:py-20">
+        <div className="mx-auto max-w-5xl">
+          <SectionHeader
+            eyebrow="FAQ"
+            title="자주 묻는 질문"
+            description="현재 AI Note 2.0 Workspace 기준으로 안내합니다."
+          />
+          <div className="mt-10 grid gap-4">
+            {faqs.map((faq) => (
+              <article key={faq.question} className="ai-card p-5">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--ai-color-surface)] text-coral">
+                    <HelpCircle size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-black">{faq.question}</h3>
+                    <p className="mt-2 text-sm font-bold leading-7 text-[var(--ai-color-text-secondary)]">
+                      {faq.answer}
+                    </p>
+                  </div>
                 </div>
               </article>
             ))}
@@ -247,93 +244,101 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="pricing" className="relative overflow-hidden bg-white px-4 py-16 text-center md:px-8 md:py-24">
-        <WaveBackground className="opacity-80" />
-        <div className="relative z-10 mx-auto max-w-4xl">
-          <h2 className="text-3xl font-black leading-tight md:text-6xl">
-            지금 바로
-            <br />
-            <span className="text-coral">무료로 시작</span>하세요
-          </h2>
-          <p className="mx-auto mt-6 max-w-2xl text-neutral-600">
-            신규 가입 시 모든 기능을 14일간 무료로 체험할 수 있습니다. 신용카드 정보 없이 바로 시작하세요.
+      <section className="px-4 py-14 md:px-8 md:py-20">
+        <div className="ai-card mx-auto max-w-5xl p-6 text-center md:p-10">
+          <span className="ai-badge ai-badge-primary">AI Note 2.0</span>
+          <h2 className="mt-5 text-3xl font-black md:text-5xl">이제 Workspace에서 시작하세요.</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-sm font-bold leading-7 text-[var(--ai-color-text-secondary)] md:text-base md:leading-8">
+            문서를 올리고, 정리하고, 질문하고, 변환하고, 기록까지 다시 확인하는 흐름을 한 화면에서 이어갈 수 있습니다.
           </p>
-          <section className="mx-auto mt-10 max-w-5xl text-left">
-            <div className="text-center">
-              <span className="rounded-full bg-coral/10 px-4 py-2 text-sm font-black text-coral">Credit Guide</span>
-              <h3 className="mt-4 text-2xl font-black text-ink md:text-4xl">크레딧 사용 안내</h3>
-              <p className="mx-auto mt-3 max-w-2xl text-sm font-bold leading-7 text-neutral-600 md:text-base">
-                결제 전에 AI 문서 어시스턴트와 AI 타로에서 크레딧이 어떻게 사용되는지 확인하세요.
-              </p>
-            </div>
-
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <article className="rounded-3xl border border-[#F0C7A6] bg-[#FFF8EE] p-5 shadow-sm md:p-6">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-coral/10 text-coral">
-                    <FileText size={20} />
-                  </div>
-                  <div>
-                    <h4 className="text-xl font-black text-ink">AI 문서 어시스턴트</h4>
-                    <p className="mt-2 text-sm font-bold leading-6 text-neutral-600">
-                      PDF 문서 페이지 수 기준으로 크레딧이 차감됩니다.
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-5 grid gap-3 text-sm font-bold text-neutral-700">
-                  <div className="rounded-2xl border border-[#F3D7B5] bg-white/75 px-4 py-3">
-                    1~2페이지 문서: <span className="font-black text-coral">1 Credit</span>
-                  </div>
-                  <div className="rounded-2xl border border-[#F3D7B5] bg-white/75 px-4 py-3">
-                    3페이지 이상 문서: 페이지당 <span className="font-black text-coral">0.5 Credit</span>
-                  </div>
-                  <div className="rounded-2xl border border-[#E8C77A]/50 bg-[#FFF6D9] px-4 py-3 text-[#7A551D]">
-                    10 pages → 5 Credits
-                  </div>
-                </div>
-                <p className="mt-4 text-sm font-bold leading-6 text-neutral-600">
-                  요약 · 키워드 · 문서 질문은 업로드 분석 비용에 포함됩니다.
-                </p>
-              </article>
-
-              <article className="rounded-3xl border border-[#E8C77A]/60 bg-[#FFFDF7] p-5 shadow-sm md:p-6">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FFF3E5] text-[#A66A1F]">
-                    <Sparkles size={20} />
-                  </div>
-                  <div>
-                    <h4 className="text-xl font-black text-ink">AI 타로</h4>
-                    <p className="mt-2 text-sm font-bold leading-6 text-neutral-600">
-                      오늘의 운세는 하루 1회 무료로 제공됩니다.
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-5 grid gap-3 text-sm font-bold text-neutral-700">
-                  <div className="rounded-2xl border border-[#F3D7B5] bg-white/75 px-4 py-3">
-                    오늘의 운세: <span className="font-black text-coral">하루 1회 무료</span>
-                  </div>
-                  <div className="rounded-2xl border border-[#F3D7B5] bg-white/75 px-4 py-3">
-                    추가 오늘의 운세: <span className="font-black text-coral">1 Credit</span>
-                  </div>
-                  <div className="rounded-2xl border border-[#E8C77A]/50 bg-[#FFF6D9] px-4 py-3 text-[#7A551D]">
-                    연애운 · 재물운 · 취업/진로 · 학업운 · 자유질문: 3 Credits
-                  </div>
-                </div>
-              </article>
-            </div>
-          </section>
-
-          <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
-            <PrimaryLink href="/login">
-              무료 체험 시작하기
-              <ArrowRight className="ml-2" size={18} />
-            </PrimaryLink>
-            <PrimaryLink href="/login" variant="secondary">
-              기존 계정 로그인
-            </PrimaryLink>
+          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link href="/dashboard" className="ai-btn ai-btn-primary min-h-12 px-6">
+              AI Workspace 시작하기
+              <ArrowRight size={18} />
+            </Link>
+            <Link href="/tarot" className="ai-btn ai-btn-secondary min-h-12 px-6">
+              AI Tarot 보기
+            </Link>
           </div>
         </div>
       </section>
     </main>
+  );
+}
+
+function HeroMetric({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="ai-panel-compact bg-white/85 backdrop-blur">
+      <strong className="block text-xl font-black text-[var(--ai-color-text-primary)]">{value}</strong>
+      <span className="mt-1 block text-xs font-black text-[var(--ai-color-text-secondary)]">{label}</span>
+    </div>
+  );
+}
+
+function SectionHeader({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="max-w-3xl">
+      <span className="ai-badge ai-badge-primary">{eyebrow}</span>
+      <h2 className="mt-5 text-3xl font-black leading-tight md:text-5xl">{title}</h2>
+      <p className="mt-4 text-sm font-bold leading-7 text-[var(--ai-color-text-secondary)] md:text-base md:leading-8">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="ai-panel-compact bg-white/70">
+      <span className="text-xs font-black text-[var(--ai-color-text-secondary)]">{label}</span>
+      <strong className="mt-1 block text-sm font-black text-[var(--ai-color-text-primary)]">{value}</strong>
+    </div>
+  );
+}
+
+function HeroWorkspaceMockup() {
+  return (
+    <div className="pointer-events-none relative mx-auto hidden w-full max-w-2xl lg:block" aria-hidden="true">
+      <div className="relative h-[34rem] overflow-hidden rounded-[2rem] border border-[var(--ai-color-border)] bg-white/70 shadow-[var(--ai-shadow-soft)] backdrop-blur-sm">
+        <div className="flex items-center gap-2 border-b border-[var(--ai-color-border)] px-5 py-4">
+          <span className="h-3 w-3 rounded-full bg-coral" />
+          <span className="h-3 w-3 rounded-full bg-[var(--ai-color-payment)]" />
+          <span className="h-3 w-3 rounded-full bg-[var(--ai-color-success)]" />
+          <span className="ml-4 text-xs font-black text-[var(--ai-color-text-secondary)]">AI Workspace</span>
+        </div>
+        <div className="grid grid-cols-[0.8fr_1.2fr] gap-4 p-5">
+          <div className="grid gap-3">
+            {["Document Center", "AI Summary", "AI Chat", "Convert Studio"].map((item, index) => (
+              <div key={item} className={index === 1 ? "ai-panel-compact bg-[var(--ai-color-surface)]" : "ai-panel-compact bg-white/80"}>
+                <span className="text-xs font-black text-[var(--ai-color-text-secondary)]">{item}</span>
+                <div className="mt-3 h-2 rounded-full bg-[var(--ai-color-border)]" />
+              </div>
+            ))}
+          </div>
+          <div className="ai-panel-compact bg-white/80">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="ai-badge ai-badge-primary">Selected Document</span>
+              <span className="ai-badge">Ready</span>
+            </div>
+            <div className="grid gap-3">
+              <div className="h-3 rounded-full bg-[var(--ai-color-border)]" />
+              <div className="h-3 w-5/6 rounded-full bg-[var(--ai-color-border)]" />
+              <div className="h-3 w-3/5 rounded-full bg-[var(--ai-color-border)]" />
+              <div className="mt-4 rounded-2xl bg-[var(--ai-color-active)] p-4 text-white">
+                <span className="text-xs font-black">문서 기반 답변 준비 완료</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
