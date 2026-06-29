@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { ClipboardList, History, Sparkles } from "lucide-react";
+import { WorkspaceEmptyState } from "./ai-workspace/WorkspaceEmptyState";
+import { WorkspaceLoadingState } from "./ai-workspace/WorkspaceLoadingState";
+import { WorkspaceOptionButton } from "./ai-workspace/WorkspaceOptionButton";
+import { WorkspaceResultPanel } from "./ai-workspace/WorkspaceResultPanel";
+import { WorkspaceSection } from "./ai-workspace/WorkspaceSection";
 import { API_BASE_URL, authenticatedFetch } from "@/lib/api";
 
 type UploadedFile = {
@@ -177,8 +182,8 @@ export function Summary() {
 
   return (
     <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-      <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-coral/10 text-coral">
+      <WorkspaceSection>
+        <div className="ai-modal-icon h-12 w-12 rounded-xl">
           <Sparkles size={24} />
         </div>
         <h2 className="mt-5 text-2xl font-black text-ink">AI 자동 요약</h2>
@@ -189,7 +194,7 @@ export function Summary() {
           <select
             value={selectedFileId}
             onChange={(event) => setSelectedFileId(event.target.value)}
-            className="min-h-12 rounded-xl border border-black/10 bg-white px-4 outline-none focus:border-coral"
+            className="ai-select min-h-12 rounded-xl px-4"
           >
             <option value="">문서를 선택해주세요</option>
             {files.map((file) => (
@@ -202,53 +207,51 @@ export function Summary() {
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           {summaryModes.map((mode) => (
-            <button
+            <WorkspaceOptionButton
               key={mode}
-              type="button"
-              onClick={() => handleSummary(mode)}
+              isSelected={selectedMode === mode}
               disabled={isLoading}
-              className={[
-                "min-h-14 rounded-xl border px-4 text-left text-sm font-extrabold transition disabled:opacity-50",
-                selectedMode === mode ? "border-coral bg-coral/10 text-ink" : "border-black/10 bg-neutral-50 text-neutral-700 hover:border-coral/50 hover:bg-white"
-              ].join(" ")}
+              onClick={() => handleSummary(mode)}
             >
               {mode}
-            </button>
+            </WorkspaceOptionButton>
           ))}
         </div>
         <button
           type="button"
           onClick={loadHistory}
           disabled={isHistoryLoading}
-          className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-neutral-100 px-4 text-sm font-black text-ink transition hover:bg-neutral-200 disabled:opacity-50"
+          className="ai-btn ai-btn-ghost mt-4 min-h-11 rounded-xl px-4 text-sm"
         >
           <History className="mr-2" size={16} />
           {isHistoryLoading ? "불러오는 중" : "히스토리 보기"}
         </button>
-        {status && <p className="mt-4 text-sm font-semibold text-neutral-600">{status}</p>}
-        {historyStatus && <p className="mt-2 text-sm font-semibold text-neutral-600">{historyStatus}</p>}
-      </div>
+        {status && <WorkspaceLoadingState message={status} isLoading={isLoading} />}
+        {historyStatus && (
+          <WorkspaceLoadingState message={historyStatus} isLoading={isHistoryLoading} className="mt-2" />
+        )}
+      </WorkspaceSection>
 
-      <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
+      <div className="ai-card p-6">
         <div className="flex items-center gap-3">
           <ClipboardList className="text-coral" size={22} />
           <h3 className="text-xl font-black text-ink">요약 결과</h3>
         </div>
-        <div className="mt-5 min-h-72 rounded-2xl bg-[#F5F2EC] p-5">
+        <WorkspaceResultPanel>
           <p className="whitespace-pre-wrap text-sm leading-8 text-neutral-700">{summary || "요약 결과가 여기에 표시됩니다."}</p>
-        </div>
+        </WorkspaceResultPanel>
 
         <div className="mt-6">
           <h4 className="text-sm font-black text-ink">요약 이력</h4>
           <div className="mt-3 grid gap-3">
             {history.length === 0 ? (
-              <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-500">저장된 요약 이력이 없습니다.</p>
+              <WorkspaceEmptyState>저장된 요약 이력이 없습니다.</WorkspaceEmptyState>
             ) : (
               history.map((item, index) => (
-                <article key={`${item.created_at ?? "summary"}-${index}`} className="rounded-2xl border border-black/5 bg-white p-4">
+                <article key={`${item.created_at ?? "summary"}-${index}`} className="ai-panel-compact bg-white p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <strong className="text-sm text-ink">{item.summary_type}</strong>
-                    <span className="text-xs font-bold text-neutral-500">{item.created_at ? new Date(item.created_at).toLocaleString() : "-"}</span>
+                    <span className="ai-badge ai-badge-info">{item.created_at ? new Date(item.created_at).toLocaleString() : "-"}</span>
                   </div>
                   <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm leading-7 text-neutral-700">{item.summary}</p>
                 </article>
