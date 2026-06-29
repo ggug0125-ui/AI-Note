@@ -1,7 +1,18 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { FileText, History, Send } from "lucide-react";
+import {
+  CalendarDays,
+  CheckCircle2,
+  FileText,
+  History,
+  Loader2,
+  MessageSquareText,
+  Send,
+  Sparkles,
+} from "lucide-react";
+import { WorkspaceEmptyState } from "./ai-workspace/WorkspaceEmptyState";
+import { WorkspaceLoadingState } from "./ai-workspace/WorkspaceLoadingState";
 import { API_BASE_URL, authenticatedFetch } from "@/lib/api";
 
 type UploadedFile = {
@@ -10,6 +21,7 @@ type UploadedFile = {
   upload_path?: string;
   created_at?: string;
   uploaded_at?: string;
+  status?: string;
   text_length?: number;
   chunk_count?: number;
 };
@@ -32,22 +44,50 @@ type ChatHistoryItem = {
   created_at?: string;
 };
 
+type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+  sources?: Source[];
+  created_at?: string;
+};
+
 type ChatDocumentProps = {
   isAdmin?: boolean;
   selectedFileId: string;
   onOpenDocuments: () => void;
 };
 
+const quickPrompts = [
+  "이 문서 핵심만 요약해줘",
+  "중요한 키워드를 뽑아줘",
+  "보고서용으로 정리해줘",
+  "위험 요소나 주의점을 알려줘",
+];
+
 function getFileTimestamp(file: UploadedFile) {
   return file.created_at || file.uploaded_at || "";
 }
 
 function sortFilesByLatest(files: UploadedFile[]) {
-  return [...files].sort((a, b) => getFileTimestamp(b).localeCompare(getFileTimestamp(a)));
+  return [...files].sort((a, b) => {
+    const aTimestamp = getFileTimestamp(a);
+    const bTimestamp = getFileTimestamp(b);
+
+    if (!aTimestamp && !bTimestamp) {
+      return 0;
+    }
+    if (!aTimestamp) {
+      return 1;
+    }
+    if (!bTimestamp) {
+      return -1;
+    }
+
+    return bTimestamp.localeCompare(aTimestamp);
+  });
 }
 
-function formatFileDate(file: UploadedFile) {
-  const timestamp = getFileTimestamp(file);
+function formatDate(timestamp?: string) {
   if (!timestamp) {
     return "날짜 없음";
   }
@@ -57,17 +97,25 @@ function formatFileDate(file: UploadedFile) {
     return timestamp;
   }
 
-  const day = date.toLocaleDateString("ko-KR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).replace(/\.\s?/g, ".").replace(/\.$/, "");
+  const day = date
+    .toLocaleDateString("ko-KR", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    })
+    .replace(/\.\s?/g, ".")
+    .replace(/\.$/, "");
   const time = date.toLocaleTimeString("ko-KR", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
   });
+
   return `${day} ${time}`;
+}
+
+function formatFileDate(file: UploadedFile) {
+  return formatDate(getFileTimestamp(file));
 }
 
 function getAssistantErrorMessage(error: unknown, fallback: string) {
@@ -81,11 +129,46 @@ function getAssistantErrorMessage(error: unknown, fallback: string) {
   return message || fallback;
 }
 
+function getSourceMeta(source: Source, index: number) {
+  const metadata = source.metadata ?? {};
+  const filename = String(metadata.filename ?? metadata.file_name ?? metadata.file ?? "선택한 문서");
+  const page = metadata.page ?? metadata.page_number ?? metadata.page_index;
+  const chunk = metadata.chunk_index;
+  const pageLabel = typeof page === "number" ? `${page}페이지` : typeof page === "string" ? `${page}페이지` : "";
+  const chunkLabel = typeof chunk === "number" ? `참고 구간 ${chunk + 1}` : "";
+
+  return {
+    title: `Source ${index + 1}`,
+    filename,
+    detail: [pageLabel, chunkLabel].filter(Boolean).join(" / "),
+  };
+}
+
+function getFileStatusLabel(status?: string) {
+  if (!status) {
+    return "";
+  }
+
+  const normalized = status.toLowerCase();
+  if (normalized === "completed" || normalized === "done" || normalized === "ready") {
+    return "분석 완료";
+  }
+  if (normalized === "processing" || normalized === "pending") {
+    return "분석 중";
+  }
+  if (normalized === "failed" || normalized === "error") {
+    return "오류";
+  }
+  return status;
+}
+
 export function ChatDocument({ isAdmin = true, selectedFileId, onOpenDocuments }: ChatDocumentProps) {
   const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [activeFileId, setActiveFileId] = useState(selectedFileId);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [sources, setSources] = useState<Source[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [queryStatus, setQueryStatus] = useState("");
   const [historyStatus, setHistoryStatus] = useState("");
@@ -93,8 +176,8 @@ export function ChatDocument({ isAdmin = true, selectedFileId, onOpenDocuments }
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   const selectedFile = useMemo(
-    () => files.find((file) => file.file_id === selectedFileId) || null,
-    [files, selectedFileId],
+    () => files.find((file) => file.file_id === activeFileId) || null,
+    [files, activeFileId],
   );
   const canAsk = useMemo(
     () => isAdmin && selectedFile !== null && question.trim().length > 0 && !isAsking,
@@ -111,13 +194,13 @@ export function ChatDocument({ isAdmin = true, selectedFileId, onOpenDocuments }
     setFiles(sortFilesByLatest(data.files ?? []));
   }
 
-  async function loadChatHistory() {
+  async function loadChatHistory(fileId = activeFileId) {
     if (!isAdmin) {
       setHistoryStatus("관리자 전용 기능입니다.");
       return;
     }
 
-    if (!selectedFileId) {
+    if (!fileId) {
       setHistoryStatus("먼저 문서 관리에서 분석할 문서를 선택해주세요.");
       return;
     }
@@ -126,7 +209,7 @@ export function ChatDocument({ isAdmin = true, selectedFileId, onOpenDocuments }
     setHistoryStatus("질문 이력을 불러오는 중입니다...");
 
     try {
-      const response = await authenticatedFetch(`${API_BASE_URL}/results/${selectedFileId}`);
+      const response = await authenticatedFetch(`${API_BASE_URL}/results/${fileId}`);
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         throw new Error(error.detail ?? "질문 이력을 불러오지 못했습니다.");
@@ -143,6 +226,10 @@ export function ChatDocument({ isAdmin = true, selectedFileId, onOpenDocuments }
   }
 
   useEffect(() => {
+    setActiveFileId(selectedFileId);
+  }, [selectedFileId]);
+
+  useEffect(() => {
     if (!isAdmin) {
       setQueryStatus("관리자 전용 기능입니다.");
       return;
@@ -152,16 +239,20 @@ export function ChatDocument({ isAdmin = true, selectedFileId, onOpenDocuments }
   }, [isAdmin]);
 
   useEffect(() => {
-    if (selectedFileId) {
-      void loadChatHistory();
+    if (activeFileId) {
+      setAnswer("");
+      setSources([]);
+      setMessages([]);
+      void loadChatHistory(activeFileId);
     } else {
       setAnswer("");
       setSources([]);
+      setMessages([]);
       setChatHistory([]);
       setHistoryStatus("");
       setQueryStatus("");
     }
-  }, [selectedFileId]);
+  }, [activeFileId]);
 
   async function handleAsk(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -180,9 +271,10 @@ export function ChatDocument({ isAdmin = true, selectedFileId, onOpenDocuments }
     }
 
     setIsAsking(true);
-    setQueryStatus("AI가 문서를 읽고 있습니다...");
+    setQueryStatus("AI가 문서를 읽고 답변을 작성 중입니다...");
     setAnswer("");
     setSources([]);
+    setMessages((current) => [...current, { role: "user", content: trimmedQuestion }]);
 
     try {
       const response = await authenticatedFetch(`${API_BASE_URL}/query`, {
@@ -201,8 +293,17 @@ export function ChatDocument({ isAdmin = true, selectedFileId, onOpenDocuments }
       const result: QueryResponse = await response.json();
       setAnswer(result.answer);
       setSources(result.sources ?? []);
+      setMessages((current) => [
+        ...current,
+        {
+          role: "assistant",
+          content: result.answer,
+          sources: result.sources ?? [],
+        },
+      ]);
+      setQuestion("");
       setQueryStatus("");
-      await loadChatHistory();
+      await loadChatHistory(selectedFile.file_id);
     } catch (error) {
       setQueryStatus(getAssistantErrorMessage(error, "질문 처리에 실패했습니다."));
     } finally {
@@ -210,145 +311,287 @@ export function ChatDocument({ isAdmin = true, selectedFileId, onOpenDocuments }
     }
   }
 
-  if (!selectedFile) {
-    return (
-      <section className="rounded-3xl border border-[#E9D8BD] bg-white p-6 text-center shadow-[0_14px_34px_rgba(124,82,27,0.07)]">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFF3E5] text-coral">
-          <FileText size={26} />
-        </div>
-        <h2 className="mt-5 text-2xl font-black text-[#2F2418]">문서 기반 질문/답변</h2>
-        <p className="mt-3 text-sm font-bold leading-6 text-[#6F5A40]">
-          먼저 문서 관리에서 분석할 문서를 선택해주세요.
-        </p>
-        <button
-          type="button"
-          onClick={onOpenDocuments}
-          className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-[#2F2418] px-5 text-sm font-black text-white transition hover:bg-black"
-        >
-          문서 관리로 이동
-        </button>
-      </section>
-    );
+  function handleHistoryClick(item: ChatHistoryItem) {
+    setMessages([
+      { role: "user", content: item.question, created_at: item.created_at },
+      { role: "assistant", content: item.answer, sources: item.sources ?? [], created_at: item.created_at },
+    ]);
+    setAnswer(item.answer);
+    setSources(item.sources ?? []);
+  }
+
+  function handleFileSelect(fileId: string) {
+    setActiveFileId(fileId);
+    setQuestion("");
+    setQueryStatus("");
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
-      <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm md:p-6">
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-extrabold uppercase tracking-wide text-coral">Selected Document</span>
-          <h2 className="text-2xl font-black text-ink [overflow-wrap:anywhere]">{selectedFile.filename}</h2>
-          <p className="text-sm leading-6 text-neutral-500">
-            이 문서를 기준으로 AI 채팅을 진행합니다. 다른 문서를 사용하려면 문서 관리에서 선택을 변경해주세요.
-          </p>
-        </div>
-
-        <div className="mt-5 grid gap-3 text-sm font-bold text-neutral-700">
-          <InfoRow label="파일 ID" value={selectedFile.file_id} />
-          <InfoRow label="업로드 날짜" value={formatFileDate(selectedFile)} />
-          <InfoRow label="문서 정보" value={`${selectedFile.chunk_count ?? "-"} chunks · ${selectedFile.text_length ?? "-"} chars`} />
-        </div>
-
-        <button
-          type="button"
-          onClick={onOpenDocuments}
-          className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl border border-[#D9B16A] bg-[#FFFDF8] px-4 text-sm font-black text-[#7A4A12] transition hover:bg-[#F8E8C7]"
-        >
-          문서 관리로 이동
-        </button>
-      </section>
-
-      <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm md:p-6">
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-extrabold uppercase tracking-wide text-coral">Document Q&A</span>
-          <h2 className="text-2xl font-black text-ink">문서 기반 질문/답변</h2>
-          <p className="text-sm leading-6 text-neutral-500">선택한 문서의 내용만 바탕으로 질문에 답변합니다.</p>
-        </div>
-
-        <form className="mt-5 grid gap-3" onSubmit={handleAsk}>
-          <textarea
-            value={question}
-            onChange={(event) => setQuestion(event.target.value)}
-            placeholder="선택한 문서에 대해 질문하세요."
-            rows={5}
-            className="min-h-40 resize-y rounded-2xl border border-black/10 bg-white p-4 text-sm leading-7 outline-none transition placeholder:text-neutral-400 focus:border-coral focus:ring-4 focus:ring-coral/10"
-          />
-          <button
-            type="submit"
-            disabled={!canAsk}
-            className="inline-flex min-h-12 items-center justify-center rounded-xl bg-coral px-5 font-black text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Send className="mr-2" size={18} />
-            {isAsking ? "질문 중" : "질문하기"}
+    <div className="grid gap-6 lg:grid-cols-[0.78fr_1.22fr]">
+      <aside className="ai-card p-5 md:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <span className="text-xs font-extrabold uppercase tracking-wide text-coral">Documents</span>
+            <h2 className="mt-2 text-xl font-black text-[var(--ai-color-text-primary)]">문서 목록</h2>
+            <p className="mt-2 text-sm font-bold leading-6 text-[var(--ai-color-text-secondary)]">
+              최근 업로드된 문서부터 표시됩니다.
+            </p>
+          </div>
+          <button type="button" onClick={onOpenDocuments} className="ai-icon-btn" aria-label="문서 관리로 이동">
+            <FileText size={18} />
           </button>
-          <button
-            type="button"
-            onClick={loadChatHistory}
-            disabled={isHistoryLoading}
-            className="inline-flex min-h-12 items-center justify-center rounded-xl bg-neutral-100 px-5 font-black text-ink transition hover:bg-neutral-200 disabled:opacity-50"
-          >
-            <History className="mr-2" size={18} />
-            {isHistoryLoading ? "불러오는 중" : "히스토리 보기"}
-          </button>
-        </form>
-        {queryStatus && <p className="mt-3 text-sm font-semibold text-neutral-600">{queryStatus}</p>}
-        {historyStatus && <p className="mt-2 text-sm font-semibold text-neutral-600">{historyStatus}</p>}
-
-        <div className="mt-8">
-          <h3 className="text-lg font-black text-ink">AI 답변</h3>
-          <p className="mt-3 min-h-28 whitespace-pre-wrap rounded-2xl bg-[#F5F2EC] p-5 text-sm leading-8 text-neutral-700">
-            {answer || "답변이 여기에 표시됩니다."}
-          </p>
         </div>
 
-        <div className="mt-8">
-          <h3 className="text-lg font-black text-ink">출처</h3>
-          <div className="mt-3 grid gap-3">
-            {sources.length === 0 ? (
-              <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-500">검색된 출처가 여기에 표시됩니다.</p>
-            ) : (
-              sources.map((source, index) => (
-                <article key={`${source.metadata.file_id ?? "source"}-${index}`} className="rounded-2xl border border-black/5 bg-white p-4">
-                  <div className="mb-3 flex flex-wrap gap-2 text-xs font-bold text-neutral-500">
-                    <span>Source {index + 1}</span>
-                    <span>{String(source.metadata.filename ?? "Unknown file")}</span>
-                    {typeof source.metadata.chunk_index === "number" && <span>Chunk {source.metadata.chunk_index}</span>}
+        <div className="mt-4 grid max-h-[30rem] gap-2 overflow-y-auto pr-1 [scrollbar-color:var(--ai-color-border)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--ai-color-border)] [&::-webkit-scrollbar-track]:bg-transparent">
+          {files.length === 0 ? (
+            <WorkspaceEmptyState icon={<FileText size={16} />}>업로드된 문서가 없습니다.</WorkspaceEmptyState>
+          ) : (
+            files.map((file) => {
+              const isSelected = activeFileId === file.file_id;
+              const statusLabel = getFileStatusLabel(file.status);
+
+              return (
+                <button
+                  key={file.file_id}
+                  type="button"
+                  onClick={() => handleFileSelect(file.file_id)}
+                  className={[
+                    "ai-card ai-card-hover cursor-pointer p-3 text-left",
+                    isSelected ? "ai-card-selected" : "",
+                  ].filter(Boolean).join(" ")}
+                  aria-pressed={isSelected}
+                >
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="min-w-0">
+                      <h3 className="line-clamp-2 break-words text-sm font-black text-[var(--ai-color-text-primary)]">
+                        {file.filename}
+                      </h3>
+                      <p className="mt-1.5 flex items-center gap-1.5 text-xs font-bold leading-5 text-[var(--ai-color-text-secondary)]">
+                        <CalendarDays size={13} />
+                        {formatFileDate(file)}
+                      </p>
+                    </div>
+                    {isSelected && <CheckCircle2 className="shrink-0 text-coral" size={19} aria-hidden="true" />}
                   </div>
-                  <p className="whitespace-pre-wrap text-sm leading-7 text-neutral-700">{source.text}</p>
-                </article>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {statusLabel && <span className="ai-badge ai-badge-info px-2 py-1">{statusLabel}</span>}
+                    {isSelected && <span className="ai-badge ai-badge-primary px-2 py-1">선택됨</span>}
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </aside>
+
+      <section className="ai-card flex min-h-[42rem] flex-col p-5 md:p-6">
+        <div className="ai-panel-compact flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          {selectedFile ? (
+            <div className="min-w-0">
+              <span className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-coral">
+                <FileText size={15} />
+                현재 문서
+              </span>
+              <h2 className="mt-2 break-words text-xl font-black text-[var(--ai-color-text-primary)]">
+                {selectedFile.filename}
+              </h2>
+              <p className="mt-2 text-sm font-bold text-[var(--ai-color-text-secondary)]">
+                {formatFileDate(selectedFile)}
+                {getFileStatusLabel(selectedFile.status) ? ` / ${getFileStatusLabel(selectedFile.status)}` : ""}
+              </p>
+            </div>
+          ) : (
+            <div>
+              <span className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-coral">
+                <FileText size={15} />
+                현재 문서
+              </span>
+              <h2 className="mt-2 text-xl font-black text-[var(--ai-color-text-primary)]">선택된 문서가 없습니다</h2>
+              <p className="mt-2 text-sm font-bold text-[var(--ai-color-text-secondary)]">
+                먼저 문서 관리에서 분석할 문서를 선택해주세요.
+              </p>
+            </div>
+          )}
+          <button type="button" onClick={onOpenDocuments} className="ai-btn ai-btn-secondary shrink-0">
+            문서 관리로 이동
+          </button>
+        </div>
+
+        <div className="mt-5 flex-1 overflow-hidden rounded-[1.25rem] border border-[var(--ai-color-border)] bg-[var(--ai-color-background)]">
+          <div className="flex h-full max-h-[36rem] min-h-[22rem] flex-col gap-4 overflow-y-auto p-4 md:p-5 [scrollbar-color:var(--ai-color-border)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--ai-color-border)] [&::-webkit-scrollbar-track]:bg-transparent">
+            {!selectedFile ? (
+              <div className="flex min-h-[18rem] items-center justify-center">
+                <div className="max-w-md text-center">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--ai-color-surface)] text-coral">
+                    <MessageSquareText size={26} />
+                  </div>
+                  <h3 className="mt-5 text-xl font-black text-[var(--ai-color-text-primary)]">문서를 선택해주세요</h3>
+                  <p className="mt-3 text-sm font-bold leading-6 text-[var(--ai-color-text-secondary)]">
+                    먼저 문서 관리에서 분석할 문서를 선택해주세요.
+                  </p>
+                  <button type="button" onClick={onOpenDocuments} className="ai-btn ai-btn-active mt-5">
+                    문서 관리로 이동
+                  </button>
+                </div>
+              </div>
+            ) : messages.length === 0 && !isAsking ? (
+              <div className="flex min-h-[18rem] items-center justify-center">
+                <div className="max-w-xl text-center">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--ai-color-surface)] text-coral">
+                    <Sparkles size={26} />
+                  </div>
+                  <h3 className="mt-5 text-xl font-black text-[var(--ai-color-text-primary)]">문서에 대해 질문해보세요</h3>
+                  <p className="mt-3 text-sm font-bold leading-6 text-[var(--ai-color-text-secondary)]">
+                    선택한 문서 내용을 기반으로 답변합니다.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              messages.map((message, index) => (
+                <ChatBubble key={`${message.role}-${index}-${message.created_at ?? ""}`} message={message} />
               ))
+            )}
+
+            {isAsking && (
+              <div className="flex justify-start">
+                <div className="max-w-[88%] rounded-3xl rounded-bl-md border border-[var(--ai-color-border)] bg-white px-4 py-3 shadow-sm md:max-w-[76%]">
+                  <div className="flex items-center gap-3 text-sm font-black text-[var(--ai-color-text-primary)]">
+                    <Loader2 className="animate-spin text-coral" size={17} />
+                    AI가 문서를 읽고 답변을 작성 중입니다...
+                  </div>
+                  <div className="mt-3 flex gap-1.5" aria-hidden="true">
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-coral" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-coral [animation-delay:120ms]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-coral [animation-delay:240ms]" />
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
 
-        <div className="mt-8">
-          <h3 className="text-lg font-black text-ink">질문 이력</h3>
-          <div className="mt-3 grid gap-3">
-            {chatHistory.length === 0 ? (
-              <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-500">저장된 질문 이력이 없습니다.</p>
-            ) : (
-              chatHistory.map((item, index) => (
-                <article key={`${item.created_at ?? "chat"}-${index}`} className="rounded-2xl border border-black/5 bg-white p-4">
+        <div className="mt-5">
+          <div className="flex flex-wrap items-stretch gap-2">
+            {quickPrompts.map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                onClick={() => setQuestion(prompt)}
+                disabled={!selectedFile || isAsking}
+                className="ai-btn ai-btn-ghost min-h-10 max-w-full flex-auto px-4 py-2 text-xs sm:flex-none"
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+
+          <form className="mt-4 grid gap-3" onSubmit={handleAsk}>
+            <textarea
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder="선택한 문서에 대해 질문하세요."
+              rows={4}
+              disabled={!selectedFile || isAsking}
+              className="ai-textarea min-h-28"
+            />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <button type="submit" disabled={!canAsk} className="ai-btn ai-btn-primary min-h-12 px-5">
+                <Send size={18} />
+                {isAsking ? "질문 중" : "질문하기"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void loadChatHistory()}
+                disabled={!selectedFile || isHistoryLoading}
+                className="ai-btn ai-btn-secondary min-h-12 px-5"
+              >
+                <History size={18} />
+                {isHistoryLoading ? "불러오는 중" : "최근 대화 새로고침"}
+              </button>
+            </div>
+          </form>
+
+          {queryStatus && <WorkspaceLoadingState message={queryStatus} isLoading={isAsking} />}
+          {historyStatus && (
+            <WorkspaceLoadingState message={historyStatus} isLoading={isHistoryLoading} className="mt-2" />
+          )}
+        </div>
+
+        <div className="mt-6 grid gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-lg font-black text-[var(--ai-color-text-primary)]">최근 대화 기록</h3>
+            <span className="ai-badge">{chatHistory.length}개</span>
+          </div>
+          {chatHistory.length === 0 ? (
+            <WorkspaceEmptyState icon={<History size={16} />}>저장된 질문 이력이 없습니다.</WorkspaceEmptyState>
+          ) : (
+            <div className="grid max-h-64 gap-3 overflow-y-auto pr-1 [scrollbar-color:var(--ai-color-border)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--ai-color-border)] [&::-webkit-scrollbar-track]:bg-transparent">
+              {chatHistory.map((item, index) => (
+                <button
+                  key={`${item.created_at ?? "chat"}-${index}`}
+                  type="button"
+                  onClick={() => handleHistoryClick(item)}
+                  className="ai-panel-compact text-left transition hover:-translate-y-0.5 hover:shadow-md"
+                >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <strong className="text-sm text-ink [overflow-wrap:anywhere]">{item.question}</strong>
-                    <span className="text-xs font-bold text-neutral-500">{item.created_at ? new Date(item.created_at).toLocaleString() : "-"}</span>
+                    <strong className="line-clamp-2 break-words text-sm text-[var(--ai-color-text-primary)]">
+                      {item.question}
+                    </strong>
+                    <span className="ai-badge ai-badge-info">{formatDate(item.created_at)}</span>
                   </div>
-                  <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm leading-7 text-neutral-700">{item.answer}</p>
-                  <span className="mt-3 block text-xs font-bold text-neutral-500">{item.sources?.length ?? 0} sources</span>
-                </article>
-              ))
-            )}
-          </div>
+                  <p className="mt-3 line-clamp-2 whitespace-pre-wrap text-sm leading-6 text-[var(--ai-color-text-secondary)]">
+                    {item.answer}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </div>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function ChatBubble({ message }: { message: ChatMessage }) {
+  const isUser = message.role === "user";
+
   return (
-    <div className="grid gap-1 rounded-2xl border border-[#EAD8C1] bg-[#FFFDF8] px-4 py-3">
-      <span className="text-xs font-black uppercase tracking-wide text-[#8A7354]">{label}</span>
-      <span className="break-words text-[#2F2418]">{value}</span>
+    <div className={["flex", isUser ? "justify-end" : "justify-start"].join(" ")}>
+      <div
+        className={[
+          "max-w-[88%] whitespace-pre-wrap break-words px-4 py-3 text-sm leading-7 shadow-sm md:max-w-[76%]",
+          isUser
+            ? "rounded-3xl rounded-br-md bg-[var(--ai-color-active)] text-white"
+            : "rounded-3xl rounded-bl-md border border-[var(--ai-color-border)] bg-white text-[var(--ai-color-text-primary)]",
+        ].join(" ")}
+      >
+        <p>{message.content}</p>
+        {!isUser && message.sources && message.sources.length > 0 && <SourceList sources={message.sources} />}
+      </div>
+    </div>
+  );
+}
+
+function SourceList({ sources }: { sources: Source[] }) {
+  return (
+    <div className="mt-3 grid gap-1.5 border-t border-[var(--ai-color-border)] pt-2.5">
+      <h4 className="text-xs font-black uppercase tracking-wide text-coral">참고 출처</h4>
+      {sources.map((source, index) => {
+        const meta = getSourceMeta(source, index);
+
+        return (
+          <article key={`${meta.filename}-${index}`} className="rounded-2xl border border-[var(--ai-color-border)] bg-[var(--ai-color-background)] p-2.5">
+            <div className="flex flex-wrap items-center gap-1.5 text-xs font-black text-[var(--ai-color-text-primary)]">
+              <span className="ai-badge ai-badge-info px-2 py-1">{meta.title}</span>
+              <span className="break-words">{meta.filename}</span>
+              {meta.detail && <span className="text-[var(--ai-color-text-secondary)]">{meta.detail}</span>}
+            </div>
+            <p className="mt-1.5 line-clamp-2 whitespace-pre-wrap text-xs leading-5 text-[var(--ai-color-text-secondary)]">
+              {source.text}
+            </p>
+          </article>
+        );
+      })}
     </div>
   );
 }
