@@ -1,14 +1,25 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Clipboard, RefreshCw, Trash2 } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Clipboard,
+  FileText,
+  MessageSquareText,
+  RefreshCw,
+  Sparkles,
+  Tags,
+  Trash2,
+} from "lucide-react";
+import { WorkspaceEmptyState } from "./ai-workspace/WorkspaceEmptyState";
+import { WorkspaceLoadingState } from "./ai-workspace/WorkspaceLoadingState";
 import { API_BASE_URL, authenticatedFetch } from "@/lib/api";
 
 type UploadedFile = {
   file_id: string;
   filename: string;
   created_at?: string;
+  uploaded_at?: string;
   chunk_count?: number;
   text_length?: number;
 };
@@ -48,11 +59,195 @@ type FileResults = {
   chats: ChatHistoryItem[];
 };
 
+type TimelineType = "document" | "summary" | "keyword" | "chat" | "convert";
+type FilterType = "all" | TimelineType;
+
+type TimelineItem = {
+  id: string;
+  type: TimelineType;
+  title: string;
+  filename: string;
+  createdAt?: string;
+  preview: string;
+  meta: string[];
+  copyText?: string;
+  fileId?: string;
+};
+
+const filters: Array<{ id: FilterType; label: string }> = [
+  { id: "all", label: "전체" },
+  { id: "document", label: "문서" },
+  { id: "summary", label: "요약" },
+  { id: "keyword", label: "키워드" },
+  { id: "chat", label: "질문" },
+  { id: "convert", label: "변환" },
+];
+
+const typeMeta: Record<TimelineType, { label: string; badge: string; icon: typeof FileText }> = {
+  document: { label: "문서 업로드", badge: "ai-badge-info", icon: FileText },
+  summary: { label: "요약 생성", badge: "ai-badge-primary", icon: Sparkles },
+  keyword: { label: "키워드 추출", badge: "ai-badge-warning", icon: Tags },
+  chat: { label: "AI 질문", badge: "ai-badge-success", icon: MessageSquareText },
+  convert: { label: "변환 작업", badge: "ai-badge", icon: ArrowRightLeft },
+};
+
+function getFileTimestamp(file: UploadedFile) {
+  return file.created_at || file.uploaded_at || "";
+}
+
+function formatDate(timestamp?: string) {
+  if (!timestamp) {
+    return "날짜 없음";
+  }
+
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return timestamp;
+  }
+
+  return date.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getTimestampValue(timestamp?: string) {
+  if (!timestamp) {
+    return 0;
+  }
+
+  const value = new Date(timestamp).getTime();
+  return Number.isNaN(value) ? 0 : value;
+}
+
+function getDateGroup(timestamp?: string) {
+  const value = getTimestampValue(timestamp);
+  if (!value) {
+    return "날짜 없음";
+  }
+
+  const now = new Date();
+  const target = new Date(value);
+  const isToday =
+    now.getFullYear() === target.getFullYear() &&
+    now.getMonth() === target.getMonth() &&
+    now.getDate() === target.getDate();
+
+  if (isToday) {
+    return "오늘";
+  }
+
+  const daysAgo = (now.getTime() - value) / (1000 * 60 * 60 * 24);
+  if (daysAgo <= 7) {
+    return "이번 주";
+  }
+
+  return "이전 기록";
+}
+
+function sanitizeKeywordList(values: string[]) {
+  const seen = new Set<string>();
+
+  return values
+    .flatMap((value) =>
+      String(value)
+        .replace(/```json/gi, "")
+        .replace(/```/g, "")
+        .replace(/["']?(keywords|topics)["']?\s*:/gi, "")
+        .replace(/[{}[\]]/g, "")
+        .split(/\r?\n|,/),
+    )
+    .map((value) =>
+      value
+        .trim()
+        .replace(/^[\s"',:]+|[\s"',:]+$/g, "")
+        .trim(),
+    )
+    .filter((value) => value.length > 0 && !/^[,:]+$/.test(value))
+    .filter((value) => {
+      const key = value.toLocaleLowerCase();
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+}
+
+function buildTimeline(files: UploadedFile[], results: FileResults | null): TimelineItem[] {
+  const documentItems: TimelineItem[] = files.map((file) => ({
+    id: `document-${file.file_id}`,
+    type: "document",
+    title: "문서 업로드",
+    filename: file.filename,
+    createdAt: getFileTimestamp(file),
+    preview: file.filename,
+    meta: [
+      `파일 ID ${file.file_id}`,
+      file.chunk_count !== undefined ? `분석 구간 ${file.chunk_count}개` : "",
+      file.text_length !== undefined ? `본문 ${file.text_length.toLocaleString()}자` : "",
+    ].filter(Boolean),
+    fileId: file.file_id,
+  }));
+
+  if (!results) {
+    return documentItems.sort((a, b) => getTimestampValue(b.createdAt) - getTimestampValue(a.createdAt));
+  }
+
+  const summaryItems: TimelineItem[] = results.summaries.map((item, index) => ({
+    id: `summary-${item.created_at ?? index}`,
+    type: "summary",
+    title: item.summary_type || "요약",
+    filename: results.filename,
+    createdAt: item.created_at,
+    preview: item.summary,
+    meta: ["요약 결과", item.summary_type].filter(Boolean),
+    copyText: item.summary,
+    fileId: results.file_id,
+  }));
+
+  const keywordItems: TimelineItem[] = results.keywords.map((item, index) => {
+    const keywords = sanitizeKeywordList([...(item.keywords ?? []), ...(item.topics ?? [])]);
+
+    return {
+      id: `keyword-${item.created_at ?? index}`,
+      type: "keyword",
+      title: item.scope || "키워드",
+      filename: results.filename,
+      createdAt: item.created_at,
+      preview: keywords.join(", ") || "키워드 결과",
+      meta: [`키워드 ${keywords.length}개`, item.scope].filter(Boolean),
+      copyText: keywords.join(", "),
+      fileId: results.file_id,
+    };
+  });
+
+  const chatItems: TimelineItem[] = results.chats.map((item, index) => ({
+    id: `chat-${item.created_at ?? index}`,
+    type: "chat",
+    title: item.question,
+    filename: results.filename,
+    createdAt: item.created_at,
+    preview: item.answer,
+    meta: [`출처 ${item.sources?.length ?? 0}개`],
+    copyText: `Q. ${item.question}\n\nA. ${item.answer}`,
+    fileId: results.file_id,
+  }));
+
+  return [...documentItems, ...summaryItems, ...keywordItems, ...chatItems].sort(
+    (a, b) => getTimestampValue(b.createdAt) - getTimestampValue(a.createdAt),
+  );
+}
 
 export function HistoryDashboard() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [selectedFileId, setSelectedFileId] = useState("");
   const [results, setResults] = useState<FileResults | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [status, setStatus] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -63,6 +258,26 @@ export function HistoryDashboard() {
     () => files.find((file) => file.file_id === selectedFileId),
     [files, selectedFileId],
   );
+
+  const timelineItems = useMemo(() => buildTimeline(files, results), [files, results]);
+  const filteredTimelineItems = useMemo(
+    () => timelineItems.filter((item) => activeFilter === "all" || item.type === activeFilter),
+    [timelineItems, activeFilter],
+  );
+  const groupedTimelineItems = useMemo(() => {
+    return filteredTimelineItems.reduce<Record<string, TimelineItem[]>>((groups, item) => {
+      const group = getDateGroup(item.createdAt);
+      return { ...groups, [group]: [...(groups[group] ?? []), item] };
+    }, {});
+  }, [filteredTimelineItems]);
+  const timelineGroups = ["오늘", "이번 주", "이전 기록", "날짜 없음"].filter(
+    (group) => (groupedTimelineItems[group] ?? []).length > 0,
+  );
+
+  const summaryCount = results?.summaries.length ?? 0;
+  const keywordCount = results?.keywords.length ?? 0;
+  const chatCount = results?.chats.length ?? 0;
+  const totalCount = files.length + summaryCount + keywordCount + chatCount;
 
   async function loadFiles() {
     setStatus("문서 목록을 불러오는 중입니다...");
@@ -195,33 +410,65 @@ export function HistoryDashboard() {
   }
 
   useEffect(() => {
-    loadFiles();
+    void loadFiles();
   }, []);
 
   useEffect(() => {
     if (selectedFileId) {
-      loadResults(selectedFileId);
+      void loadResults(selectedFileId);
     } else {
       setResults(null);
     }
   }, [selectedFileId]);
 
   return (
-    <section className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
-      <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm md:p-6">
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-extrabold uppercase tracking-wide text-coral">History Center</span>
-          <h2 className="text-2xl font-black text-ink">전체 업로드 문서</h2>
-          <p className="text-sm leading-6 text-neutral-500">문서를 선택하면 저장된 요약, 키워드, 질문 이력을 한 번에 확인할 수 있습니다.</p>
+    <section className="grid gap-6">
+      <div className="ai-card p-5 md:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <span className="text-xs font-extrabold uppercase tracking-wide text-coral">History Center</span>
+            <h2 className="mt-2 text-2xl font-black text-[var(--ai-color-text-primary)]">통합 작업 타임라인</h2>
+            <p className="mt-2 text-sm font-bold leading-6 text-[var(--ai-color-text-secondary)]">
+              문서 업로드부터 요약, 키워드, 질문 기록까지 한 화면에서 확인하세요.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button type="button" onClick={refreshAll} disabled={isLoading} className="ai-btn ai-btn-secondary">
+              <RefreshCw size={16} />
+              새로고침
+            </button>
+            <button
+              type="button"
+              onClick={deleteHistory}
+              disabled={!selectedFileId || isDeleting}
+              className="ai-btn ai-btn-primary"
+            >
+              <Trash2 size={16} />
+              {isDeleting ? "삭제 중" : "히스토리 삭제"}
+            </button>
+            <button
+              type="button"
+              onClick={deleteSelectedFile}
+              disabled={!selectedFileId || isDeletingFile}
+              className="ai-btn ai-btn-danger"
+            >
+              <Trash2 size={16} />
+              {isDeletingFile ? "문서 삭제 중" : "문서 삭제"}
+            </button>
+          </div>
         </div>
 
-        <label className="mt-6 grid gap-2 text-sm font-bold text-neutral-700">
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <StatCard label="전체 기록" value={totalCount} />
+          <StatCard label="문서 기록" value={files.length} />
+          <StatCard label="요약 기록" value={summaryCount} />
+          <StatCard label="키워드 기록" value={keywordCount} />
+          <StatCard label="질문 기록" value={chatCount} />
+        </div>
+
+        <label className="mt-6 grid gap-2 text-sm font-black text-[var(--ai-color-text-primary)]">
           문서 선택
-          <select
-            value={selectedFileId}
-            onChange={(event) => setSelectedFileId(event.target.value)}
-            className="min-h-12 rounded-xl border border-black/10 bg-white px-4 outline-none focus:border-coral"
-          >
+          <select value={selectedFileId} onChange={(event) => setSelectedFileId(event.target.value)} className="ai-select">
             <option value="">문서를 선택해주세요</option>
             {files.map((file) => (
               <option key={file.file_id} value={file.file_id}>
@@ -231,180 +478,125 @@ export function HistoryDashboard() {
           </select>
         </label>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <button
-            type="button"
-            onClick={refreshAll}
-            disabled={isLoading}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-neutral-100 px-4 text-sm font-black text-ink transition hover:bg-neutral-200 disabled:opacity-50"
-          >
-            <RefreshCw className="mr-2" size={16} />
-            새로고침
-          </button>
-          <button
-            type="button"
-            onClick={deleteHistory}
-            disabled={!selectedFileId || isDeleting}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-coral px-4 text-sm font-black text-white transition hover:bg-red-500 disabled:opacity-50"
-          >
-            <Trash2 className="mr-2" size={16} />
-            {isDeleting ? "삭제 중" : "히스토리 삭제"}
-          </button>
-          <button
-            type="button"
-            onClick={deleteSelectedFile}
-            disabled={!selectedFileId || isDeletingFile}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-red-700 px-4 text-sm font-black text-white transition hover:bg-red-800 disabled:opacity-50"
-          >
-            <Trash2 className="mr-2" size={16} />
-            {isDeletingFile ? "문서 삭제 중" : "문서 삭제"}
-          </button>
-        </div>
+        {status && <WorkspaceLoadingState message={status} isLoading={isLoading || isDeleting || isDeletingFile} />}
+        {copyStatus && <p className="ai-alert ai-alert-success mt-2">{copyStatus}</p>}
+      </div>
 
-        {status && <p className="mt-4 text-sm font-semibold text-neutral-600">{status}</p>}
-        {copyStatus && <p className="mt-2 text-sm font-semibold text-emerald-700">{copyStatus}</p>}
-
-        <div className="mt-6 grid gap-3">
-          {files.length === 0 ? (
-            <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-500">업로드된 문서가 없습니다.</p>
-          ) : (
-            files.map((file) => (
-              <article
-                key={file.file_id}
-                className={[
-                  "rounded-2xl border p-4 transition",
-                  selectedFileId === file.file_id ? "border-coral bg-coral/5" : "border-black/5 bg-white",
-                ].join(" ")}
-              >
-                <strong className="block text-sm text-ink [overflow-wrap:anywhere]">{file.filename}</strong>
-                <span className="mt-1 block text-xs text-neutral-500">{file.file_id}</span>
-                <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-neutral-500">
-                  <span>{file.chunk_count ?? "-"} chunks</span>
-                  <span>{file.text_length ?? "-"} chars</span>
-                  <span>{file.created_at ? new Date(file.created_at).toLocaleString() : "-"}</span>
-                </div>
-              </article>
-            ))
-          )}
+      <div className="ai-card p-4 md:p-5">
+        <div className="flex flex-wrap gap-2">
+          {filters.map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              onClick={() => setActiveFilter(filter.id)}
+              className={[
+                "ai-btn min-h-10 px-4 py-2 text-xs",
+                activeFilter === filter.id ? "ai-btn-active" : "ai-btn-secondary",
+              ].join(" ")}
+            >
+              {filter.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="grid gap-6">
-        <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm md:p-6">
-          <div className="flex flex-col gap-2">
-            <span className="text-xs font-extrabold uppercase tracking-wide text-coral">Selected Document</span>
-            <h3 className="text-xl font-black text-ink">{selectedFile?.filename ?? results?.filename ?? "문서를 선택해주세요"}</h3>
-            <p className="text-sm text-neutral-500">{selectedFileId || "선택된 file_id가 없습니다."}</p>
-          </div>
-        </section>
-
-        <HistorySection title="요약 이력" emptyText="저장된 요약 이력이 없습니다.">
-          {results?.summaries.map((item, index) => (
-            <article key={`${item.created_at ?? "summary"}-${index}`} className="rounded-2xl border border-black/5 bg-white p-4">
-              <CardHeader
-                title={item.summary_type}
-                createdAt={item.created_at}
-                onCopy={() => copyText(item.summary)}
-              />
-              <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-neutral-700">{item.summary}</p>
-            </article>
-          ))}
-        </HistorySection>
-
-        <HistorySection title="키워드 이력" emptyText="저장된 키워드 이력이 없습니다.">
-          {results?.keywords.map((item, index) => (
-            <article key={`${item.created_at ?? "keyword"}-${index}`} className="rounded-2xl border border-black/5 bg-white p-4">
-              <CardHeader
-                title={`${item.scope} · ${item.count}개`}
-                createdAt={item.created_at}
-                onCopy={() => copyText([...item.keywords, ...item.topics].join(", "))}
-              />
-              <div className="mt-3 flex flex-wrap gap-2">
-                {item.keywords.map((keyword) => (
-                  <span key={`${item.created_at}-keyword-${keyword}`} className="rounded-full bg-neutral-50 px-3 py-1 text-xs font-bold text-neutral-700">
-                    {keyword}
-                  </span>
-                ))}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {item.topics.map((topic) => (
-                  <span key={`${item.created_at}-topic-${topic}`} className="rounded-full bg-coral/10 px-3 py-1 text-xs font-bold text-coral">
-                    {topic}
-                  </span>
-                ))}
-              </div>
-            </article>
-          ))}
-        </HistorySection>
-
-        <HistorySection title="질문/답변 이력" emptyText="저장된 질문 이력이 없습니다.">
-          {results?.chats.map((item, index) => (
-            <article key={`${item.created_at ?? "chat"}-${index}`} className="rounded-2xl border border-black/5 bg-white p-4">
-              <CardHeader
-                title={item.question}
-                createdAt={item.created_at}
-                onCopy={() => copyText(`Q. ${item.question}\n\nA. ${item.answer}`)}
-              />
-              <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-neutral-700">{item.answer}</p>
-              <span className="mt-3 block text-xs font-bold text-neutral-500">{item.sources?.length ?? 0} sources</span>
-            </article>
-          ))}
-        </HistorySection>
-      </div>
-    </section>
-  );
-}
-
-function HistorySection({
-  title,
-  emptyText,
-  children,
-}: {
-  title: string;
-  emptyText: string;
-  children: ReactNode;
-}) {
-  const childArray = useMemo(() => (
-    Array.isArray(children) ? children.filter(Boolean) : children ? [children] : []
-  ), [children]);
-
-  return (
-    <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm md:p-6">
-      <h3 className="text-lg font-black text-ink">{title}</h3>
-      <div className="mt-4 grid gap-3">
-        {childArray.length === 0 ? (
-          <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-500">{emptyText}</p>
+      <div className="grid gap-4">
+        {isLoading ? (
+          <WorkspaceLoadingState message="작업 기록을 불러오는 중입니다..." isLoading />
+        ) : filteredTimelineItems.length === 0 ? (
+          <WorkspaceEmptyState icon={<FileText size={16} />}>표시할 작업 기록이 없습니다.</WorkspaceEmptyState>
         ) : (
-          childArray
+          timelineGroups.map((group) => (
+            <section key={group} className="grid gap-3">
+              <h3 className="px-1 text-sm font-black text-[var(--ai-color-text-secondary)]">{group}</h3>
+              <div className="grid gap-3">
+                {groupedTimelineItems[group].map((item) => (
+                  <TimelineCard
+                    key={item.id}
+                    item={item}
+                    isSelectedDocument={item.type === "document" && item.fileId === selectedFileId}
+                    onSelectFile={(fileId) => setSelectedFileId(fileId)}
+                    onCopy={copyText}
+                  />
+                ))}
+              </div>
+            </section>
+          ))
         )}
       </div>
     </section>
   );
 }
 
-function CardHeader({
-  title,
-  createdAt,
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <article className="ai-panel-compact">
+      <p className="text-xs font-black text-[var(--ai-color-text-secondary)]">{label}</p>
+      <strong className="mt-2 block text-2xl font-black text-[var(--ai-color-text-primary)]">{value}</strong>
+    </article>
+  );
+}
+
+function TimelineCard({
+  item,
+  isSelectedDocument,
+  onSelectFile,
   onCopy,
 }: {
-  title: string;
-  createdAt?: string;
-  onCopy: () => void;
+  item: TimelineItem;
+  isSelectedDocument: boolean;
+  onSelectFile: (fileId: string) => void;
+  onCopy: (text: string) => void;
 }) {
+  const meta = typeMeta[item.type];
+  const Icon = meta.icon;
+
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div>
-        <strong className="block text-sm text-ink [overflow-wrap:anywhere]">{title}</strong>
-        <span className="mt-1 block text-xs font-bold text-neutral-500">{createdAt ? new Date(createdAt).toLocaleString() : "-"}</span>
+    <article className={["ai-card p-4 md:p-5", isSelectedDocument ? "ai-card-selected" : ""].filter(Boolean).join(" ")}>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={["ai-badge", meta.badge].join(" ")}>
+              <Icon size={13} />
+              {meta.label}
+            </span>
+            {isSelectedDocument && <span className="ai-badge ai-badge-primary">선택됨</span>}
+            <span className="ai-badge">{formatDate(item.createdAt)}</span>
+          </div>
+          <h3 className="mt-3 line-clamp-2 break-words text-lg font-black text-[var(--ai-color-text-primary)]">
+            {item.title}
+          </h3>
+          <p className="mt-1 line-clamp-1 break-words text-sm font-bold text-[var(--ai-color-text-secondary)]">
+            {item.filename}
+          </p>
+          <p className="mt-3 line-clamp-3 whitespace-pre-wrap text-sm leading-7 text-[var(--ai-color-text-secondary)]">
+            {item.preview}
+          </p>
+          {item.meta.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {item.meta.map((value) => (
+                <span key={value} className="ai-badge">
+                  {value}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex shrink-0 flex-wrap gap-2 md:justify-end">
+          {item.fileId && (
+            <button type="button" onClick={() => onSelectFile(item.fileId ?? "")} className="ai-btn ai-btn-secondary min-h-10 px-4 py-2 text-xs">
+              다시 보기
+            </button>
+          )}
+          {item.copyText && (
+            <button type="button" onClick={() => onCopy(item.copyText ?? "")} className="ai-btn ai-btn-ghost min-h-10 px-4 py-2 text-xs">
+              <Clipboard size={14} />
+              복사
+            </button>
+          )}
+        </div>
       </div>
-      <button
-        type="button"
-        onClick={onCopy}
-        className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-xl bg-neutral-100 px-3 text-xs font-black text-ink transition hover:bg-neutral-200"
-      >
-        <Clipboard className="mr-2" size={14} />
-        복사
-      </button>
-    </div>
+    </article>
   );
 }
