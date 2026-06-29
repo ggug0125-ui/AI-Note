@@ -1,4 +1,5 @@
 import { History } from "lucide-react";
+import { ActivityCard } from "./ActivityCard";
 
 type RecentActivityProps = {
   recentDocument: string;
@@ -28,10 +29,7 @@ export function RecentActivity({
       </div>
       <div className="mt-5 grid gap-3 md:grid-cols-2">
         {recentCards.map((card) => (
-          <article key={card.label} className="rounded-2xl border border-[#EAD8C1] bg-[#FFFDF8] p-4">
-            <p className="text-xs font-black uppercase tracking-wide text-[#8A7354]">{card.label}</p>
-            <p className="mt-2 line-clamp-2 text-sm font-bold leading-6 text-[#4F3B25]">{card.value}</p>
-          </article>
+          <ActivityCard key={card.label} label={card.label} value={card.value} />
         ))}
       </div>
     </section>

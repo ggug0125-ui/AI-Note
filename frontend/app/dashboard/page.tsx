@@ -13,8 +13,8 @@ import {
 } from "lucide-react";
 import { ChatDocument } from "../../components/ChatDocument";
 import { CreditBadge } from "../../components/CreditBadge";
+import { DashboardOverview } from "../../components/dashboard/DashboardOverview";
 import { DocumentCenter } from "../../components/dashboard/documents/DocumentCenter";
-import { Overview } from "../../components/dashboard/Overview";
 import type { WorkspaceTab } from "../../components/dashboard/types";
 import { FileConvert } from "../../components/FileConvert";
 import { HistoryDashboard } from "../../components/HistoryDashboard";
@@ -220,7 +220,7 @@ export default function DashboardPage() {
           })}
         </nav>
 
-        {activePanel === "overview" && <Overview onNavigate={handleWorkspaceTabChange} />}
+        {activePanel === "overview" && <DashboardOverview onNavigate={handleWorkspaceTabChange} />}
         {activePanel === "documents" && (
           <DocumentCenter
             onNavigate={handleWorkspaceTabChange}

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ArrowRightLeft, BarChart3, MessageSquareText, Sparkles, UploadCloud } from "lucide-react";
 import type { WorkspaceTab } from "./types";
+import { QuickActionCard } from "./QuickActionCard";
 
 type QuickActionsProps = {
   onNavigate: (tab: WorkspaceTab) => void;
@@ -42,18 +43,13 @@ export function QuickActions({ onNavigate }: QuickActionsProps) {
       </div>
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         {actionCards.map((card) => (
-          <button
+          <QuickActionCard
             key={card.title}
-            type="button"
+            title={card.title}
+            description={card.description}
+            icon={card.icon}
             onClick={() => onNavigate(card.tab)}
-            className="rounded-2xl border border-[#EAD8C1] bg-white p-4 text-left transition hover:-translate-y-0.5 hover:border-[#D8AE5E] hover:shadow-[0_12px_26px_rgba(124,82,27,0.12)]"
-          >
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FFF3E5] text-coral">
-              {card.icon}
-            </span>
-            <strong className="mt-4 block text-base font-black text-[#2F2418]">{card.title}</strong>
-            <span className="mt-2 block text-sm font-bold leading-6 text-[#6F5A40]">{card.description}</span>
-          </button>
+          />
         ))}
       </div>
     </section>
