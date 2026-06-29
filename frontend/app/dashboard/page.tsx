@@ -209,7 +209,7 @@ export default function DashboardPage() {
                   "inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black transition",
                   isActive
                     ? "bg-[#2F2418] text-white shadow-[0_12px_24px_rgba(47,36,24,0.18)]"
-                    : "border border-[#D9B16A] bg-[#FFFDF8] text-[#7A4A12] shadow-[0_8px_18px_rgba(122,74,18,0.08)] hover:border-[#D8A84F] hover:bg-[#F8E8C7] hover:text-[#5F3608]",
+                    : "border border-coral bg-coral text-white shadow-[0_8px_18px_rgba(242,72,72,0.14)] hover:-translate-y-0.5 hover:border-red-500 hover:bg-red-500 hover:shadow-[0_14px_28px_rgba(242,72,72,0.22)]",
                 ].join(" ")}
                 aria-current={isActive ? "page" : undefined}
               >

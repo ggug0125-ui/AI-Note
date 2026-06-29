@@ -1,0 +1,96 @@
+export const aiTheme = {
+  colors: {
+    primary: "#F24848",
+    primaryHover: "#E53E3E",
+    active: "#4A3426",
+    surface: "#FFF8F0",
+    background: "#FFFCF8",
+    border: "#E8BC73",
+    textPrimary: "#2F2218",
+    textSecondary: "#6B4D36",
+    success: "#22C55E",
+    warning: "#D97706",
+    info: "#2563EB",
+    danger: "#DC2626",
+    payment: "#E7A93B",
+  },
+  radius: {
+    card: "24px",
+    modal: "24px",
+  },
+  shadow: {
+    soft: "0 18px 42px rgba(111, 64, 40, 0.10)",
+    hover: "0 24px 54px rgba(111, 64, 40, 0.16)",
+  },
+  motion: {
+    hoverTranslateY: "-2px",
+    transition: "200ms ease",
+  },
+} as const;
+
+export const aiClasses = {
+  button: {
+    base: "ai-btn",
+    primary: "ai-btn ai-btn-primary",
+    secondary: "ai-btn ai-btn-secondary",
+    active: "ai-btn ai-btn-active",
+    danger: "ai-btn ai-btn-danger",
+    payment: "ai-btn ai-btn-payment",
+    ghost: "ai-btn ai-btn-ghost",
+    icon: "ai-icon-btn",
+  },
+  card: {
+    base: "ai-card",
+    hover: "ai-card ai-card-hover",
+    selected: "ai-card ai-card-selected",
+    premium: "ai-card ai-card-premium",
+  },
+  panel: {
+    base: "ai-panel",
+    compact: "ai-panel-compact",
+    upload: "ai-panel-upload",
+    result: "ai-panel-result",
+  },
+  badge: {
+    base: "ai-badge",
+    primary: "ai-badge ai-badge-primary",
+    success: "ai-badge ai-badge-success",
+    warning: "ai-badge ai-badge-warning",
+    danger: "ai-badge ai-badge-danger",
+    info: "ai-badge ai-badge-info",
+  },
+  upload: {
+    zone: "ai-upload-zone",
+  },
+  form: {
+    input: "ai-input",
+    select: "ai-select",
+    textarea: "ai-textarea",
+  },
+  alert: {
+    base: "ai-alert",
+    success: "ai-alert ai-alert-success",
+    warning: "ai-alert ai-alert-warning",
+    danger: "ai-alert ai-alert-danger",
+  },
+  modal: {
+    backdrop: "ai-modal-backdrop",
+    shell: "ai-modal",
+    header: "ai-modal-header",
+    icon: "ai-modal-icon",
+    eyebrow: "ai-modal-eyebrow",
+    title: "ai-modal-title",
+    description: "ai-modal-description",
+    content: "ai-modal-content",
+    footer: "ai-modal-footer",
+  },
+  toast: "ai-toast",
+  typography: {
+    hero: "ai-hero-title",
+    pageTitle: "ai-page-title",
+    sectionTitle: "ai-section-title",
+    cardTitle: "ai-card-title",
+    body: "ai-body",
+    caption: "ai-caption",
+  },
+} as const;
