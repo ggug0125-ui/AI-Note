@@ -4,7 +4,7 @@ import { ArrowRight, LockKeyhole, Mail } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Logo } from "../../components/Logo";
 import { ThemeToggle } from "../../components/ThemeToggle";
 import { WaveBackground } from "../../components/WaveBackground";
@@ -13,11 +13,15 @@ import { API_BASE_URL } from "@/lib/api";
 const TOKEN_KEY = "access_token";
 const USER_KEY = "user";
 const DEFAULT_LOGIN_ERROR_MESSAGE = "로그인에 실패했습니다.";
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  google_oauth_failed: "Google 로그인에 실패했습니다. 다시 시도해주세요.",
+  oauth_failed: "소셜 로그인 처리 중 문제가 발생했습니다. 다시 시도해주세요."
+};
 
 const socialProviders = [
-  { name: "Naver", icon: "/icons/naver.svg", message: "Naver 로그인은 추후 연동 예정입니다." },
+  { name: "Google", icon: "/icons/google.svg", message: "Google 로그인은 추후 연동 예정입니다." },
   { name: "Kakao", icon: "/icons/kakao.svg", message: "Kakao 로그인은 추후 연동 예정입니다." },
-  { name: "Google", icon: "/icons/google.svg", message: "Google 로그인은 추후 연동 예정입니다." }
+  { name: "Naver", icon: "/icons/naver.svg", message: "Naver 로그인은 현재 개발 중입니다." }
 ];
 
 function getLoginErrorMessage(data: unknown) {
@@ -51,7 +55,26 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function handleSocialLogin(message: string) {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("error");
+    if (error && OAUTH_ERROR_MESSAGES[error]) {
+      setErrorMessage(OAUTH_ERROR_MESSAGES[error]);
+    }
+  }, []);
+
+  function handleSocialLogin(provider: (typeof socialProviders)[number]) {
+    if (provider.name === "Google") {
+      window.location.href = `${API_BASE_URL}/auth/google/login`;
+      return;
+    }
+
+    if (provider.name === "Kakao") {
+      window.location.href = `${API_BASE_URL}/auth/kakao/login`;
+      return;
+    }
+
+    const { message } = provider;
     window.alert(message);
     console.log(message);
   }
@@ -142,7 +165,7 @@ export default function LoginPage() {
               <div className="flex items-center justify-between gap-3 text-sm">
                 <label className="flex min-w-0 items-center gap-2 font-semibold text-neutral-600 dark:text-neutral-300">
                   <input type="checkbox" className="h-4 w-4 shrink-0 rounded border-neutral-300 accent-coral" />
-                  <span className="whitespace-nowrap">Remember me</span>
+                  <span className="whitespace-nowrap">로그인 상태 유지</span>
                 </label>
                 <Link href="/register" className="!hidden shrink-0 font-bold text-coral" aria-hidden="true" tabIndex={-1}>
                   회원가입
@@ -170,7 +193,7 @@ export default function LoginPage() {
                   <button
                     key={provider.name}
                     type="button"
-                    onClick={() => handleSocialLogin(provider.message)}
+                    onClick={() => handleSocialLogin(provider)}
                     className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-black/10 bg-white px-3 text-sm font-black shadow-sm transition hover:bg-neutral-50 dark:border-white/10 dark:bg-white/5 dark:text-neutral-100 dark:hover:bg-white/10"
                   >
                     <Image src={provider.icon} alt="" width={22} height={22} aria-hidden="true" />

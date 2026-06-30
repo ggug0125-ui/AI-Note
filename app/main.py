@@ -14,6 +14,9 @@ import re
 import shutil
 import uuid
 import json
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
@@ -22,7 +25,7 @@ from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
@@ -253,6 +256,188 @@ def _normalize_email(email: str) -> str:
 def _validate_email(email: str) -> None:
     if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
         raise HTTPException(status_code=400, detail="Invalid email address")
+
+
+def _frontend_url() -> str:
+    frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
+    if not frontend_url:
+        raise HTTPException(
+            status_code=500,
+            detail="Missing OAuth environment variable: FRONTEND_URL",
+        )
+    return frontend_url
+
+
+def _google_oauth_config() -> Dict[str, str]:
+    config = {
+        "client_id": os.getenv("GOOGLE_CLIENT_ID", "").strip(),
+        "client_secret": os.getenv("GOOGLE_CLIENT_SECRET", "").strip(),
+        "redirect_uri": os.getenv("GOOGLE_REDIRECT_URI", "").strip(),
+    }
+    env_names = {
+        "client_id": "GOOGLE_CLIENT_ID",
+        "client_secret": "GOOGLE_CLIENT_SECRET",
+        "redirect_uri": "GOOGLE_REDIRECT_URI",
+    }
+    missing = [env_names[key] for key, value in config.items() if not value]
+    if missing:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Missing Google OAuth environment variables: {', '.join(missing)}",
+        )
+    return config
+
+
+def _google_oauth_failed_redirect() -> RedirectResponse:
+    return RedirectResponse(url=f"{_frontend_url()}/login?error=google_oauth_failed", status_code=302)
+
+
+def _kakao_oauth_config() -> Dict[str, str]:
+    config = {
+        "client_id": os.getenv("KAKAO_REST_API_KEY", "").strip(),
+        "client_secret": os.getenv("KAKAO_CLIENT_SECRET", "").strip(),
+        "redirect_uri": os.getenv("KAKAO_REDIRECT_URI", "").strip(),
+    }
+    env_names = {
+        "client_id": "KAKAO_REST_API_KEY",
+        "client_secret": "KAKAO_CLIENT_SECRET",
+        "redirect_uri": "KAKAO_REDIRECT_URI",
+    }
+    missing = [env_names[key] for key, value in config.items() if not value]
+    if missing:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Missing Kakao OAuth environment variables: {', '.join(missing)}",
+        )
+    return config
+
+
+def _kakao_oauth_failed_redirect() -> RedirectResponse:
+    return RedirectResponse(url=f"{_frontend_url()}/login?error=kakao_oauth_failed", status_code=302)
+
+
+def _post_form(url: str, data: Dict[str, str]) -> Dict[str, Any]:
+    encoded_data = urllib.parse.urlencode(data).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=encoded_data,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except (urllib.error.URLError, json.JSONDecodeError) as exc:
+        raise ValueError("OAuth token request failed") from exc
+
+
+def _get_json(url: str, headers: Dict[str, str]) -> Dict[str, Any]:
+    request = urllib.request.Request(url, headers=headers, method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except (urllib.error.URLError, json.JSONDecodeError) as exc:
+        raise ValueError("OAuth userinfo request failed") from exc
+
+
+def _issue_user_token(user: Dict[str, Any]) -> str:
+    return create_access_token(
+        subject=str(user["user_id"]),
+        extra_claims={"email": user["email"]},
+    )
+
+
+def _google_providers(existing_user: Dict[str, Any]) -> List[str]:
+    raw_providers = existing_user.get("providers")
+    if isinstance(raw_providers, list):
+        providers = [str(provider).strip().lower() for provider in raw_providers if str(provider).strip()]
+    else:
+        provider = str(existing_user.get("provider") or "").strip().lower()
+        providers = [provider] if provider else []
+    if "google" not in providers:
+        providers.append("google")
+    return providers
+
+
+def _upsert_google_user(email: str, name: str, picture: str) -> Dict[str, Any]:
+    normalized_email = _normalize_email(email)
+    _validate_email(normalized_email)
+
+    existing_user = user_store.get_by_email(normalized_email)
+    if existing_user:
+        updates: Dict[str, Any] = {
+            "providers": _google_providers(existing_user),
+            "provider": existing_user.get("provider") or "google",
+        }
+        if picture:
+            updates["picture"] = picture
+        if not str(existing_user.get("name") or "").strip() and name:
+            updates["name"] = name
+        return user_store.update_user(str(existing_user["user_id"]), updates) or existing_user
+
+    user = {
+        "user_id": uuid.uuid4().hex,
+        "email": normalized_email,
+        "name": name or normalized_email.split("@", 1)[0],
+        "provider": "google",
+        "providers": ["google"],
+        "picture": picture,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "credits": 0,
+    }
+    return user_store.create_user(user)
+
+
+def _oauth_providers(existing_user: Dict[str, Any], provider_name: str) -> List[str]:
+    raw_providers = existing_user.get("providers")
+    if isinstance(raw_providers, list):
+        providers = [str(provider).strip().lower() for provider in raw_providers if str(provider).strip()]
+    else:
+        provider = str(existing_user.get("provider") or "").strip().lower()
+        providers = [provider] if provider else []
+    if provider_name not in providers:
+        providers.append(provider_name)
+    return providers
+
+
+def _upsert_kakao_user(provider_id: str, email: str, name: str, picture: str) -> Dict[str, Any]:
+    normalized_provider_id = str(provider_id).strip()
+    if not normalized_provider_id:
+        raise ValueError("Kakao provider id was not returned")
+
+    normalized_email = _normalize_email(email) if email else f"kakao_{normalized_provider_id}@kakao.local"
+    _validate_email(normalized_email)
+
+    existing_user = user_store.get_by_email(normalized_email)
+    if not existing_user:
+        existing_user = user_store.get_by_provider_id("kakao", normalized_provider_id)
+
+    if existing_user:
+        updates: Dict[str, Any] = {
+            "providers": _oauth_providers(existing_user, "kakao"),
+            "provider": existing_user.get("provider") or "kakao",
+            "provider_id": normalized_provider_id,
+            "kakao_id": normalized_provider_id,
+        }
+        if picture:
+            updates["picture"] = picture
+        if not str(existing_user.get("name") or "").strip() and name:
+            updates["name"] = name
+        return user_store.update_user(str(existing_user["user_id"]), updates) or existing_user
+
+    user = {
+        "user_id": uuid.uuid4().hex,
+        "email": normalized_email,
+        "name": name or "Kakao User",
+        "provider": "kakao",
+        "providers": ["kakao"],
+        "provider_id": normalized_provider_id,
+        "kakao_id": normalized_provider_id,
+        "picture": picture,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "credits": 0,
+    }
+    return user_store.create_user(user)
 
 
 def calculate_document_credits(page_count: int) -> float:
@@ -840,6 +1025,132 @@ async def login_user(request: LoginRequest):
         "token_type": "bearer",
         "user": public_user,
     }
+
+
+@app.get("/auth/google/login")
+async def google_login():
+    config = _google_oauth_config()
+    params = {
+        "client_id": config["client_id"],
+        "redirect_uri": config["redirect_uri"],
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "offline",
+        "prompt": "consent",
+    }
+    authorization_url = "https://accounts.google.com/o/oauth2/v2/auth"
+    return RedirectResponse(
+        url=f"{authorization_url}?{urllib.parse.urlencode(params)}",
+        status_code=302,
+    )
+
+
+@app.get("/auth/google/callback")
+async def google_callback(code: Optional[str] = Query(default=None)):
+    if not code:
+        return _google_oauth_failed_redirect()
+
+    try:
+        config = _google_oauth_config()
+        token_response = _post_form(
+            "https://oauth2.googleapis.com/token",
+            {
+                "code": code,
+                "client_id": config["client_id"],
+                "client_secret": config["client_secret"],
+                "redirect_uri": config["redirect_uri"],
+                "grant_type": "authorization_code",
+            },
+        )
+        access_token = str(token_response.get("access_token") or "")
+        if not access_token:
+            raise ValueError("Google access token was not returned")
+
+        userinfo = _get_json(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            {"Authorization": f"Bearer {access_token}"},
+        )
+        email = _normalize_email(str(userinfo.get("email") or ""))
+        if not email:
+            raise ValueError("Google userinfo did not include an email")
+
+        user = _upsert_google_user(
+            email=email,
+            name=str(userinfo.get("name") or ""),
+            picture=str(userinfo.get("picture") or ""),
+        )
+        app_token = _issue_user_token(user)
+        callback_url = f"{_frontend_url()}/auth/callback?{urllib.parse.urlencode({'token': app_token})}"
+        return RedirectResponse(url=callback_url, status_code=302)
+    except ValueError:
+        return _google_oauth_failed_redirect()
+
+
+@app.get("/auth/kakao/login")
+async def kakao_login():
+    config = _kakao_oauth_config()
+    params = {
+        "client_id": config["client_id"],
+        "redirect_uri": config["redirect_uri"],
+        "response_type": "code",
+    }
+    authorization_url = "https://kauth.kakao.com/oauth/authorize"
+    return RedirectResponse(
+        url=f"{authorization_url}?{urllib.parse.urlencode(params)}",
+        status_code=302,
+    )
+
+
+@app.get("/auth/kakao/callback")
+async def kakao_callback(code: Optional[str] = Query(default=None)):
+    if not code:
+        return _kakao_oauth_failed_redirect()
+
+    try:
+        config = _kakao_oauth_config()
+        token_response = _post_form(
+            "https://kauth.kakao.com/oauth/token",
+            {
+                "code": code,
+                "client_id": config["client_id"],
+                "client_secret": config["client_secret"],
+                "redirect_uri": config["redirect_uri"],
+                "grant_type": "authorization_code",
+            },
+        )
+        access_token = str(token_response.get("access_token") or "")
+        if not access_token:
+            raise ValueError("Kakao access token was not returned")
+
+        userinfo = _get_json(
+            "https://kapi.kakao.com/v2/user/me",
+            {"Authorization": f"Bearer {access_token}"},
+        )
+        provider_id = str(userinfo.get("id") or "").strip()
+        if not provider_id:
+            raise ValueError("Kakao userinfo did not include id")
+
+        kakao_account = userinfo.get("kakao_account")
+        if not isinstance(kakao_account, dict):
+            kakao_account = {}
+
+        email = _normalize_email(str(kakao_account.get("email") or ""))
+
+        profile = kakao_account.get("profile")
+        if not isinstance(profile, dict):
+            profile = {}
+
+        user = _upsert_kakao_user(
+            provider_id=provider_id,
+            email=email,
+            name=str(profile.get("nickname") or ""),
+            picture=str(profile.get("profile_image_url") or ""),
+        )
+        app_token = _issue_user_token(user)
+        callback_url = f"{_frontend_url()}/auth/callback?{urllib.parse.urlencode({'token': app_token})}"
+        return RedirectResponse(url=callback_url, status_code=302)
+    except ValueError:
+        return _kakao_oauth_failed_redirect()
 
 
 @app.get("/auth/me")

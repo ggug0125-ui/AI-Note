@@ -66,6 +66,52 @@ class UserStore:
         )
         return self._public_record(user) if user else None
 
+    def get_by_provider_id(self, provider: str, provider_id: str) -> Optional[Dict[str, Any]]:
+        normalized_provider = provider.strip().lower()
+        normalized_provider_id = str(provider_id).strip()
+        if not normalized_provider or not normalized_provider_id:
+            return None
+
+        if self._collection is not None:
+            user = self._collection.find_one({
+                "$and": [
+                    {
+                        "$or": [
+                            {"provider": normalized_provider},
+                            {"providers": normalized_provider},
+                        ]
+                    },
+                    {
+                        "$or": [
+                            {"provider_id": normalized_provider_id},
+                            {"kakao_id": normalized_provider_id},
+                        ]
+                    },
+                ]
+            })
+            return self._public_record(user) if user else None
+
+        def has_provider(user: Dict[str, Any]) -> bool:
+            raw_providers = user.get("providers")
+            providers = raw_providers if isinstance(raw_providers, list) else []
+            return (
+                str(user.get("provider") or "").strip().lower() == normalized_provider
+                or normalized_provider in [str(item).strip().lower() for item in providers]
+            )
+
+        user = next(
+            (
+                user for user in self.list_users()
+                if has_provider(user)
+                and (
+                    str(user.get("provider_id") or "").strip() == normalized_provider_id
+                    or str(user.get("kakao_id") or "").strip() == normalized_provider_id
+                )
+            ),
+            None,
+        )
+        return self._public_record(user) if user else None
+
     def create_user(self, user: Dict[str, Any]) -> Dict[str, Any]:
         normalized_email = str(user["email"]).strip().lower()
         next_user = {**user, "email": normalized_email, "credits": int(user.get("credits", 0) or 0)}
@@ -104,6 +150,29 @@ class UserStore:
             for user in users:
                 if user.get("user_id") == user_id:
                     user["credits"] = float(user.get("credits", 0) or 0) + float(amount)
+                    self._write_unlocked(users)
+                    return self._public_record(user)
+
+        return None
+
+    def update_user(self, user_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        next_updates = {key: value for key, value in updates.items() if key not in {"_id", "user_id", "email"}}
+        if not next_updates:
+            return self.get_by_id(user_id)
+
+        if self._collection is not None:
+            updated_user = self._collection.find_one_and_update(
+                {"user_id": user_id},
+                {"$set": next_updates},
+                return_document=self._return_document_after,
+            )
+            return self._public_record(updated_user) if updated_user else None
+
+        with self._lock:
+            users = self._load_unlocked()
+            for user in users:
+                if user.get("user_id") == user_id:
+                    user.update(next_updates)
                     self._write_unlocked(users)
                     return self._public_record(user)
 
