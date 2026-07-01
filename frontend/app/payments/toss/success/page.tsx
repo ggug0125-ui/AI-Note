@@ -175,19 +175,19 @@ function TossSuccessContent() {
         )}
 
         {errorMessage && (
-          <div className="mt-5 rounded-2xl border border-[#E8A77A]/60 bg-[#FFF3EE] p-4 text-sm font-bold text-[#9A3E1F]">
+          <div className="mt-5 rounded-2xl border border-primary/40 bg-primary/10 p-4 text-sm font-bold text-primary">
             {errorMessage}
           </div>
         )}
 
         {confirmResult && (
           <>
-            <div className="mt-5 rounded-3xl border border-[#BFDFA9]/70 bg-[linear-gradient(135deg,#F7FFF3_0%,#ECF9E6_100%)] p-6 text-center shadow-[0_18px_42px_rgba(55,107,36,0.1)]">
-              <div className="success-check-pop mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#DFF2D2] text-[#2F7A1F] shadow-[0_14px_28px_rgba(55,107,36,0.14)]">
+            <div className="mt-5 rounded-3xl border border-gold/60 bg-[linear-gradient(135deg,rgb(var(--ai-card))_0%,rgb(var(--ai-panel))_100%)] p-6 text-center shadow-soft">
+              <div className="success-check-pop mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gold/15 text-gold shadow-soft">
                 <CheckCircle2 size={48} strokeWidth={2.4} />
               </div>
-              <h2 className="mt-4 text-3xl font-black text-[#264F18]">🎉 결제가 완료되었습니다.</h2>
-              <p className="mt-3 text-lg font-black text-[#376B24]">
+              <h2 className="mt-4 text-3xl font-black text-title">🎉 결제가 완료되었습니다.</h2>
+              <p className="mt-3 text-lg font-black text-body">
                 {formatCreditNumber(displayedAwardedCredits)} Credits가 지급되었습니다.
               </p>
               <div className="success-sparkle-field relative mx-auto mt-4 w-fit">
@@ -198,7 +198,7 @@ function TossSuccessContent() {
                   +{formatCreditNumber(displayedAwardedCredits)} Credits ✨
                 </p>
               </div>
-              <p className="mt-2 text-sm font-bold text-[#4F7A3B]">현재 보유 크레딧</p>
+              <p className="mt-2 text-sm font-bold text-muted">현재 보유 크레딧</p>
               <p className="success-current-credit mt-1 text-4xl font-black">
                 {formatCreditNumber(displayedCurrentCredits)} Credits
               </p>
@@ -216,7 +216,7 @@ function TossSuccessContent() {
           {errorMessage ? (
             <Link
               href="/mypage?tab=billing"
-              className="inline-flex h-12 items-center justify-center rounded-full border border-[#E2C985]/70 bg-white px-5 text-sm font-black text-[#7A551D] shadow-[0_10px_22px_rgba(124,82,27,0.1)] transition hover:-translate-y-0.5 hover:bg-[#FFF8EE]"
+              className="inline-flex h-12 items-center justify-center rounded-full border border-gold/70 bg-surface px-5 text-sm font-black text-gold shadow-soft transition hover:-translate-y-0.5 hover:bg-panel"
             >
               결제 정보로 돌아가기
             </Link>
@@ -224,13 +224,13 @@ function TossSuccessContent() {
             <>
               <Link
                 href="/mypage?tab=billing"
-                className="inline-flex h-12 items-center justify-center rounded-full border border-[#E2C985]/70 bg-white px-5 text-sm font-black text-[#7A551D] shadow-[0_10px_22px_rgba(124,82,27,0.1)] transition hover:-translate-y-0.5 hover:bg-[#FFF8EE]"
+                className="inline-flex h-12 items-center justify-center rounded-full border border-gold/70 bg-surface px-5 text-sm font-black text-gold shadow-soft transition hover:-translate-y-0.5 hover:bg-panel"
               >
                 결제 정보로 이동
               </Link>
               <Link
                 href="/mypage?tab=payments"
-                className="inline-flex h-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#F7D774_0%,#E7A93B_100%)] px-5 text-sm font-black text-[#34220F] shadow-[0_10px_22px_rgba(124,82,27,0.16)] transition hover:-translate-y-0.5 hover:brightness-105"
+                className="ai-btn ai-btn-payment h-12 px-5"
               >
                 결제 내역으로 이동
               </Link>
@@ -348,9 +348,9 @@ function TossSuccessContent() {
 
 function TossResultShell({ text }: { text: string }) {
   return (
-    <main className="min-h-screen bg-[linear-gradient(135deg,#FFFDF8_0%,#FFF8EE_48%,#F7EFE2_100%)] px-4 py-10 text-[#2F2418] sm:px-6 lg:px-8">
-      <section className="mx-auto max-w-4xl rounded-3xl border border-[#E9D8BD] bg-[#FFFDF7] p-6 shadow-[0_18px_45px_rgba(124,82,27,0.08)]">
-        <p className="text-sm font-black text-[#7A551D]">{text}</p>
+    <main className="min-h-screen bg-[linear-gradient(135deg,rgb(var(--ai-bg))_0%,rgb(var(--ai-surface))_48%,rgb(var(--ai-panel))_100%)] px-4 py-10 text-title sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-4xl rounded-3xl border border-border bg-card p-6 shadow-soft">
+        <p className="text-sm font-black text-gold">{text}</p>
       </section>
     </main>
   );
@@ -366,12 +366,12 @@ function InfoCard({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-[#E8C77A]/55 bg-white/75 p-4 shadow-[0_12px_28px_rgba(124,82,27,0.06)]">
-      <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[#8A7354]">
-        <span className="text-[#A66A1F]">{icon}</span>
+    <div className="rounded-2xl border border-gold/55 bg-panel p-4 shadow-soft">
+      <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-muted">
+        <span className="text-gold">{icon}</span>
         {label}
       </div>
-      <p className="mt-3 break-words text-lg font-black text-[#2F2418]">{value}</p>
+      <p className="mt-3 break-words text-lg font-black text-title">{value}</p>
     </div>
   );
 }

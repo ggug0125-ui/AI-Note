@@ -36,10 +36,10 @@ export function QuickActions({ onNavigate }: QuickActionsProps) {
   ];
 
   return (
-    <section className="rounded-3xl border border-[#E9D8BD] bg-[linear-gradient(135deg,#FFFDF8_0%,#FFF8EE_100%)] p-5 shadow-[0_14px_34px_rgba(124,82,27,0.07)] md:p-6">
+    <section className="rounded-3xl border border-border bg-[linear-gradient(135deg,rgb(var(--ai-card))_0%,rgb(var(--ai-surface))_100%)] p-5 shadow-soft md:p-6">
       <div className="flex items-center gap-3">
-        <Sparkles className="text-coral" size={22} />
-        <h2 className="text-xl font-black text-[#2F2418]">빠른 시작</h2>
+        <Sparkles className="text-primary" size={22} />
+        <h2 className="text-xl font-black text-title">빠른 시작</h2>
       </div>
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         {actionCards.map((card) => (

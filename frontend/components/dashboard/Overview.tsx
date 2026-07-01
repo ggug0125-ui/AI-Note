@@ -179,16 +179,16 @@ export function Overview({ onNavigate }: OverviewProps) {
         {overviewSteps.map((step, index) => (
           <article
             key={step.title}
-            className="rounded-3xl border border-[#E9D8BD] bg-white p-5 shadow-[0_14px_34px_rgba(124,82,27,0.07)]"
+            className="rounded-3xl border border-border bg-card p-5 shadow-soft"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFF3E5] text-coral">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               {step.icon}
             </div>
-            <p className="mt-5 text-xs font-black uppercase tracking-wide text-[#8A7354]">
+            <p className="mt-5 text-xs font-black uppercase tracking-wide text-muted">
               Step {index + 1}
             </p>
-            <h2 className="mt-2 text-xl font-black text-[#2F2418]">{step.title}</h2>
-            <p className="mt-3 text-sm font-bold leading-6 text-[#6F5A40]">{step.description}</p>
+            <h2 className="mt-2 text-xl font-black text-title">{step.title}</h2>
+            <p className="mt-3 text-sm font-bold leading-6 text-body">{step.description}</p>
           </article>
         ))}
       </section>

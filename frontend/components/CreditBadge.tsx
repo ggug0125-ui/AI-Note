@@ -9,7 +9,7 @@ type CreditBadgeProps = {
 };
 
 const toneClasses: Record<CreditTone, string> = {
-  blue: "border-blue-300/45 bg-white/25 text-neutral-700 shadow-[0_0_12px_rgba(59,130,246,0.06)] dark:border-blue-300/20 dark:bg-white/5 dark:text-blue-100",
+  blue: "border-border bg-card/75 text-body shadow-soft",
   witch: "border-lime-300/75 bg-black/18 text-emerald-50 shadow-[0_0_18px_rgba(132,204,22,0.2)]",
   fairy: "border-pink-300/78 bg-black/18 text-pink-50 shadow-[0_0_18px_rgba(244,114,182,0.24)]",
   gold: "border-yellow-300/70 bg-yellow-300/16 text-yellow-100 shadow-[0_0_18px_rgba(250,204,21,0.2)]",

@@ -15,6 +15,7 @@ import { ChatDocument } from "../../components/ChatDocument";
 import { CreditBadge } from "../../components/CreditBadge";
 import { DashboardOverview } from "../../components/dashboard/DashboardOverview";
 import { DocumentCenter } from "../../components/dashboard/documents/DocumentCenter";
+import { MobileWorkspace } from "../../components/dashboard/mobile/MobileWorkspace";
 import type { WorkspaceTab } from "../../components/dashboard/types";
 import { FileConvert } from "../../components/FileConvert";
 import { HistoryDashboard } from "../../components/HistoryDashboard";
@@ -22,6 +23,7 @@ import { KeywordExtract } from "../../components/KeywordExtract";
 import { Navbar, type DashboardTab } from "../../components/Navbar";
 import { SiteHeader } from "../../components/SiteHeader";
 import { Summary } from "../../components/Summary";
+import { ThemeToggle } from "../../components/ThemeToggle";
 import { API_BASE_URL } from "@/lib/api";
 
 const TOKEN_KEY = "access_token";
@@ -47,10 +49,36 @@ const workspaceTabs: Array<{ id: WorkspaceTab; label: string; icon: typeof FileT
   { id: "history", label: "작업기록", icon: History },
 ];
 
+const mobileWorkspaceTabs: Array<{ id: WorkspaceTab; shortLabel: string; icon: typeof FileText }> = [
+  { id: "overview", shortLabel: "대시보드", icon: Sparkles },
+  { id: "documents", shortLabel: "문서", icon: FileSearch },
+  { id: "analysis", shortLabel: "분석", icon: BarChart3 },
+  { id: "chat", shortLabel: "채팅", icon: MessageSquareText },
+  { id: "convert", shortLabel: "변환", icon: ArrowRightLeft },
+  { id: "history", shortLabel: "기록", icon: History },
+];
 function clearAuthStorage() {
   window.localStorage.removeItem(TOKEN_KEY);
   window.localStorage.removeItem(USER_KEY);
 }
+
+const workspaceNavigationTabs: Array<{ id: WorkspaceTab; label: string; icon: typeof FileText }> = [
+  { id: "overview", label: "대시보드", icon: Sparkles },
+  { id: "documents", label: "문서 업로드", icon: FileSearch },
+  { id: "analysis", label: "문서 분석", icon: BarChart3 },
+  { id: "chat", label: "AI 채팅", icon: MessageSquareText },
+  { id: "convert", label: "파일 변환", icon: ArrowRightLeft },
+  { id: "history", label: "작업 기록", icon: History },
+];
+
+const mobileNavigationTabs: Array<{ id: WorkspaceTab; shortLabel: string; icon: typeof FileText }> = [
+  { id: "overview", shortLabel: "대시보드", icon: Sparkles },
+  { id: "documents", shortLabel: "문서", icon: FileSearch },
+  { id: "analysis", shortLabel: "분석", icon: BarChart3 },
+  { id: "chat", shortLabel: "채팅", icon: MessageSquareText },
+  { id: "convert", shortLabel: "변환", icon: ArrowRightLeft },
+  { id: "history", shortLabel: "기록", icon: History },
+];
 
 function workspaceToDashboardTab(tab: WorkspacePanel): DashboardTab {
   const mapping: Record<WorkspacePanel, DashboardTab> = {
@@ -80,6 +108,22 @@ function dashboardToWorkspacePanel(tab: DashboardTab): WorkspacePanel {
   return mapping[tab];
 }
 
+function useMobileWorkspace() {
+  const [isMobileWorkspace, setIsMobileWorkspace] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const updateViewportMode = () => setIsMobileWorkspace(mediaQuery.matches);
+
+    updateViewportMode();
+    mediaQuery.addEventListener("change", updateViewportMode);
+
+    return () => mediaQuery.removeEventListener("change", updateViewportMode);
+  }, []);
+
+  return isMobileWorkspace;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [activePanel, setActivePanel] = useState<WorkspacePanel>("overview");
@@ -88,6 +132,11 @@ export default function DashboardPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const isAdmin = user?.role === "admin";
   const navbarActiveTab = workspaceToDashboardTab(activePanel);
+  const isMobileWorkspace = useMobileWorkspace();
+
+  useEffect(() => {
+    console.log("[dashboard-activePanel]", activePanel);
+  }, [activePanel]);
 
   useEffect(() => {
     async function verifyToken() {
@@ -121,6 +170,27 @@ export default function DashboardPage() {
     verifyToken();
   }, [router]);
 
+  const refreshCurrentUser = useCallback(async () => {
+    const token = window.localStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      return;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    const data = await response.json();
+    setUser(data.user);
+    window.localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+  }, []);
+
   async function handleLogout() {
     const token = window.localStorage.getItem(TOKEN_KEY);
     if (token) {
@@ -141,6 +211,7 @@ export default function DashboardPage() {
   }
 
   function handleWorkspaceTabChange(tab: WorkspaceTab) {
+    console.log("[dashboard-onNavigate]", tab);
     setActivePanel(tab);
   }
 
@@ -154,6 +225,70 @@ export default function DashboardPage() {
         <p className="rounded-2xl bg-card px-5 py-4 text-sm font-bold shadow-sm">
           로그인 상태를 확인하고 있습니다...
         </p>
+      </main>
+    );
+  }
+
+  if (isMobileWorkspace) {
+    const mobileActivePanel = activePanel === "mypage" ? "overview" : activePanel;
+    return (
+      <main className="h-[100dvh] overflow-hidden overflow-x-hidden bg-app text-title md:hidden">
+        <header className="sticky top-0 z-30 border-b border-border bg-surface/95 px-2.5 py-0.5 backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 leading-none">
+              <p className="truncate text-xs font-black uppercase tracking-wide text-title">AI Note 2.0</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <CreditBadge credits={user?.credits} tone="blue" className="max-w-[7.25rem] px-2.5 py-1 text-[0.68rem]" />
+              <ThemeToggle />
+            </div>
+          </div>
+        </header>
+
+        <section className="h-[calc(100dvh-2.55rem)] overflow-hidden px-2.5 pb-[calc(4.55rem+env(safe-area-inset-bottom))] pt-2">
+          <div className="h-full overflow-hidden rounded-2xl border border-border bg-surface/60 p-2.5 shadow-soft">
+            <div className="mx-auto grid h-full min-h-0 max-w-xl content-start transition-all duration-200 ease-out">
+              <MobileWorkspace
+                activePanel={mobileActivePanel}
+                selectedDocumentId={selectedDocumentId}
+                credits={user?.credits}
+                onNavigate={handleWorkspaceTabChange}
+                onDocumentSelect={handleDocumentSelect}
+                onCreditsRefresh={refreshCurrentUser}
+              />
+            </div>
+          </div>
+        </section>
+
+        <nav
+          aria-label="Mobile workspace tabs"
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 px-2 pb-[calc(0.35rem+env(safe-area-inset-bottom))] pt-1 shadow-[0_-12px_28px_rgba(47,36,24,0.12)] backdrop-blur-xl"
+        >
+          <div className="mx-auto grid max-w-xl grid-cols-6 gap-1">
+            {mobileNavigationTabs.map((item) => {
+              const Icon = item.icon;
+              const isActive = mobileActivePanel === item.id;
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleWorkspaceTabChange(item.id)}
+                  className={[
+                    "flex min-h-[2.75rem] min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-[0.6rem] font-black leading-tight transition-all duration-200 active:scale-95",
+                    isActive
+                      ? "scale-[1.03] border border-primary bg-primary text-white shadow-soft"
+                      : "border border-border bg-card text-body hover:border-primary/40 hover:bg-panel hover:text-title active:border-primary/50",
+                  ].join(" ")}
+                  aria-current={isActive ? "page" : undefined}
+                >
+                  <Icon size={15} strokeWidth={2.4} />
+                  <span className="max-w-full truncate">{item.shortLabel}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
       </main>
     );
   }
@@ -196,7 +331,7 @@ export default function DashboardPage() {
           aria-label="AI Workspace menu"
           className="grid gap-2 rounded-3xl border border-border bg-card p-2 shadow-sm sm:grid-cols-2 lg:grid-cols-6"
         >
-          {workspaceTabs.map((item) => {
+          {workspaceNavigationTabs.map((item) => {
             const Icon = item.icon;
             const isActive = activePanel === item.id;
 

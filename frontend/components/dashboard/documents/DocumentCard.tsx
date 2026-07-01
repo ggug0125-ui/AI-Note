@@ -51,7 +51,7 @@ export function DocumentCard({ document, isSelected, onSelect }: DocumentCardPro
       type="button"
       onClick={() => onSelect(document)}
       className={[
-        "group relative flex h-full min-w-0 cursor-pointer flex-col rounded-3xl border p-4 text-left transition-all duration-300 ease-out focus:outline-none focus-visible:ring-4 focus-visible:ring-[#E8C77A]/35",
+        "group relative flex h-full min-w-0 cursor-pointer flex-col rounded-3xl border p-4 text-left transition-all duration-300 ease-out focus:outline-none focus-visible:ring-4 focus-visible:ring-gold/35",
         isSelected
           ? "-translate-y-0.5 border-gold bg-panel shadow-soft ring-2 ring-gold/35"
           : "border-border bg-card shadow-soft hover:-translate-y-1 hover:border-gold/80 hover:bg-panel",
@@ -86,11 +86,11 @@ export function DocumentCard({ document, isSelected, onSelect }: DocumentCardPro
         </div>
 
         <div className="mt-6 grid gap-2">
-          <span className={["h-2 rounded-full transition-colors duration-300", isSelected ? "bg-[#D8AE5E]" : "bg-[#E9D8BD] group-hover:bg-[#E6C98F]"].join(" ")} />
-          <span className="h-2 rounded-full bg-[#F0E3CF] transition-colors duration-300 group-hover:bg-[#EAD8C1]" />
-          <span className="h-2 w-4/5 rounded-full bg-[#F0E3CF] transition-colors duration-300 group-hover:bg-[#EAD8C1]" />
-          <span className="mt-3 h-2 rounded-full bg-[#F5EBDC]" />
-          <span className="h-2 w-2/3 rounded-full bg-[#F5EBDC]" />
+          <span className={["h-2 rounded-full transition-colors duration-300", isSelected ? "bg-gold" : "bg-gold/30 group-hover:bg-gold/45"].join(" ")} />
+          <span className="h-2 rounded-full bg-border transition-colors duration-300 group-hover:bg-gold/35" />
+          <span className="h-2 w-4/5 rounded-full bg-border transition-colors duration-300 group-hover:bg-gold/35" />
+          <span className="mt-3 h-2 rounded-full bg-panel" />
+          <span className="h-2 w-2/3 rounded-full bg-panel" />
         </div>
 
         <span className={["mt-auto w-fit rounded-full border px-2.5 py-1 text-[10px] font-black", getStatusBadgeClass(document.status)].join(" ")}>

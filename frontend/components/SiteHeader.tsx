@@ -113,7 +113,7 @@ export function SiteHeader() {
           <Logo />
           <nav className="hidden items-center gap-10 text-sm font-semibold text-body md:flex">
             {navItems.map((item) => (
-              <Link key={item.label} href={item.href} className="transition hover:text-coral">
+              <Link key={item.label} href={item.href} className="transition hover:text-primary">
                 {item.label}
               </Link>
             ))}

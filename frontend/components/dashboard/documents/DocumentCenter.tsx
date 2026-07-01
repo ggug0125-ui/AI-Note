@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FileUp } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, BarChart3, FileText, FileUp, Hash, History, MessageSquareText } from "lucide-react";
 import { PdfAnalysis } from "../../PdfAnalysis";
 import { API_BASE_URL, authenticatedFetch } from "@/lib/api";
 import type { WorkspaceTab } from "../types";
@@ -10,13 +10,14 @@ import { DocumentFilterBar } from "./DocumentFilterBar";
 import { DocumentUploadCard } from "./DocumentUploadCard";
 import { SelectedDocumentPanel } from "./SelectedDocumentPanel";
 import { SupportedFileTypes } from "./SupportedFileTypes";
-import type { DocumentFilter, DocumentItem, DocumentSort, DocumentStatus, DocumentViewModel } from "./types";
+import { formatDocumentInfo, type DocumentFilter, type DocumentItem, type DocumentSort, type DocumentStatus, type DocumentViewModel } from "./types";
 
 type DocumentCenterProps = {
   onNavigate: (tab: WorkspaceTab) => void;
   selectedDocumentId: string;
   onDocumentSelect: (documentId: string) => void;
   isAdmin?: boolean;
+  mobile?: boolean;
 };
 
 type UploadCreditPreview = {
@@ -195,7 +196,7 @@ function sortDocuments(documents: DocumentViewModel[], sort: DocumentSort) {
   return sorted.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelect, isAdmin = true }: DocumentCenterProps) {
+export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelect, isAdmin = true, mobile = false }: DocumentCenterProps) {
   const [documents, setDocuments] = useState<DocumentViewModel[]>([]);
   const [filter, setFilter] = useState<DocumentFilter>("recent");
   const [sort, setSort] = useState<DocumentSort>("latest");
@@ -429,6 +430,144 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
     documents.find((document) => document.id === selectedDocumentId) || null
   ), [documents, selectedDocumentId]);
 
+  if (mobile) {
+    const mobileActions: Array<{ label: string; tab: WorkspaceTab; icon: typeof FileText }> = [
+      { label: "요약", tab: "analysis", icon: BarChart3 },
+      { label: "키워드", tab: "analysis", icon: Hash },
+      { label: "AI Chat", tab: "chat", icon: MessageSquareText },
+      { label: "변환", tab: "convert", icon: ArrowRightLeft },
+      { label: "기록", tab: "history", icon: History },
+    ];
+
+    if (selectedDocument) {
+      return (
+        <section className="grid gap-3">
+          <button
+            type="button"
+            onClick={() => onDocumentSelect("")}
+            className="inline-flex h-9 w-fit items-center gap-2 rounded-full border border-border bg-card px-3 text-xs font-black text-body"
+          >
+            <ArrowLeft size={15} />
+            뒤로
+          </button>
+
+          <article className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <span className="shrink-0 rounded-full border border-gold/45 bg-gold/12 px-2.5 py-1 text-[0.68rem] font-black text-gold">
+                {selectedDocument.extension}
+              </span>
+              <span className="shrink-0 rounded-full border border-border bg-panel px-2.5 py-1 text-[0.68rem] font-black text-body">
+                {selectedDocument.statusLabel}
+              </span>
+            </div>
+            <h2 className="mt-3 line-clamp-2 break-words text-lg font-black leading-6 text-title">
+              {selectedDocument.filename}
+            </h2>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-body">
+              <span className="rounded-xl bg-panel px-3 py-2">{selectedDocument.createdLabel}</span>
+              <span className="rounded-xl bg-panel px-3 py-2">{formatDocumentInfo(selectedDocument)}</span>
+            </div>
+          </article>
+
+          <section className="rounded-2xl border border-border bg-card p-3 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-wide text-muted">Actions</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {mobileActions.map((action) => {
+                const Icon = action.icon;
+
+                return (
+                  <button
+                    key={action.label}
+                    type="button"
+                    onClick={() => onNavigate(action.tab)}
+                    className="flex min-h-14 items-center gap-2 rounded-2xl border border-border bg-panel px-3 text-left text-sm font-black text-title transition active:scale-[0.98]"
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <Icon size={17} />
+                    </span>
+                    <span className="min-w-0 truncate">{action.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        </section>
+      );
+    }
+
+    return (
+      <section className="grid gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-wide text-muted">Documents</p>
+            <h2 className="truncate text-lg font-black text-title">{documents.length.toLocaleString("ko-KR")} files</h2>
+          </div>
+          <div className="flex shrink-0 rounded-full border border-border bg-card p-1 text-[0.68rem] font-black">
+            {(["recent", "all"] as const).map((nextFilter) => (
+              <button
+                key={nextFilter}
+                type="button"
+                onClick={() => setFilter(nextFilter)}
+                className={[
+                  "rounded-full px-3 py-1.5 transition",
+                  filter === nextFilter ? "bg-primary text-white" : "text-body",
+                ].join(" ")}
+              >
+                {nextFilter === "recent" ? "Recent" : "All"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {uploadStatus && (
+          <p className="rounded-2xl border border-border bg-panel p-3 text-xs font-bold leading-5 text-body">
+            {uploadStatus}
+          </p>
+        )}
+
+        <div className="grid gap-2">
+          {isLoading ? (
+            <p className="rounded-2xl border border-border bg-card p-4 text-sm font-bold text-body">
+              문서 목록을 불러오는 중입니다.
+            </p>
+          ) : visibleDocuments.length === 0 ? (
+            <p className="rounded-2xl border border-border bg-card p-4 text-sm font-bold text-body">
+              {statusMessage || "아직 업로드된 문서가 없습니다."}
+            </p>
+          ) : (
+            visibleDocuments.map((document) => (
+              <button
+                key={document.id}
+                type="button"
+                onClick={() => {
+                  setDeleteStatus("");
+                  onDocumentSelect(document.id);
+                }}
+                className="grid min-h-[5.25rem] gap-2 rounded-2xl border border-border bg-card p-3 text-left shadow-sm transition active:scale-[0.99]"
+              >
+                <div className="flex min-w-0 items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="shrink-0 rounded-full border border-gold/45 bg-gold/12 px-2.5 py-1 text-[0.66rem] font-black text-gold">
+                      {document.extension}
+                    </span>
+                    <h3 className="line-clamp-1 min-w-0 text-sm font-black text-title">{document.filename}</h3>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-border bg-panel px-2 py-1 text-[0.62rem] font-black text-body">
+                    {document.statusLabel}
+                  </span>
+                </div>
+                <div className="flex min-w-0 items-center justify-between gap-3 text-[0.68rem] font-bold text-muted">
+                  <span className="min-w-0 truncate">{document.createdLabel}</span>
+                  <span className="shrink-0">{formatDocumentInfo(document)}</span>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="grid gap-6">
       <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -659,11 +798,11 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
               </div>
             </div>
 
-            <div className="my-5 h-px bg-[#ECD7BF]" />
+            <div className="my-5 h-px bg-border" />
 
             <div className="ai-alert p-4">
               <p>문서 분석은 업로드 완료 후 자동으로 시작되며,</p>
-              <p className="mt-1 font-black text-[#9A552B]">문서 분석이 성공한 경우에만 크레딧이 차감됩니다.</p>
+              <p className="mt-1 font-black text-primary">문서 분석이 성공한 경우에만 크레딧이 차감됩니다.</p>
               <p className="mt-3">업로드 또는 분석 과정에서 오류가 발생하면 크레딧은 차감되지 않습니다.</p>
             </div>
 

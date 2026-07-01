@@ -378,13 +378,13 @@ function getButtonEffectClass(productId: string, isStripeProduct: boolean) {
 function getPaymentStatusBadgeClass(status: string | undefined) {
   const normalizedStatus = (status || "").toLowerCase();
   if (normalizedStatus === "paid") {
-    return "border-[#A9D190]/70 bg-[#F1FAEA] text-[#2F6B1F]";
+    return "border-emerald-400/45 bg-emerald-500/10 text-emerald-600 dark:text-emerald-200";
   }
   if (normalizedStatus === "ready") {
-    return "border-[#E2C985]/80 bg-[#FFF6DA] text-[#7A551D]";
+    return "border-gold/60 bg-gold/10 text-gold";
   }
   if (normalizedStatus === "failed" || normalizedStatus === "canceled" || normalizedStatus === "cancelled") {
-    return "border-[#E8A77A]/70 bg-[#FFF3EE] text-[#9A3E1F]";
+    return "border-primary/40 bg-primary/10 text-primary";
   }
 
   return "border-border bg-card text-body";
@@ -2141,9 +2141,17 @@ function BillingPanel({ user }: { user: AuthUser }) {
             const extraPercent = getExtraPercent(baseCredits, bonusCredits);
             const featuredLabel = getFeaturedLabel(product.product_id, product.badge);
             const tone = getCreditProductTone(product.product_id);
+            const themedTone = {
+              ...tone,
+              badge: "border-gold/50 bg-gold/15 text-gold",
+              accent: "text-gold",
+              extra: "border-gold/45 bg-gold/10 text-gold",
+              button: "bg-[linear-gradient(135deg,rgb(var(--ai-gold))_0%,rgb(var(--ai-panel))_120%)] hover:brightness-105",
+              bar: "bg-gold",
+            };
             const isStripeProduct = product.provider === "stripe";
             const isDisabled = isPreparingProductId === product.product_id || isStripeProduct;
-            const pointBar = "bar" in tone ? tone.bar : "bg-[#E8D3A5]";
+            const pointBar = themedTone.bar;
             const productDescription = getProductDescription(product);
             const bonusLabel = getBonusLabel(product, extraPercent);
             const gemIcon = getProductGemIcon(product.product_id);
@@ -2166,8 +2174,8 @@ function BillingPanel({ user }: { user: AuthUser }) {
                   <div className={["h-1.5 w-full", pointBar].join(" ")} />
                   <div className="flex h-full flex-col p-5">
                   <div className="flex min-h-[34px] items-start justify-between gap-3">
-                    <span className={["inline-flex max-w-[138px] items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase leading-none tracking-wide whitespace-nowrap", tone.badge].join(" ")}>
-                      {isStripeProduct ? "Coming Soon" : `${tone.badgePrefix}${featuredLabel || product.badge || "Standard"}`}
+                    <span className={["inline-flex max-w-[138px] items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase leading-none tracking-wide whitespace-nowrap", themedTone.badge].join(" ")}>
+                      {isStripeProduct ? "Coming Soon" : `${themedTone.badgePrefix}${featuredLabel || product.badge || "Standard"}`}
                     </span>
                     <span className="text-xs font-bold text-muted">{product.currency}</span>
                   </div>
@@ -2201,8 +2209,8 @@ function BillingPanel({ user }: { user: AuthUser }) {
                       </p>
                     </div>
                     <div className="min-h-[84px] rounded-2xl border border-border bg-card/75 p-4">
-                      <p className={["text-xs font-black uppercase tracking-wide", tone.accent].join(" ")}>Receive</p>
-                      <p className={["mt-1 text-3xl font-black", tone.accent, creditEffect].join(" ")}>
+                      <p className={["text-xs font-black uppercase tracking-wide", themedTone.accent].join(" ")}>Receive</p>
+                      <p className={["mt-1 text-3xl font-black", themedTone.accent, creditEffect].join(" ")}>
                         {formatCreditCount(totalCredits)}
                         <span className="ml-2 text-sm font-bold text-muted">Credits</span>
                       </p>
@@ -2224,7 +2232,7 @@ function BillingPanel({ user }: { user: AuthUser }) {
                   </div>
 
                   <div className="mt-3">
-                    <span className={["inline-flex rounded-full border px-3 py-1.5 text-xs font-black", tone.extra].join(" ")}>
+                    <span className={["inline-flex rounded-full border px-3 py-1.5 text-xs font-black", themedTone.extra].join(" ")}>
                       {bonusLabel}
                     </span>
                   </div>
@@ -2237,7 +2245,7 @@ function BillingPanel({ user }: { user: AuthUser }) {
                       "mt-5 inline-flex h-12 w-full items-center justify-center rounded-full px-5 text-sm font-black text-[#34220F] shadow-[0_10px_22px_rgba(124,82,27,0.13)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(124,82,27,0.2)] active:translate-y-0 active:shadow-[0_7px_16px_rgba(124,82,27,0.16)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-[0_10px_22px_rgba(124,82,27,0.13)]",
                       "relative overflow-hidden",
                       buttonEffect,
-                      isStripeProduct ? "border border-gold/70 bg-surface text-gold hover:bg-panel" : tone.button,
+                      isStripeProduct ? "border border-gold/70 bg-surface text-gold hover:bg-panel" : themedTone.button,
                     ].join(" ")}
                   >
                     {isPreparingProductId === product.product_id ? "준비 중..." : getProductButtonLabel(product)}

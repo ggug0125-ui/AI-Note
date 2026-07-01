@@ -119,7 +119,7 @@ export function Navbar({ activeTab, onTabChange, userName, credits, onLogout }: 
                 <span className="truncate">{userName}</span>
                 <CreditBadge credits={credits} tone="blue" />
                 {onLogout && (
-                  <button type="button" onClick={onLogout} className="shrink-0 text-coral">
+                  <button type="button" onClick={onLogout} className="shrink-0 text-primary">
                     로그아웃
                   </button>
                 )}

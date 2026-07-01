@@ -281,17 +281,17 @@ function TossReadyContent() {
                   />
                 </span>
                 <div className="min-w-0">
-                  <h2 className="truncate text-4xl font-black text-[#2F2418]">{productName}</h2>
-                  <p className="mt-1 text-sm font-bold text-[#7A6245]">Toss 테스트 결제 준비가 완료되었습니다.</p>
+                  <h2 className="truncate text-4xl font-black text-title">{productName}</h2>
+                  <p className="mt-1 text-sm font-bold text-body">Toss 테스트 결제 준비가 완료되었습니다.</p>
                 </div>
               </div>
               <div className="grid gap-3 sm:min-w-[320px] sm:grid-cols-2">
-                <div className="rounded-2xl border border-[#EAD8C1] bg-white/72 p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-[#8A7354]">Pay</p>
+                <div className="rounded-2xl border border-border bg-panel p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-muted">Pay</p>
                   <p className="ready-price-shimmer mt-1 text-3xl font-black">{formatAmount(amount, currency)}</p>
                 </div>
-                <div className="rounded-2xl border border-[#EAD8C1] bg-white/72 p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-[#8A7354]">Receive</p>
+                <div className="rounded-2xl border border-border bg-panel p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-muted">Receive</p>
                   <p className="ready-credit-glow mt-1 text-3xl font-black">{formatCredits(credits)}</p>
                 </div>
               </div>
@@ -308,7 +308,7 @@ function TossReadyContent() {
           </div>
 
           {errorMessage && (
-            <div className="mt-5 rounded-2xl border border-[#E8A77A]/60 bg-[#FFF3EE] p-4 text-sm font-bold text-[#9A3E1F]">
+            <div className="mt-5 rounded-2xl border border-primary/40 bg-primary/10 p-4 text-sm font-bold text-primary">
               {errorMessage}
             </div>
           )}
@@ -316,7 +316,7 @@ function TossReadyContent() {
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Link
               href="/mypage?tab=billing"
-              className="inline-flex h-12 items-center justify-center rounded-full border border-[#E2C985]/70 bg-white px-5 text-sm font-black text-[#7A551D] shadow-[0_10px_22px_rgba(124,82,27,0.1)] transition hover:-translate-y-0.5 hover:bg-[#FFF8EE]"
+              className="inline-flex h-12 items-center justify-center rounded-full border border-gold/70 bg-surface px-5 text-sm font-black text-gold shadow-soft transition hover:-translate-y-0.5 hover:bg-panel"
             >
               마이페이지로 돌아가기
             </Link>
@@ -324,7 +324,7 @@ function TossReadyContent() {
               type="button"
               onClick={handleInternalTestSuccess}
               disabled={isSubmitting || isOpeningToss}
-              className="inline-flex h-12 items-center justify-center rounded-full border border-[#E2C985]/70 bg-white px-5 text-sm font-black text-[#7A551D] shadow-[0_10px_22px_rgba(124,82,27,0.1)] transition hover:-translate-y-0.5 hover:bg-[#FFF8EE] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-12 items-center justify-center rounded-full border border-gold/70 bg-surface px-5 text-sm font-black text-gold shadow-soft transition hover:-translate-y-0.5 hover:bg-panel disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? "처리 중..." : "내부 테스트 성공 처리"}
             </button>
@@ -332,7 +332,7 @@ function TossReadyContent() {
               type="button"
               onClick={handleOpenTossTestPayment}
               disabled={isSubmitting || isOpeningToss}
-              className="inline-flex h-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#F7D774_0%,#E7A93B_100%)] px-5 text-sm font-black text-[#34220F] shadow-[0_10px_22px_rgba(124,82,27,0.16)] transition hover:-translate-y-0.5 hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+              className="ai-btn ai-btn-payment h-12 px-5 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isOpeningToss ? "결제창 여는 중..." : "토스 테스트 결제창 열기"}
             </button>
@@ -380,9 +380,9 @@ function TossReadyContent() {
 
 function TossReadyShell() {
   return (
-    <main className="min-h-screen bg-[linear-gradient(135deg,#FFFDF8_0%,#FFF8EE_48%,#F7EFE2_100%)] px-4 py-10 text-[#2F2418] sm:px-6 lg:px-8">
-      <section className="mx-auto max-w-4xl rounded-3xl border border-[#E9D8BD] bg-[#FFFDF7] p-6 shadow-[0_18px_45px_rgba(124,82,27,0.08)]">
-        <p className="text-sm font-black text-[#7A551D]">Toss 결제 준비 정보를 불러오는 중입니다.</p>
+    <main className="min-h-screen bg-[linear-gradient(135deg,rgb(var(--ai-bg))_0%,rgb(var(--ai-surface))_48%,rgb(var(--ai-panel))_100%)] px-4 py-10 text-title sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-4xl rounded-3xl border border-border bg-card p-6 shadow-soft">
+        <p className="text-sm font-black text-gold">Toss 결제 준비 정보를 불러오는 중입니다.</p>
       </section>
     </main>
   );
@@ -398,12 +398,12 @@ function InfoCard({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-[#E8C77A]/55 bg-white/75 p-4 shadow-[0_12px_28px_rgba(124,82,27,0.06)]">
-      <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[#8A7354]">
-        <span className="text-[#A66A1F]">{icon}</span>
+    <div className="rounded-2xl border border-gold/55 bg-panel p-4 shadow-[0_12px_28px_rgba(124,82,27,0.06)]">
+      <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-muted">
+        <span className="text-gold">{icon}</span>
         {label}
       </div>
-      <p className="mt-3 break-words text-lg font-black text-[#2F2418]">{value}</p>
+      <p className="mt-3 break-words text-lg font-black text-title">{value}</p>
     </div>
   );
 }

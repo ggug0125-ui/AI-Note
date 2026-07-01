@@ -22,10 +22,10 @@ export function RecentActivity({
   ];
 
   return (
-    <section className="rounded-3xl border border-[#E9D8BD] bg-white p-5 shadow-[0_14px_34px_rgba(124,82,27,0.07)] md:p-6">
+    <section className="rounded-3xl border border-border bg-card p-5 shadow-soft md:p-6">
       <div className="flex items-center gap-3">
-        <History className="text-coral" size={22} />
-        <h2 className="text-xl font-black text-[#2F2418]">최근 활동</h2>
+        <History className="text-primary" size={22} />
+        <h2 className="text-xl font-black text-title">최근 활동</h2>
       </div>
       <div className="mt-5 grid gap-3 md:grid-cols-2">
         {recentCards.map((card) => (

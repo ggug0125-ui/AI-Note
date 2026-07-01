@@ -44,6 +44,7 @@ type OverviewData = {
 
 type DashboardOverviewProps = {
   onNavigate: (tab: WorkspaceTab) => void;
+  compact?: boolean;
 };
 
 const emptyRecordText = "아직 기록이 없습니다.";
@@ -90,7 +91,7 @@ function getLatest<T extends { created_at?: string; uploaded_at?: string }>(item
   return [...items].sort((a, b) => getTimestamp(b).localeCompare(getTimestamp(a)))[0];
 }
 
-export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
+export function DashboardOverview({ onNavigate, compact = false }: DashboardOverviewProps) {
   const [overviewData, setOverviewData] = useState<OverviewData>(emptyOverviewData);
 
   useEffect(() => {
@@ -204,6 +205,66 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
       icon: <ArrowRightLeft size={22} />,
     },
   ];
+
+  if (compact) {
+    return (
+      <section className="grid gap-3">
+        <div className="grid grid-cols-2 gap-2">
+          {statCards.map((card) => (
+            <article key={card.label} className="min-h-[5.75rem] rounded-2xl border border-border bg-card p-3 shadow-sm">
+              <div className="flex items-center justify-between gap-2">
+                <p className="min-w-0 truncate text-[0.68rem] font-black uppercase tracking-wide text-muted">
+                  {card.label}
+                </p>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  {card.icon}
+                </span>
+              </div>
+              <strong className="mt-2 block text-2xl font-black leading-none text-title">{card.value}</strong>
+            </article>
+          ))}
+        </div>
+
+        <section className="rounded-2xl border border-border bg-card p-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <History className="text-primary" size={17} />
+            <h2 className="text-sm font-black text-title">최근 활동</h2>
+          </div>
+          <div className="mt-3 divide-y divide-border overflow-hidden rounded-xl border border-border bg-panel">
+            {recentCards.map((card) => (
+              <article key={card.label} className="grid gap-1 px-3 py-2.5">
+                <p className="truncate text-[0.68rem] font-black uppercase tracking-wide text-muted">{card.label}</p>
+                <p className="line-clamp-1 text-xs font-bold text-body">{card.value}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-border bg-card p-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Sparkles className="text-primary" size={17} />
+            <h2 className="text-sm font-black text-title">빠른 시작</h2>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {actionCards.map((card) => (
+              <button
+                key={card.title}
+                type="button"
+                onClick={() => onNavigate(card.tab)}
+                className="min-h-[5.25rem] rounded-2xl border border-border bg-panel p-3 text-left transition active:scale-[0.98]"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gold/15 text-primary">
+                  {card.icon}
+                </span>
+                <strong className="mt-2 block truncate text-sm font-black text-title">{card.title}</strong>
+                <span className="mt-1 line-clamp-1 text-[0.68rem] font-bold text-body">{card.description}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      </section>
+    );
+  }
 
   return (
     <section className="grid gap-5">
