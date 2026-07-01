@@ -49,7 +49,7 @@ export function MobileDocumentPicker({
       {selectedDocument && (
         <article className="rounded-2xl border border-primary/55 bg-primary/10 p-2.5 shadow-soft transition">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[0.68rem] font-black text-primary">선택된 문서</p>
+            <p className="text-[0.68rem] font-black text-primary">선택한 문서</p>
             {onClearSelection && (
               <button
                 type="button"
@@ -83,7 +83,7 @@ export function MobileDocumentPicker({
           <span className="flex items-center justify-between gap-3">
             <span className="min-w-0">
               <span className="block text-sm font-black text-title">문서 업로드</span>
-              <span className="mt-0.5 block text-[0.68rem] font-bold text-muted">PDF · TXT · DOCX 예정 · XLSX 예정</span>
+              <span className="mt-0.5 block text-[0.68rem] font-bold text-muted">PDF · TXT · XLSX · CSV</span>
             </span>
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-primary text-white">
               {uploadProgress >= 100 ? <CheckCircle2 size={17} /> : <UploadCloud size={17} />}

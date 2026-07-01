@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRightLeft, BarChart3, FileText, FileUp, Hash, History, MessageSquareText } from "lucide-react";
@@ -11,6 +11,13 @@ import { DocumentUploadCard } from "./DocumentUploadCard";
 import { SelectedDocumentPanel } from "./SelectedDocumentPanel";
 import { SupportedFileTypes } from "./SupportedFileTypes";
 import { formatDocumentInfo, type DocumentFilter, type DocumentItem, type DocumentSort, type DocumentStatus, type DocumentViewModel } from "./types";
+import {
+  estimateDocumentCredits,
+  formatCreditEstimateLabel,
+  formatCreditLabel,
+  formatPageLabel,
+  type SheetPageCount,
+} from "../../ai-workspace/creditUtils";
 
 type DocumentCenterProps = {
   onNavigate: (tab: WorkspaceTab) => void;
@@ -25,12 +32,19 @@ type UploadCreditPreview = {
   pageCount: number | null;
   credits: number | null;
   currentCredits: number | null;
+  basisLabel: string;
+  sheetCount?: number | null;
+  sheetPageCounts?: SheetPageCount[];
+  note?: string;
 };
 
 type UploadCreditUsage = {
   credit_cost?: number;
   credits_after?: number;
   page_count?: number | null;
+  basis_count?: number | null;
+  sheet_count?: number | null;
+  sheet_page_counts?: SheetPageCount[];
 };
 
 type UploadResponse = {
@@ -59,6 +73,32 @@ function isTxtFile(file: File) {
   return file.name.toLowerCase().endsWith(".txt") || file.type === "text/plain";
 }
 
+function isFixedCreditUpload(file: File) {
+  const filename = file.name.toLowerCase();
+  return (
+    isTxtFile(file) ||
+    filename.endsWith(".xlsx") ||
+    filename.endsWith(".csv") ||
+    file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    file.type === "text/csv" ||
+    file.type === "application/csv"
+  );
+}
+
+function getUploadFileTypeLabel(file: File) {
+  const filename = file.name.toLowerCase();
+  if (filename.endsWith(".xlsx") || file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+    return "XLSX";
+  }
+  if (filename.endsWith(".csv") || file.type === "text/csv" || file.type === "application/csv") {
+    return "CSV";
+  }
+  if (isTxtFile(file)) {
+    return "TXT";
+  }
+  return "PDF";
+}
+
 function calculateDocumentCredits(pageCount: number) {
   if (pageCount <= 0) {
     return 0;
@@ -71,7 +111,7 @@ function calculateDocumentCredits(pageCount: number) {
 
 function formatCreditAmount(credits: number | null) {
   if (credits === null) {
-    return "업로드 후 계산";
+    return "서버 계산 후 확정";
   }
   return Number.isInteger(credits) ? String(credits) : credits.toFixed(1);
 }
@@ -86,8 +126,11 @@ function getFriendlyUploadError(message: string) {
   if (message.includes("No text chunks were created")) {
     return "문서 분석에 필요한 텍스트 조각을 만들지 못했습니다. 다른 파일로 다시 시도해주세요.";
   }
+  if (message.includes("데이터가 없습니다")) {
+    return "데이터가 없습니다. 내용이 있는 XLSX 또는 CSV 파일을 업로드해주세요.";
+  }
   if (message.includes("Unsupported") || message.includes("not supported")) {
-    return "지원하지 않는 파일 형식입니다. PDF 또는 TXT 파일을 업로드해주세요.";
+    return "지원하지 않는 파일 형식입니다. PDF, TXT, XLSX, CSV 파일을 업로드해주세요.";
   }
   if (message.includes("credit") || message.includes("크레딧")) {
     return message;
@@ -127,15 +170,15 @@ function inferExtension(file: DocumentItem) {
 function normalizeStatus(status: string | undefined): { status: DocumentStatus; label: string } {
   const normalized = (status || "").toLowerCase();
   if (["ready", "success", "complete", "completed", "analyzed"].includes(normalized)) {
-    return { status: "complete", label: "분석 완료" };
+    return { status: "complete", label: "완료" };
   }
   if (["pending", "processing", "uploading", "running"].includes(normalized)) {
-    return { status: "processing", label: "분석중" };
+    return { status: "processing", label: "진행 중" };
   }
   if (["failed", "error"].includes(normalized)) {
     return { status: "failed", label: "실패" };
   }
-  return { status: "unknown", label: "상태 확인 필요" };
+  return { status: "unknown", label: "확인 필요" };
 }
 
 function formatDate(value: string) {
@@ -196,6 +239,62 @@ function sortDocuments(documents: DocumentViewModel[], sort: DocumentSort) {
   return sorted.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
+function SheetPageCountsPanel({
+  sheetCount,
+  pageCount,
+  sheetPageCounts,
+  isOpen,
+  onToggle,
+}: {
+  sheetCount?: number | null;
+  pageCount?: number | null;
+  sheetPageCounts?: SheetPageCount[];
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  if (!sheetCount && !sheetPageCounts?.length) {
+    return null;
+  }
+
+  return (
+    <div className="ai-panel-compact bg-panel px-4 py-3 text-sm font-bold text-body">
+      <div className="grid gap-2 sm:grid-cols-2">
+        {typeof sheetCount === "number" && (
+          <div>
+            <span className="block text-xs font-black uppercase tracking-wide text-muted">총 시트</span>
+            <strong className="mt-1 block text-title">{sheetCount.toLocaleString("ko-KR")}개</strong>
+          </div>
+        )}
+        {typeof pageCount === "number" && (
+          <div>
+            <span className="block text-xs font-black uppercase tracking-wide text-muted">총 예상 페이지</span>
+            <strong className="mt-1 block text-title">{formatPageLabel(pageCount)}</strong>
+          </div>
+        )}
+      </div>
+      {Boolean(sheetPageCounts?.length) && (
+        <div className="mt-3">
+          <button type="button" onClick={onToggle} className="text-xs font-black text-primary">
+            시트별 예상 페이지 {isOpen ? "접기" : "보기"}
+          </button>
+          {isOpen && (
+            <div className="mt-2 grid gap-1.5">
+              {sheetPageCounts!.map((sheet) => (
+                <div key={sheet.sheet_name} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-2">
+                  <span className="min-w-0 truncate font-black text-title">{sheet.sheet_name}</span>
+                  <span className="shrink-0 text-xs text-muted">
+                    {sheet.row_count.toLocaleString("ko-KR")}행 · {formatPageLabel(sheet.page_count)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelect, isAdmin = true, mobile = false }: DocumentCenterProps) {
   const [documents, setDocuments] = useState<DocumentViewModel[]>([]);
   const [filter, setFilter] = useState<DocumentFilter>("recent");
@@ -207,6 +306,8 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
   const [uploadStatus, setUploadStatus] = useState("");
   const [uploadCreditUsage, setUploadCreditUsage] = useState<UploadCreditUsage | null>(null);
   const [creditPreview, setCreditPreview] = useState<UploadCreditPreview | null>(null);
+  const [isPreviewSheetsOpen, setIsPreviewSheetsOpen] = useState(false);
+  const [isResultSheetsOpen, setIsResultSheetsOpen] = useState(false);
   const [isPreparingCreditPreview, setIsPreparingCreditPreview] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isStartConfirmOpen, setIsStartConfirmOpen] = useState(false);
@@ -230,7 +331,7 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
 
   async function prepareUpload(file: File | null = selectedUploadFile) {
     if (!isAdmin) {
-      setUploadStatus("관리자 전용 기능입니다.");
+    setUploadStatus("업로드 중입니다...");
       return;
     }
     if (!file) {
@@ -239,20 +340,23 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
 
     setSelectedUploadFile(file);
     setIsPreparingCreditPreview(true);
-    setUploadStatus("");
+    setUploadStatus("업로드 중입니다...");
     setUploadCreditUsage(null);
     setDeleteStatus("");
+    setIsPreviewSheetsOpen(false);
+    setIsResultSheetsOpen(false);
 
     try {
-      const [pageCount, currentCredits] = await Promise.all([
-        isTxtFile(file) ? Promise.resolve(null) : estimatePdfPageCount(file),
-        loadCurrentCredits(),
-      ]);
+      const [creditEstimate, currentCredits] = await Promise.all([estimateDocumentCredits(file), loadCurrentCredits()]);
       setCreditPreview({
         file,
-        pageCount,
-        credits: isTxtFile(file) ? 1 : pageCount === null ? null : calculateDocumentCredits(pageCount),
+        pageCount: creditEstimate.pageCount,
+        credits: creditEstimate.creditCost,
         currentCredits,
+        basisLabel: creditEstimate.basisLabel,
+        sheetCount: creditEstimate.sheetCount,
+        sheetPageCounts: creditEstimate.sheetPageCounts,
+        note: creditEstimate.note,
       });
     } finally {
       setIsPreparingCreditPreview(false);
@@ -284,6 +388,7 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
 
       setSelectedUploadFile(null);
       setUploadCreditUsage(result.credit_usage ?? null);
+      setIsResultSheetsOpen(false);
       setUploadStatus(`${uploadedFilename} 업로드 완료`);
       if (uploadedFileId) {
         const optimisticDocument = toViewModel({
@@ -313,9 +418,11 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
 
   function handleUploadFileSelect(file: File | null) {
     setSelectedUploadFile(file);
-    setUploadStatus("");
+    setUploadStatus("업로드 중입니다...");
     setUploadCreditUsage(null);
     setDeleteStatus("");
+    setIsPreviewSheetsOpen(false);
+    setIsResultSheetsOpen(false);
   }
 
   function handleUploadFileDrop(file: File) {
@@ -326,6 +433,7 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
   function handleCancelCreditPreview() {
     setIsStartConfirmOpen(false);
     setCreditPreview(null);
+    setIsPreviewSheetsOpen(false);
   }
 
   function handleConfirmCreditPreview() {
@@ -355,7 +463,7 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
 
     setDeletingDocumentId(document.id);
     setDeleteStatus("문서를 삭제하는 중입니다...");
-    setUploadStatus("");
+    setUploadStatus("업로드 중입니다...");
 
     try {
       const response = await authenticatedFetch(`${API_BASE_URL}/files/${document.id}`, {
@@ -470,7 +578,7 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
           </article>
 
           <section className="rounded-2xl border border-border bg-card p-3 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-wide text-muted">Actions</p>
+            <p className="text-xs font-black uppercase tracking-wide text-muted">작업</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               {mobileActions.map((action) => {
                 const Icon = action.icon;
@@ -499,8 +607,8 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
       <section className="grid gap-3">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-wide text-muted">Documents</p>
-            <h2 className="truncate text-lg font-black text-title">{documents.length.toLocaleString("ko-KR")} files</h2>
+            <p className="text-xs font-black uppercase tracking-wide text-muted">문서 목록</p>
+            <h2 className="truncate text-lg font-black text-title">{documents.length.toLocaleString("ko-KR")}개 문서</h2>
           </div>
           <div className="flex shrink-0 rounded-full border border-border bg-card p-1 text-[0.68rem] font-black">
             {(["recent", "all"] as const).map((nextFilter) => (
@@ -513,7 +621,7 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
                   filter === nextFilter ? "bg-primary text-white" : "text-body",
                 ].join(" ")}
               >
-                {nextFilter === "recent" ? "Recent" : "All"}
+                {nextFilter === "recent" ? "최근 문서" : "전체 문서"}
               </button>
             ))}
           </div>
@@ -584,13 +692,13 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
 
           {uploadStatus && (
             uploadCreditUsage ? (
-              <div className="ai-alert ai-alert-success p-4">
-                <p className="text-sm font-black text-[var(--ai-color-text-primary)]">{uploadStatus}</p>
+              <div className="rounded-2xl border border-primary/30 bg-card p-4 shadow-soft">
+                <p className="text-sm font-black text-title">{uploadStatus}</p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <div className="ai-panel-compact bg-panel px-4 py-3">
                     <span className="block text-xs font-black uppercase tracking-wide text-muted">차감 크레딧</span>
                     <strong className="mt-1 block text-2xl font-black text-primary">
-                      {formatCreditAmount(Number(uploadCreditUsage.credit_cost ?? 0))} Credit{Number(uploadCreditUsage.credit_cost ?? 0) === 1 ? "" : "s"}
+                      {formatCreditLabel(Number(uploadCreditUsage.credit_cost ?? 0))}
                     </strong>
                   </div>
                   <div className="ai-panel-compact bg-gold/10 px-4 py-3">
@@ -599,6 +707,15 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
                       {Number(uploadCreditUsage.credits_after ?? 0).toLocaleString("en-US")} Credits
                     </strong>
                   </div>
+                </div>
+                <div className="mt-3">
+                  <SheetPageCountsPanel
+                    sheetCount={uploadCreditUsage.sheet_count}
+                    pageCount={uploadCreditUsage.basis_count ?? uploadCreditUsage.page_count}
+                    sheetPageCounts={uploadCreditUsage.sheet_page_counts}
+                    isOpen={isResultSheetsOpen}
+                    onToggle={() => setIsResultSheetsOpen((current) => !current)}
+                  />
                 </div>
               </div>
             ) : (
@@ -623,7 +740,7 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
               </p>
             ) : visibleDocuments.length === 0 ? (
               <p className="ai-alert bg-panel p-5 sm:col-span-2 xl:col-span-3">
-                {statusMessage || "아직 업로드된 문서가 없습니다."}
+              {statusMessage || "아직 업로드된 문서가 없습니다."}
               </p>
             ) : (
               visibleDocuments.map((document) => (
@@ -681,26 +798,20 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
 
             <div className="mt-6 grid gap-3 text-sm font-bold text-body">
                 <div className="ai-panel-compact bg-panel px-4 py-3">
-                <span className="block text-xs font-black uppercase tracking-wide text-muted">선택한 파일</span>
+                <span className="block text-xs font-black uppercase tracking-wide text-muted">업로드할 문서</span>
                 <span className="mt-1 block [overflow-wrap:anywhere]">{creditPreview.file.name}</span>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="ai-panel-compact bg-panel px-4 py-3">
-                  <span className="block text-xs font-black uppercase tracking-wide text-muted">
-                    {isTxtFile(creditPreview.file) ? "파일 형식" : "예상 페이지 수"}
-                  </span>
+                  <span className="block text-xs font-black uppercase tracking-wide text-muted">{creditPreview.basisLabel}</span>
                   <span className="mt-1 block text-lg font-black text-title">
-                    {isTxtFile(creditPreview.file)
-                      ? "TXT"
-                      : creditPreview.pageCount === null
-                      ? "업로드 후 최종 계산"
-                      : `${creditPreview.pageCount} pages`}
+                    {formatPageLabel(creditPreview.pageCount)}
                   </span>
                 </div>
                 <div className="ai-panel-compact bg-gold/10 px-4 py-3 text-gold">
                   <span className="block text-xs font-black uppercase tracking-wide">예상 차감 크레딧</span>
                   <span className="mt-1 block text-lg font-black">
-                    {formatCreditAmount(creditPreview.credits)} Credits
+                    {formatCreditEstimateLabel(creditPreview.credits)}
                   </span>
                 </div>
               </div>
@@ -721,17 +832,20 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
                 <li className="rounded-xl bg-card px-3 py-2 text-center">키워드</li>
                 <li className="rounded-xl bg-card px-3 py-2 text-center">문서 질문</li>
               </ul>
-              {creditPreview.pageCount === null && !isTxtFile(creditPreview.file) && (
+              {typeof creditPreview.sheetCount === "number" && (
                 <p className="mt-3 text-xs font-bold leading-5 text-muted">
-                  페이지 수는 업로드 후 서버에서 최종 계산됩니다.
+                  총 시트 {creditPreview.sheetCount.toLocaleString("ko-KR")}개 기준으로 예상 페이지를 계산합니다.
                 </p>
               )}
-              {isTxtFile(creditPreview.file) && (
-                <p className="mt-3 text-xs font-bold leading-5 text-muted">
-                  TXT 문서는 이번 단계에서 1크레딧부터 시작합니다.
-                </p>
-              )}
+              {creditPreview.note && <p className="mt-3 text-xs font-bold leading-5 text-muted">{creditPreview.note}</p>}
             </div>
+            <SheetPageCountsPanel
+              sheetCount={creditPreview.sheetCount}
+              pageCount={creditPreview.pageCount}
+              sheetPageCounts={creditPreview.sheetPageCounts}
+              isOpen={isPreviewSheetsOpen}
+              onToggle={() => setIsPreviewSheetsOpen((current) => !current)}
+            />
 
             <div className="mt-6 grid grid-cols-2 gap-3">
               <button
@@ -764,32 +878,28 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
               </div>
               <div>
                 <p className="ai-modal-eyebrow">Final Check</p>
-                <h2 className="mt-1 text-xl font-black text-title">문서 분석 시작</h2>
+                <h2 className="mt-1 text-xl font-black text-title">업로드 전 확인</h2>
                 <p className="mt-2 text-sm font-bold leading-6 text-body">문서 분석을 시작합니다.</p>
               </div>
             </div>
 
             <div className="mt-5 grid gap-2.5 text-sm font-bold text-body">
               <div className="ai-panel-compact flex items-start justify-between gap-4 bg-panel px-4 py-3">
-                <span className="shrink-0 text-muted">선택한 파일</span>
+                <span className="shrink-0 text-muted">업로드할 문서</span>
                 <span className="text-right text-title [overflow-wrap:anywhere]">{creditPreview.file.name}</span>
               </div>
               <div className="ai-panel-compact flex items-center justify-between gap-4 bg-panel px-4 py-3">
-                <span className="text-muted">{isTxtFile(creditPreview.file) ? "파일 형식" : "예상 페이지 수"}</span>
+                <span className="text-muted">{creditPreview.basisLabel}</span>
                 <span className="text-title">
-                  {isTxtFile(creditPreview.file)
-                    ? "TXT"
-                    : creditPreview.pageCount === null
-                    ? "업로드 후 최종 계산"
-                    : `${creditPreview.pageCount} Pages`}
+                  {formatPageLabel(creditPreview.pageCount)}
                 </span>
               </div>
               <div className="ai-panel-compact flex items-center justify-between gap-4 bg-gold/10 px-4 py-3 text-gold">
-                <span>차감 예정</span>
-                <span className="text-lg font-black">{formatCreditAmount(creditPreview.credits)} Credits</span>
+                <span>예상 차감</span>
+                <span className="text-lg font-black">{formatCreditEstimateLabel(creditPreview.credits)}</span>
               </div>
               <div className="ai-panel-compact flex items-center justify-between gap-4 bg-panel px-4 py-3">
-                <span className="text-muted">현재 보유</span>
+                <span className="text-muted">현재 보유 크레딧</span>
                 <span className="text-title">
                   {creditPreview.currentCredits === null
                     ? "확인할 수 없음"
@@ -797,12 +907,21 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
                 </span>
               </div>
             </div>
+            <div className="mt-3">
+              <SheetPageCountsPanel
+                sheetCount={creditPreview.sheetCount}
+                pageCount={creditPreview.pageCount}
+                sheetPageCounts={creditPreview.sheetPageCounts}
+                isOpen={isPreviewSheetsOpen}
+                onToggle={() => setIsPreviewSheetsOpen((current) => !current)}
+              />
+            </div>
 
             <div className="my-5 h-px bg-border" />
 
             <div className="ai-alert p-4">
-              <p>문서 분석은 업로드 완료 후 자동으로 시작되며,</p>
-              <p className="mt-1 font-black text-primary">문서 분석이 성공한 경우에만 크레딧이 차감됩니다.</p>
+              <p>문서 분석은 업로드 완료 후 자동으로 시작됩니다.</p>
+              <p className="mt-1 font-black text-primary">업로드와 분석이 성공한 경우에만 크레딧이 차감됩니다.</p>
               <p className="mt-3">업로드 또는 분석 과정에서 오류가 발생하면 크레딧은 차감되지 않습니다.</p>
             </div>
 
@@ -832,3 +951,4 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
     </section>
   );
 }
+

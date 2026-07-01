@@ -63,7 +63,7 @@ const emptyOverviewData: OverviewData = {
 const overviewSteps: Array<{ title: string; description: string; icon: ReactNode }> = [
   {
     title: "문서 업로드",
-    description: "PDF 문서를 업로드하고 AI 분석을 위한 검색 인덱스를 준비합니다.",
+    description: "PDF, TXT, XLSX, CSV 문서를 업로드하고 AI 분석을 위한 검색 인덱스를 준비합니다.",
     icon: <UploadCloud size={22} />,
   },
   {

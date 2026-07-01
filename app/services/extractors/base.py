@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
 
 class ExtractionError(ValueError):
@@ -14,6 +14,7 @@ class ExtractedDocument:
     text: str
     file_type: str
     page_count: Optional[int] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class BaseExtractor:

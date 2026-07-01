@@ -137,8 +137,16 @@ function GemIcon({ tone }: { tone: CreditTone }) {
   );
 }
 
+function formatCredits(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
 export function CreditBadge({ credits, tone = "blue", className = "" }: CreditBadgeProps) {
   const value = typeof credits === "number" && Number.isFinite(credits) ? credits : 0;
+  const formattedCredits = formatCredits(value);
 
   return (
     <span
@@ -147,10 +155,10 @@ export function CreditBadge({ credits, tone = "blue", className = "" }: CreditBa
         toneClasses[tone],
         className
       ].join(" ")}
-      title={`${value} Credits`}
+      title={`${formattedCredits} Credits`}
     >
       <GemIcon tone={tone} />
-      {value} Credits
+      {formattedCredits} Credits
     </span>
   );
 }

@@ -1,18 +1,23 @@
 "use client";
 
 import { AlertCircle, CheckCircle2, CreditCard } from "lucide-react";
-import { formatCreditLabel } from "./creditUtils";
+import { useState } from "react";
+import { formatCreditEstimateLabel, formatCreditLabel, formatPageLabel, type SheetPageCount } from "./creditUtils";
 
 type MobileCreditConfirmSheetProps = {
   title: "문서 업로드" | "파일 변환";
   fileName: string;
-  pageCount: number;
-  creditCost: number;
+  pageCount: number | null;
+  creditCost: number | null;
   currentCredits: number;
   conversionFormat?: string;
   successNote: string;
   confirmText: string;
   isProcessing?: boolean;
+  basisLabel?: string;
+  sheetCount?: number | null;
+  sheetPageCounts?: SheetPageCount[];
+  note?: string;
   onCancel: () => void;
   onConfirm: () => void;
   onCharge: () => void;
@@ -28,11 +33,18 @@ export function MobileCreditConfirmSheet({
   successNote,
   confirmText,
   isProcessing = false,
+  basisLabel,
+  sheetCount,
+  sheetPageCounts = [],
+  note,
   onCancel,
   onConfirm,
   onCharge,
 }: MobileCreditConfirmSheetProps) {
-  const isInsufficient = currentCredits < creditCost;
+  const [isSheetDetailOpen, setIsSheetDetailOpen] = useState(false);
+  const isCreditKnown = typeof creditCost === "number";
+  const isInsufficient = isCreditKnown && currentCredits < creditCost;
+  const pageLabel = basisLabel || "총 페이지";
 
   return (
     <div
@@ -53,12 +65,13 @@ export function MobileCreditConfirmSheet({
         </div>
 
         <div className="mt-4 grid gap-2 rounded-2xl border border-border bg-panel p-3 text-xs font-bold text-body">
-          {conversionFormat ? (
-            <>
-              <InfoRow label="변환 형식" value={conversionFormat} />
-              <InfoRow label="총 페이지 수" value={`${pageCount.toLocaleString("ko-KR")} 페이지`} />
-            </>
-          ) : (
+          {conversionFormat && <InfoRow label="변환 형식" value={conversionFormat} />}
+          {typeof sheetCount === "number" && <InfoRow label="총 시트" value={`${sheetCount.toLocaleString("ko-KR")}개`} />}
+          <InfoRow label={pageLabel} value={formatPageLabel(pageCount)} />
+          <InfoRow label="예상 차감" value={formatCreditEstimateLabel(creditCost)} strong />
+          <InfoRow label="현재 보유" value={formatCreditLabel(currentCredits)} />
+
+          {!conversionFormat && (
             <div className="grid gap-1 rounded-xl border border-border bg-card px-3 py-2">
               <span className="text-muted">업로드 포함 제공</span>
               {["기본 문서 분석", "핵심 요약", "키워드 추출", "AI 대화 준비"].map((item) => (
@@ -70,13 +83,39 @@ export function MobileCreditConfirmSheet({
               <span className="mt-1 font-black text-primary">추가 차감 없음</span>
             </div>
           )}
-          <InfoRow label="예상 차감" value={formatCreditLabel(creditCost)} strong />
-          <InfoRow label="현재 보유" value={formatCreditLabel(currentCredits)} />
+
+          {sheetPageCounts.length > 0 && (
+            <div className="grid gap-1 rounded-xl border border-border bg-card px-3 py-2">
+              <button
+                type="button"
+                onClick={() => setIsSheetDetailOpen((current) => !current)}
+                className="flex items-center justify-between gap-2 text-left font-black text-title"
+              >
+                <span>시트별 예상 페이지</span>
+                <span className="text-primary">{isSheetDetailOpen ? "접기" : "보기"}</span>
+              </button>
+              {isSheetDetailOpen && (
+                <div className="mt-1 grid gap-1">
+                  {sheetPageCounts.map((sheet) => (
+                    <span key={sheet.sheet_name} className="flex items-center justify-between gap-2">
+                      <span className="min-w-0 truncate">{sheet.sheet_name}</span>
+                      <span className="shrink-0 text-muted">
+                        {sheet.row_count.toLocaleString("ko-KR")}행 · {sheet.page_count.toLocaleString("ko-KR")} 페이지
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="mt-1 grid gap-1 rounded-xl border border-border bg-card px-3 py-2">
             <span className="font-black text-title">차감 규칙</span>
             <span>1~2페이지: 1 Credit</span>
             <span>3페이지 이상: 0.5 Credit x 페이지 수</span>
           </div>
+
+          {note && <p className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 font-black leading-5 text-primary">{note}</p>}
         </div>
 
         <p className="mt-3 flex items-start gap-2 rounded-2xl border border-border bg-card px-3 py-2 text-xs font-bold leading-5 text-body">
@@ -90,7 +129,7 @@ export function MobileCreditConfirmSheet({
               <AlertCircle size={14} />
               크레딧이 부족합니다.
             </p>
-            <p className="mt-1">필요 크레딧: {formatCreditLabel(creditCost)}</p>
+            <p className="mt-1">필요 크레딧: {formatCreditLabel(creditCost ?? 0)}</p>
             <p>보유 크레딧: {formatCreditLabel(currentCredits)}</p>
           </div>
         )}
@@ -120,7 +159,7 @@ export function MobileCreditConfirmSheet({
 
 function InfoRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div className="grid grid-cols-[5.5rem_1fr] gap-2">
+    <div className="grid grid-cols-[6.5rem_1fr] gap-2">
       <span className="text-muted">{label}</span>
       <span className={["text-right", strong ? "text-sm font-black text-primary" : "text-title"].join(" ")}>{value}</span>
     </div>

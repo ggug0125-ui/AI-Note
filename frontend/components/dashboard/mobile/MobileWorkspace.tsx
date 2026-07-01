@@ -22,7 +22,13 @@ import type { WorkspaceTab } from "../types";
 import { formatDocumentInfo, type DocumentViewModel } from "../documents/types";
 import { MobileCompleteDialog } from "../../ai-workspace/MobileCompleteDialog";
 import { MobileCreditConfirmSheet } from "../../ai-workspace/MobileCreditConfirmSheet";
-import { calculateDocumentCredits, estimateUploadPageCount, formatCreditLabel } from "../../ai-workspace/creditUtils";
+import {
+  calculateDocumentCredits,
+  estimateDocumentCredits,
+  formatCreditLabel,
+  type DocumentCreditBasisType,
+  type SheetPageCount,
+} from "../../ai-workspace/creditUtils";
 import { API_BASE_URL, authenticatedFetch } from "@/lib/api";
 
 type MobileWorkspaceProps = {
@@ -81,8 +87,13 @@ type CreditConfirmState =
       kind: "upload";
       file: File;
       fileName: string;
-      pageCount: number;
-      creditCost: number;
+      pageCount: number | null;
+      creditCost: number | null;
+      basisType: DocumentCreditBasisType;
+      basisLabel: string;
+      sheetCount?: number | null;
+      sheetPageCounts?: SheetPageCount[];
+      note?: string;
     }
   | {
       kind: "convert";
@@ -97,6 +108,11 @@ type CreditUsage = {
   credit_cost?: number;
   credits_after?: number;
   credits_before?: number;
+  rule?: string;
+  basis_type?: string;
+  basis_count?: number;
+  sheet_count?: number | null;
+  sheet_page_counts?: SheetPageCount[];
 };
 
 const emptyText = "기록이 없습니다.";
@@ -336,18 +352,23 @@ export function MobileWorkspace({
       return;
     }
 
-    const pageCount = await estimateUploadPageCount(file);
+    const creditEstimate = await estimateDocumentCredits(file);
     setCreditConfirm({
       kind: "upload",
       file,
       fileName: file.name,
-      pageCount,
-      creditCost: calculateDocumentCredits(pageCount),
+      pageCount: creditEstimate.pageCount,
+      creditCost: creditEstimate.creditCost,
+      basisType: creditEstimate.basisType,
+      basisLabel: creditEstimate.basisLabel,
+      sheetCount: creditEstimate.sheetCount,
+      sheetPageCounts: creditEstimate.sheetPageCounts,
+      note: creditEstimate.note,
     });
   }
 
-  async function executeMobileUpload(file: File, expectedCreditCost: number) {
-    if ((credits ?? 0) < expectedCreditCost) {
+  async function executeMobileUpload(file: File, expectedCreditCost: number | null) {
+    if (typeof expectedCreditCost === "number" && (credits ?? 0) < expectedCreditCost) {
       setUploadStatus(`크레딧이 부족합니다. 필요: ${formatCreditLabel(expectedCreditCost)}, 보유: ${formatCreditLabel(credits ?? 0)}`);
       return;
     }
@@ -663,7 +684,7 @@ export function MobileWorkspace({
     <input
       ref={uploadInputRef}
       type="file"
-      accept=".pdf,.txt,application/pdf,text/plain"
+      accept=".pdf,.txt,.xlsx,.csv,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
       className="hidden"
       onChange={(event) => void prepareMobileUpload(event.target.files?.[0] ?? null)}
     />
@@ -682,6 +703,10 @@ export function MobileWorkspace({
           successNote={creditConfirm.kind === "upload" ? "업로드 성공 시에만 차감됩니다." : "변환 성공 시에만 차감됩니다."}
           confirmText={creditConfirm.kind === "upload" ? "업로드 시작" : "변환 시작"}
           isProcessing={isUploading}
+          basisLabel={creditConfirm.kind === "upload" ? creditConfirm.basisLabel : undefined}
+          sheetCount={creditConfirm.kind === "upload" ? creditConfirm.sheetCount : undefined}
+          sheetPageCounts={creditConfirm.kind === "upload" ? creditConfirm.sheetPageCounts : undefined}
+          note={creditConfirm.kind === "upload" ? creditConfirm.note : undefined}
           onCancel={closeCreditConfirm}
           onConfirm={confirmCreditAction}
           onCharge={handleCreditCharge}
@@ -842,7 +867,7 @@ export function MobileWorkspace({
           <span className="flex items-center justify-between gap-3">
             <span className="min-w-0">
               <span className="block text-base font-black text-title">문서 업로드</span>
-              <span className="mt-0.5 block text-xs font-bold text-muted">지원 형식 PDF · TXT</span>
+              <span className="mt-0.5 block text-xs font-bold text-muted">지원 형식 PDF · TXT · XLSX · CSV</span>
             </span>
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-white">
               <UploadCloud size={18} />
@@ -876,10 +901,11 @@ export function MobileWorkspace({
                 key={document.id}
                 document={document}
                 compact
-              onClick={() => {
-                setMobileSelectedDocumentId(document.id);
-                onDocumentSelect(document.id);
-              }}
+                isSelected={selectedDocument?.id === document.id}
+                onClick={() => {
+                  setMobileSelectedDocumentId(document.id);
+                  onDocumentSelect(document.id);
+                }}
               />
             ))
           ) : (
@@ -1524,26 +1550,30 @@ function DocumentRow({
   document,
   onClick,
   compact = false,
+  isSelected = false,
 }: {
   document: DocumentViewModel;
   onClick: () => void;
   compact?: boolean;
+  isSelected?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={[
-        "grid gap-1.5 rounded-2xl border border-border bg-card text-left shadow-sm transition hover:border-primary/40 active:scale-[0.98] active:shadow-soft",
+        "relative grid gap-1.5 overflow-hidden rounded-2xl border bg-card text-left shadow-sm transition hover:border-primary/40 active:scale-[0.98] active:shadow-soft",
+        isSelected ? "border-primary bg-primary/10 shadow-soft" : "border-border",
         compact ? "min-h-[4.1rem] p-2.5" : "min-h-[4.75rem] p-3",
       ].join(" ")}
     >
+      {isSelected && <span className="absolute inset-y-0 left-0 w-1 bg-primary" />}
       <div className="flex min-w-0 items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <Badge>{document.extension}</Badge>
           <h3 className="line-clamp-1 min-w-0 text-sm font-black text-title">{document.filename}</h3>
         </div>
-        <Badge muted>{document.statusLabel}</Badge>
+        <Badge muted>{isSelected ? "선택됨" : document.statusLabel}</Badge>
       </div>
       <p className="truncate text-[0.68rem] font-bold text-muted">
         {document.createdLabel} · {formatDocumentInfo(document)}

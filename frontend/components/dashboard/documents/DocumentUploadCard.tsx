@@ -85,7 +85,7 @@ export function DocumentUploadCard({
         <input
           id="document-upload-input"
           type="file"
-          accept=".pdf,.txt,application/pdf,text/plain"
+          accept=".pdf,.txt,.xlsx,.csv,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
           className="hidden"
           disabled={disabled}
           onChange={handleFileChange}
@@ -126,7 +126,7 @@ export function DocumentUploadCard({
             지원 파일
           </div>
           <p className="ai-caption mt-2 font-bold">
-            현재 PDF / TXT 업로드를 지원합니다. DOCX / XLSX / PPTX / HWPX는 이후 지원 예정입니다.
+            현재 PDF / TXT / XLSX / CSV 업로드를 지원합니다. DOCX / PPTX / HWPX는 이후 지원 예정입니다.
           </p>
         </div>
         <button

@@ -448,6 +448,27 @@ def calculate_document_credits(page_count: int) -> float:
     return page_count * 0.5
 
 
+def get_document_credit_details(page_count: Optional[int], metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    extraction_metadata = metadata or {}
+    basis_type = str(extraction_metadata.get("basis_type") or ("pages" if page_count is not None else "document"))
+    basis_count = extraction_metadata.get("basis_count", page_count if page_count is not None else 1)
+    credit_rule = (
+        "전체 예상 페이지 기준 차감"
+        if basis_type in {"estimated_pages", "estimated_text_pages"}
+        else "페이지 기준 차감"
+    )
+
+    return {
+        "credit_cost": 1 if page_count is None else calculate_document_credits(page_count),
+        "pricing_rule": "document_text_basic_v1" if page_count is None else "document_page_based_v1",
+        "rule": credit_rule,
+        "basis_type": basis_type,
+        "basis_count": basis_count,
+        "sheet_count": extraction_metadata.get("sheet_count"),
+        "sheet_page_counts": extraction_metadata.get("sheet_page_counts"),
+    }
+
+
 def _format_credit_amount(amount: float) -> str:
     return str(int(amount)) if float(amount).is_integer() else str(amount)
 
@@ -1873,12 +1894,14 @@ async def upload_pdf(
         raise HTTPException(status_code=400, detail=f"Failed to read {extractor.file_type} document: {exc}") from exc
 
     page_count = extracted.page_count
-    if page_count is None:
-        credit_cost = 1
-        pricing_rule = "document_text_basic_v1"
-    else:
-        credit_cost = calculate_document_credits(page_count)
-        pricing_rule = "document_page_based_v1"
+    credit_details = get_document_credit_details(page_count, extracted.metadata)
+    credit_cost = float(credit_details["credit_cost"])
+    pricing_rule = str(credit_details["pricing_rule"])
+    credit_rule = str(credit_details["rule"])
+    basis_type = str(credit_details["basis_type"])
+    basis_count = credit_details["basis_count"]
+    sheet_count = credit_details["sheet_count"]
+    sheet_page_counts = credit_details["sheet_page_counts"]
 
     credits_before = float(current_user.get("credits", 0) or 0)
     if credit_cost > credits_before:
@@ -1940,6 +1963,10 @@ async def upload_pdf(
         "text_length": len(text),
         "chunk_count": len(chunks),
         "page_count": page_count,
+        "credit_basis_type": basis_type,
+        "credit_basis_count": basis_count,
+        "sheet_count": sheet_count,
+        "sheet_page_counts": sheet_page_counts,
         "status": "ready",
         **_user_identity(current_user),
     }
@@ -1952,6 +1979,10 @@ async def upload_pdf(
         "text_length": len(text),
         "chunk_count": len(chunks),
         "page_count": page_count,
+        "credit_basis_type": basis_type,
+        "credit_basis_count": basis_count,
+        "sheet_count": sheet_count,
+        "sheet_page_counts": sheet_page_counts,
         "status": "ready",
         "created_at": created_at,
         **_user_identity(current_user),
@@ -1979,7 +2010,7 @@ async def upload_pdf(
             "description": (
                 f"Document analysis: {filename}, {page_count} pages"
                 if page_count is not None
-                else f"Document analysis: {filename}, TXT"
+                else f"Document analysis: {filename}, {extractor.file_type}"
             ),
             "metadata": {
                 "file_id": file_id,
@@ -1988,6 +2019,11 @@ async def upload_pdf(
                 "page_count": page_count,
                 "credit_cost": credit_cost,
                 "pricing_rule": pricing_rule,
+                "rule": credit_rule,
+                "basis_type": basis_type,
+                "basis_count": basis_count,
+                "sheet_count": sheet_count,
+                "sheet_page_counts": sheet_page_counts,
             },
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
@@ -1999,6 +2035,7 @@ async def upload_pdf(
             "file_type": extractor.file_type,
             "text_length": len(text),
             "chunk_count": len(chunks),
+            "page_count": page_count,
             "status": "ready",
             "created_at": created_at,
             "credit_usage": {
@@ -2006,6 +2043,11 @@ async def upload_pdf(
                 "page_count": page_count,
                 "file_type": extractor.file_type,
                 "credit_cost": credit_cost,
+                "rule": credit_rule,
+                "basis_type": basis_type,
+                "basis_count": basis_count,
+                "sheet_count": sheet_count,
+                "sheet_page_counts": sheet_page_counts,
                 "credits_before": credits_before,
                 "credits_after": credits_after,
             },

@@ -1,4 +1,4 @@
-import { CheckCircle2, FileText } from "lucide-react";
+﻿import { CheckCircle2, FileText } from "lucide-react";
 import { formatDocumentInfo, type DocumentStatus, type DocumentViewModel } from "./types";
 
 type DocumentCardProps = {
@@ -51,14 +51,15 @@ export function DocumentCard({ document, isSelected, onSelect }: DocumentCardPro
       type="button"
       onClick={() => onSelect(document)}
       className={[
-        "group relative flex h-full min-w-0 cursor-pointer flex-col rounded-3xl border p-4 text-left transition-all duration-300 ease-out focus:outline-none focus-visible:ring-4 focus-visible:ring-gold/35",
+        "group relative flex h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-3xl border p-4 text-left transition-all duration-300 ease-out focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/25",
         isSelected
-          ? "-translate-y-0.5 border-gold bg-panel shadow-soft ring-2 ring-gold/35"
-          : "border-border bg-card shadow-soft hover:-translate-y-1 hover:border-gold/80 hover:bg-panel",
+          ? "-translate-y-0.5 border-primary bg-primary/10 shadow-soft ring-2 ring-primary/25"
+          : "border-border bg-card shadow-soft hover:-translate-y-1 hover:border-primary/60 hover:bg-panel",
       ].join(" ")}
     >
+      {isSelected && <span className="absolute inset-y-0 left-0 w-1.5 bg-primary" />}
       {isSelected && (
-        <span className="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full border border-gold/70 bg-title px-2.5 py-1 text-[10px] font-black text-app shadow-soft">
+        <span className="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full border border-primary/35 bg-primary px-2.5 py-1 text-[10px] font-black text-white shadow-soft">
           <CheckCircle2 size={13} />
           선택됨
         </span>
@@ -68,8 +69,8 @@ export function DocumentCard({ document, isSelected, onSelect }: DocumentCardPro
         className={[
           "relative mx-auto flex aspect-[3/4] w-full max-w-[168px] flex-col rounded-2xl border p-4 shadow-inner transition-all duration-300",
           isSelected
-            ? "border-gold bg-panel shadow-[inset_0_0_0_1px_rgba(232,188,115,0.22)]"
-            : "border-border bg-surface group-hover:border-gold/80 group-hover:bg-panel",
+            ? "border-primary bg-card"
+            : "border-border bg-surface group-hover:border-primary/60 group-hover:bg-panel",
         ].join(" ")}
       >
         <div className="flex items-center justify-between gap-2">
@@ -86,9 +87,9 @@ export function DocumentCard({ document, isSelected, onSelect }: DocumentCardPro
         </div>
 
         <div className="mt-6 grid gap-2">
-          <span className={["h-2 rounded-full transition-colors duration-300", isSelected ? "bg-gold" : "bg-gold/30 group-hover:bg-gold/45"].join(" ")} />
-          <span className="h-2 rounded-full bg-border transition-colors duration-300 group-hover:bg-gold/35" />
-          <span className="h-2 w-4/5 rounded-full bg-border transition-colors duration-300 group-hover:bg-gold/35" />
+          <span className={["h-2 rounded-full transition-colors duration-300", isSelected ? "bg-primary" : "bg-gold/30 group-hover:bg-primary/35"].join(" ")} />
+          <span className="h-2 rounded-full bg-border transition-colors duration-300 group-hover:bg-primary/25" />
+          <span className="h-2 w-4/5 rounded-full bg-border transition-colors duration-300 group-hover:bg-primary/25" />
           <span className="mt-3 h-2 rounded-full bg-panel" />
           <span className="h-2 w-2/3 rounded-full bg-panel" />
         </div>
@@ -107,8 +108,8 @@ export function DocumentCard({ document, isSelected, onSelect }: DocumentCardPro
           className={[
             "mt-3 rounded-2xl border px-3 py-2 text-xs font-black transition-all duration-300",
             isSelected
-              ? "border-gold bg-card text-title"
-              : "border-border bg-surface text-body group-hover:border-gold/70 group-hover:bg-panel group-hover:text-title",
+              ? "border-primary/35 bg-primary/10 text-title"
+              : "border-border bg-surface text-body group-hover:border-primary/50 group-hover:bg-panel group-hover:text-title",
           ].join(" ")}
         >
           {metaText}

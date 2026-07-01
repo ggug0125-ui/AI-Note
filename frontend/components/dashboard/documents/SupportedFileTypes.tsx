@@ -1,7 +1,7 @@
 const supportedGroups = [
   {
     title: "현재 분석 가능",
-    items: ["PDF", "TXT"],
+    items: ["PDF", "TXT", "XLSX", "CSV"],
     tone: "ai-badge-warning",
   },
   {
@@ -11,7 +11,7 @@ const supportedGroups = [
   },
   {
     title: "준비 중",
-    items: ["DOCX", "PPTX", "CSV", "MD"],
+    items: ["DOCX", "PPTX", "MD"],
     tone: "ai-badge-info",
   },
 ];
@@ -22,7 +22,7 @@ export function SupportedFileTypes() {
       <p className="ai-modal-eyebrow text-muted">Supported File Types</p>
       <h2 className="mt-2 text-xl font-black text-title">지원 파일 형식 안내</h2>
       <p className="ai-caption mt-3 font-bold">
-        AI Note 2.0은 다양한 문서 형식을 지원하는 Workspace로 확장 중입니다.
+        AI Note 2.0은 PDF, TXT, XLSX, CSV 업로드 분석을 지원하며 더 많은 문서 형식으로 확장 중입니다.
       </p>
 
       <div className="mt-5 grid gap-3">

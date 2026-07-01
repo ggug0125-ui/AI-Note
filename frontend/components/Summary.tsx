@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { ClipboardList, History, Sparkles, Trash2 } from "lucide-react";
@@ -45,15 +45,18 @@ function formatFileDate(file: UploadedFile) {
     return timestamp;
   }
 
-  const day = date.toLocaleDateString("ko-KR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).replace(/\.\s?/g, ".").replace(/\.$/, "");
+  const day = date
+    .toLocaleDateString("ko-KR", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    })
+    .replace(/\.\s?/g, ".")
+    .replace(/\.$/, "");
   const time = date.toLocaleTimeString("ko-KR", {
     hour: "2-digit",
     minute: "2-digit",
-    hour12: true
+    hour12: true,
   });
   return `${day} ${time}`;
 }
@@ -65,10 +68,10 @@ function getFileOptionLabel(file: UploadedFile) {
 function getAssistantErrorMessage(error: unknown, fallback: string) {
   const message = error instanceof Error ? error.message : fallback;
   if (message.includes("Uploaded PDF file is missing")) {
-    return "업로드된 PDF 파일을 찾지 못했습니다. 해당 문서를 다시 업로드해주세요.";
+    return "업로드된 문서를 찾지 못했습니다. 해당 문서를 다시 업로드해주세요.";
   }
   if (message.includes("OPENAI_API_KEY")) {
-    return "AI 요약을 생성하려면 서버의 OpenAI API 키 설정이 필요합니다.";
+    return "AI 요약을 생성하려면 서버에 OpenAI API 키 설정이 필요합니다.";
   }
   return message || fallback;
 }
@@ -94,27 +97,13 @@ export function Summary() {
       const data = await response.json();
       const nextFiles = sortFilesByLatest(data.files ?? []);
       setFiles(nextFiles);
-      setSelectedFileId((current) => (
-        nextFiles.some((file: UploadedFile) => file.file_id === current)
-          ? current
-          : nextFiles[0]?.file_id || ""
-      ));
+      setSelectedFileId((current) =>
+        nextFiles.some((file: UploadedFile) => file.file_id === current) ? current : nextFiles[0]?.file_id || "",
+      );
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "파일 목록을 불러오지 못했습니다.");
     }
   }
-
-  useEffect(() => {
-    loadFiles();
-  }, []);
-
-  useEffect(() => {
-    if (selectedFileId) {
-      loadHistory();
-    } else {
-      setHistory([]);
-    }
-  }, [selectedFileId]);
 
   async function loadHistory() {
     if (!selectedFileId) {
@@ -141,6 +130,18 @@ export function Summary() {
     }
   }
 
+  useEffect(() => {
+    void loadFiles();
+  }, []);
+
+  useEffect(() => {
+    if (selectedFileId) {
+      void loadHistory();
+    } else {
+      setHistory([]);
+    }
+  }, [selectedFileId]);
+
   async function handleSummary(mode: SummaryType) {
     setSelectedMode(mode);
 
@@ -157,12 +158,12 @@ export function Summary() {
       const response = await authenticatedFetch(`${API_BASE_URL}/summary`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           file_id: selectedFileId,
-          summary_type: mode
-        })
+          summary_type: mode,
+        }),
       });
 
       if (!response.ok) {
@@ -229,7 +230,7 @@ export function Summary() {
               key={mode}
               isSelected={selectedMode === mode}
               disabled={isLoading}
-              onClick={() => handleSummary(mode)}
+              onClick={() => void handleSummary(mode)}
             >
               {mode}
             </WorkspaceOptionButton>
@@ -237,16 +238,16 @@ export function Summary() {
         </div>
         <button
           type="button"
-          onClick={loadHistory}
+          onClick={() => void loadHistory()}
           disabled={isHistoryLoading}
           className="ai-btn ai-btn-ghost mt-4 min-h-11 rounded-xl px-4 text-sm"
         >
           <History className="mr-2" size={16} />
           {isHistoryLoading ? "불러오는 중" : "히스토리 보기"}
         </button>
-        {status && <WorkspaceLoadingState message={status} isLoading={isLoading} />}
+        {status && <WorkspaceLoadingState message={status} isLoading={isLoading} className="text-body" />}
         {historyStatus && (
-          <WorkspaceLoadingState message={historyStatus} isLoading={isHistoryLoading} className="mt-2" />
+          <WorkspaceLoadingState message={historyStatus} isLoading={isHistoryLoading} className="mt-2 text-body" />
         )}
       </WorkspaceSection>
 
@@ -267,21 +268,23 @@ export function Summary() {
             ) : (
               history.map((item, index) => (
                 <article key={`${item.created_at ?? "summary"}-${index}`} className="ai-panel-compact bg-panel p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <strong className="text-sm text-title">{item.summary_type}</strong>
-                      <span className="ai-badge ai-badge-info mt-2">{item.created_at ? new Date(item.created_at).toLocaleString() : "-"}</span>
+                  <div className="grid gap-2">
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                      <strong className="min-w-0 truncate text-sm text-title">{item.summary_type}</strong>
+                      <button
+                        type="button"
+                        aria-label="요약 이력 삭제"
+                        title="요약 이력 삭제"
+                        disabled={!item.created_at || deletingRecordId === item.created_at}
+                        onClick={() => handleDeleteSummary(item)}
+                        className="ai-icon-btn h-8 w-8 shrink-0 text-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Trash2 size={15} />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      aria-label="요약 이력 삭제"
-                      title="요약 이력 삭제"
-                      disabled={!item.created_at || deletingRecordId === item.created_at}
-                      onClick={() => handleDeleteSummary(item)}
-                      className="ai-icon-btn h-8 w-8 text-red-700 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    <span className="ai-badge ai-badge-info w-fit max-w-full truncate">
+                      {item.created_at ? new Date(item.created_at).toLocaleString() : "-"}
+                    </span>
                   </div>
                   <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm leading-7 text-body">{item.summary}</p>
                 </article>
