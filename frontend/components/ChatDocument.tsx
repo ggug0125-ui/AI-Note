@@ -331,7 +331,7 @@ export function ChatDocument({ isAdmin = true, selectedFileId, onOpenDocuments }
       <aside className="ai-card p-5 md:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <span className="text-xs font-extrabold uppercase tracking-wide text-coral">Documents</span>
+            <span className="text-xs font-extrabold uppercase tracking-wide text-primary">Documents</span>
             <h2 className="mt-2 text-xl font-black text-[var(--ai-color-text-primary)]">문서 목록</h2>
             <p className="mt-2 text-sm font-bold leading-6 text-[var(--ai-color-text-secondary)]">
               최근 업로드된 문서부터 표시됩니다.
@@ -371,7 +371,7 @@ export function ChatDocument({ isAdmin = true, selectedFileId, onOpenDocuments }
                         {formatFileDate(file)}
                       </p>
                     </div>
-                    {isSelected && <CheckCircle2 className="shrink-0 text-coral" size={19} aria-hidden="true" />}
+                    {isSelected && <CheckCircle2 className="shrink-0 text-primary" size={19} aria-hidden="true" />}
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {statusLabel && <span className="ai-badge ai-badge-info px-2 py-1">{statusLabel}</span>}
@@ -388,7 +388,7 @@ export function ChatDocument({ isAdmin = true, selectedFileId, onOpenDocuments }
         <div className="ai-panel-compact flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           {selectedFile ? (
             <div className="min-w-0">
-              <span className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-coral">
+              <span className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-primary">
                 <FileText size={15} />
                 현재 문서
               </span>
@@ -402,7 +402,7 @@ export function ChatDocument({ isAdmin = true, selectedFileId, onOpenDocuments }
             </div>
           ) : (
             <div>
-              <span className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-coral">
+              <span className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-primary">
                 <FileText size={15} />
                 현재 문서
               </span>
@@ -422,7 +422,7 @@ export function ChatDocument({ isAdmin = true, selectedFileId, onOpenDocuments }
             {!selectedFile ? (
               <div className="flex min-h-[18rem] items-center justify-center">
                 <div className="max-w-md text-center">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--ai-color-surface)] text-coral">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-surface text-primary">
                     <MessageSquareText size={26} />
                   </div>
                   <h3 className="mt-5 text-xl font-black text-[var(--ai-color-text-primary)]">문서를 선택해주세요</h3>
@@ -437,7 +437,7 @@ export function ChatDocument({ isAdmin = true, selectedFileId, onOpenDocuments }
             ) : messages.length === 0 && !isAsking ? (
               <div className="flex min-h-[18rem] items-center justify-center">
                 <div className="max-w-xl text-center">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--ai-color-surface)] text-coral">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-surface text-primary">
                     <Sparkles size={26} />
                   </div>
                   <h3 className="mt-5 text-xl font-black text-[var(--ai-color-text-primary)]">문서에 대해 질문해보세요</h3>
@@ -454,15 +454,15 @@ export function ChatDocument({ isAdmin = true, selectedFileId, onOpenDocuments }
 
             {isAsking && (
               <div className="flex justify-start">
-                <div className="max-w-[88%] rounded-3xl rounded-bl-md border border-[var(--ai-color-border)] bg-white px-4 py-3 shadow-sm md:max-w-[76%]">
+                <div className="max-w-[88%] rounded-3xl rounded-bl-md border border-border bg-card px-4 py-3 shadow-sm md:max-w-[76%]">
                   <div className="flex items-center gap-3 text-sm font-black text-[var(--ai-color-text-primary)]">
-                    <Loader2 className="animate-spin text-coral" size={17} />
+                    <Loader2 className="animate-spin text-primary" size={17} />
                     AI가 문서를 읽고 답변을 작성 중입니다...
                   </div>
                   <div className="mt-3 flex gap-1.5" aria-hidden="true">
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-coral" />
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-coral [animation-delay:120ms]" />
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-coral [animation-delay:240ms]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-primary" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:120ms]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:240ms]" />
                   </div>
                 </div>
               </div>
@@ -562,7 +562,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
           "max-w-[88%] whitespace-pre-wrap break-words px-4 py-3 text-sm leading-7 shadow-sm md:max-w-[76%]",
           isUser
             ? "rounded-3xl rounded-br-md bg-[var(--ai-color-active)] text-white"
-            : "rounded-3xl rounded-bl-md border border-[var(--ai-color-border)] bg-white text-[var(--ai-color-text-primary)]",
+            : "rounded-3xl rounded-bl-md border border-border bg-card text-title",
         ].join(" ")}
       >
         <p>{message.content}</p>
@@ -575,12 +575,12 @@ function ChatBubble({ message }: { message: ChatMessage }) {
 function SourceList({ sources }: { sources: Source[] }) {
   return (
     <div className="mt-3 grid gap-1.5 border-t border-[var(--ai-color-border)] pt-2.5">
-      <h4 className="text-xs font-black uppercase tracking-wide text-coral">참고 출처</h4>
+      <h4 className="text-xs font-black uppercase tracking-wide text-primary">참고 출처</h4>
       {sources.map((source, index) => {
         const meta = getSourceMeta(source, index);
 
         return (
-          <article key={`${meta.filename}-${index}`} className="rounded-2xl border border-[var(--ai-color-border)] bg-[var(--ai-color-background)] p-2.5">
+          <article key={`${meta.filename}-${index}`} className="rounded-2xl border border-border bg-panel p-2.5">
             <div className="flex flex-wrap items-center gap-1.5 text-xs font-black text-[var(--ai-color-text-primary)]">
               <span className="ai-badge ai-badge-info px-2 py-1">{meta.title}</span>
               <span className="break-words">{meta.filename}</span>

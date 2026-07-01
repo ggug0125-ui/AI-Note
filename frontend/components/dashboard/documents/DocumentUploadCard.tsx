@@ -73,8 +73,8 @@ export function DocumentUploadCard({
           <UploadCloud size={23} />
         </div>
         <div>
-          <p className="ai-modal-eyebrow text-[#8A7354]">Document Center</p>
-          <h2 className="mt-2 text-2xl font-black text-[#2F2418]">문서 업로드</h2>
+          <p className="ai-modal-eyebrow text-muted">Document Center</p>
+          <h2 className="mt-2 text-2xl font-black text-title">문서 업로드</h2>
           <p className="ai-caption mt-3 font-bold">
             분석할 문서를 업로드하면 요약, 키워드, AI 채팅에 사용할 검색 인덱스가 생성됩니다.
           </p>
@@ -100,17 +100,17 @@ export function DocumentUploadCard({
             "ai-upload-zone",
             disabled ? "is-disabled" : "",
             isDragging
-              ? "border-coral bg-[#FFF0E8] shadow-[0_16px_34px_rgba(232,137,92,0.14)]"
+              ? "border-primary bg-primary/10 shadow-[0_16px_34px_rgba(242,72,72,0.14)]"
               : "",
           ].join(" ")}
         >
-          <div className="ai-icon-btn h-14 w-14 rounded-2xl text-coral">
+          <div className="ai-icon-btn h-14 w-14 rounded-2xl text-primary">
             <FileUp size={26} />
           </div>
           <p className="mt-5 text-lg font-black text-[var(--ai-color-text-primary)]">
             {isDragging ? "여기에 놓으면 업로드됩니다." : "파일을 끌어다 놓으세요."}
           </p>
-          <p className="mt-2 text-sm font-bold text-[#7A4A12]">또는 파일을 선택하세요.</p>
+          <p className="mt-2 text-sm font-bold text-body">또는 파일을 선택하세요.</p>
           {selectedFile && (
             <p className="ai-badge mt-4 max-w-full [overflow-wrap:anywhere]">
               {selectedFile.name}
@@ -120,9 +120,9 @@ export function DocumentUploadCard({
       </div>
 
       <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
-        <div className="ai-panel-compact bg-white/75">
+        <div className="ai-panel-compact bg-panel">
           <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--ai-color-text-secondary)]">
-            <CreditCard size={16} className="text-coral" />
+            <CreditCard size={16} className="text-primary" />
             지원 파일
           </div>
           <p className="ai-caption mt-2 font-bold">

@@ -20,8 +20,8 @@ function TossFailContent() {
   const paymentId = searchParams.get("payment_id") || "-";
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(135deg,#FFFDF8_0%,#FFF8EE_48%,#F7EFE2_100%)] px-4 py-10 text-[#2F2418] sm:px-6 lg:px-8">
-      <section className="mx-auto max-w-4xl rounded-3xl border border-[#E9D8BD] bg-[#FFFDF7] p-5 shadow-[0_18px_45px_rgba(124,82,27,0.08)] md:p-7">
+    <main className="min-h-screen bg-[linear-gradient(135deg,rgb(var(--ai-bg))_0%,rgb(var(--ai-surface))_48%,rgb(var(--ai-panel))_100%)] px-4 py-10 text-title sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-4xl rounded-3xl border border-border bg-card p-5 shadow-soft md:p-7">
         <div className="rounded-3xl border border-[#F0C4AC] bg-[#FFF3EE] p-5 shadow-[0_14px_34px_rgba(124,82,27,0.08)] md:p-7">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
@@ -49,7 +49,7 @@ function TossFailContent() {
         <div className="mt-6">
           <Link
             href="/mypage?tab=billing"
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[#E2C985]/70 bg-white px-5 text-sm font-black text-[#7A551D] shadow-[0_10px_22px_rgba(124,82,27,0.1)] transition hover:-translate-y-0.5 hover:bg-[#FFF8EE]"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-gold/70 bg-surface px-5 text-sm font-black text-gold shadow-soft transition hover:-translate-y-0.5 hover:bg-panel"
           >
             <ArrowLeft size={16} />
             결제 정보로 돌아가기
@@ -62,8 +62,8 @@ function TossFailContent() {
 
 function TossFailShell() {
   return (
-    <main className="min-h-screen bg-[linear-gradient(135deg,#FFFDF8_0%,#FFF8EE_48%,#F7EFE2_100%)] px-4 py-10 text-[#2F2418] sm:px-6 lg:px-8">
-      <section className="mx-auto max-w-4xl rounded-3xl border border-[#E9D8BD] bg-[#FFFDF7] p-6 shadow-[0_18px_45px_rgba(124,82,27,0.08)]">
+    <main className="min-h-screen bg-[linear-gradient(135deg,rgb(var(--ai-bg))_0%,rgb(var(--ai-surface))_48%,rgb(var(--ai-panel))_100%)] px-4 py-10 text-title sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-4xl rounded-3xl border border-border bg-card p-6 shadow-soft">
         <p className="text-sm font-black text-[#7A551D]">Toss 실패 정보를 불러오는 중입니다.</p>
       </section>
     </main>
@@ -80,7 +80,7 @@ function InfoCard({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-[#E8C77A]/55 bg-white/75 p-4 shadow-[0_12px_28px_rgba(124,82,27,0.06)] md:col-span-1">
+    <div className="rounded-2xl border border-gold/55 bg-card/75 p-4 shadow-soft md:col-span-1">
       <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[#8A7354]">
         <span className="text-[#A66A1F]">{icon}</span>
         {label}

@@ -238,37 +238,37 @@ function TossReadyContent() {
   }
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(135deg,#FFFDF8_0%,#FFF8EE_48%,#F7EFE2_100%)] px-4 py-10 text-[#2F2418] sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[linear-gradient(135deg,rgb(var(--ai-bg))_0%,rgb(var(--ai-surface))_48%,rgb(var(--ai-panel))_100%)] px-4 py-10 text-title sm:px-6 lg:px-8">
       <section className="mx-auto flex max-w-4xl flex-col gap-6">
         <Link
           href="/mypage?tab=billing"
-          className="inline-flex w-fit items-center gap-2 rounded-full border border-[#E2C985]/70 bg-white/75 px-4 py-2 text-sm font-black text-[#7A551D] shadow-[0_10px_24px_rgba(124,82,27,0.08)] transition hover:-translate-y-0.5 hover:bg-white"
+          className="inline-flex w-fit items-center gap-2 rounded-full border border-gold/70 bg-card/75 px-4 py-2 text-sm font-black text-gold shadow-soft transition hover:-translate-y-0.5 hover:bg-panel"
         >
           <ArrowLeft size={16} />
           마이페이지로 돌아가기
         </Link>
 
-        <div className="rounded-3xl border border-[#E9D8BD] bg-[#FFFDF7] p-5 shadow-[0_18px_45px_rgba(124,82,27,0.08)] md:p-7">
-          <div className="rounded-3xl border border-[#E9D8C1] bg-[linear-gradient(135deg,#FFFDF8_0%,#FFF8EE_100%)] p-5 shadow-[0_14px_34px_rgba(124,82,27,0.08)] md:p-7">
+        <div className="rounded-3xl border border-border bg-card p-5 shadow-soft md:p-7">
+          <div className="rounded-3xl border border-gold/60 bg-[linear-gradient(135deg,rgb(var(--ai-card))_0%,rgb(var(--ai-panel))_100%)] p-5 shadow-soft md:p-7">
             <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-wide text-[#8A6A35]">Toss Payments</p>
-                <h1 className="mt-2 text-3xl font-black text-[#2F2418] sm:text-4xl">
+                <p className="text-xs font-black uppercase tracking-wide text-muted">Toss Payments</p>
+                <h1 className="mt-2 text-3xl font-black text-title sm:text-4xl">
                   결제 준비 확인
                 </h1>
-                <p className="mt-3 max-w-2xl text-sm font-bold leading-6 text-[#6F5A40]">
+                <p className="mt-3 max-w-2xl text-sm font-bold leading-6 text-body">
                   토스페이먼츠 테스트 결제창을 열거나, 내부 테스트 성공 처리로 크레딧 지급 흐름을 확인할 수 있습니다.
                 </p>
               </div>
-              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#E2C985]/70 bg-white/80 px-4 py-2 text-sm font-black text-[#7A551D]">
+              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-gold/70 bg-card/80 px-4 py-2 text-sm font-black text-gold">
                 <CheckCircle2 size={16} />
                 상태: ready
               </div>
             </div>
           </div>
 
-          <div className="mt-5 overflow-hidden rounded-3xl border border-[#E8C77A]/60 bg-[linear-gradient(135deg,#FFFDF8_0%,#FFF5DF_54%,#F7E8C6_100%)] p-5 shadow-[0_16px_34px_rgba(124,82,27,0.08)]">
-            <p className="text-xs font-black uppercase tracking-wide text-[#8A7354]">Selected Plan</p>
+          <div className="mt-5 overflow-hidden rounded-3xl border border-gold/60 bg-[linear-gradient(135deg,rgb(var(--ai-card))_0%,rgb(var(--ai-panel))_54%,rgb(var(--ai-surface))_100%)] p-5 shadow-soft">
+            <p className="text-xs font-black uppercase tracking-wide text-muted">Selected Plan</p>
             <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-3">
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center">

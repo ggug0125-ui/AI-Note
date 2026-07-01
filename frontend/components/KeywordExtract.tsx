@@ -218,11 +218,11 @@ export function KeywordExtract() {
         <div className="ai-modal-icon h-12 w-12 rounded-xl">
           <Tags size={24} />
         </div>
-        <h2 className="mt-5 text-2xl font-black text-ink">키워드 추출</h2>
-        <p className="mt-3 text-sm leading-7 text-neutral-600">문서에서 핵심 키워드와 상위 토픽을 추출해 검색과 분류에 활용합니다.</p>
+        <h2 className="mt-5 text-2xl font-black text-title">키워드 추출</h2>
+        <p className="mt-3 text-sm leading-7 text-body">문서에서 핵심 키워드와 상위 토픽을 추출해 검색과 분류에 활용합니다.</p>
 
         <div className="mt-6">
-          <h3 className="text-sm font-black text-ink">키워드</h3>
+          <h3 className="text-sm font-black text-title">키워드</h3>
           <div className="mt-3 flex flex-wrap gap-2">
             {displayKeywords.length === 0 ? (
               <WorkspaceEmptyState icon={<Tags size={16} />} className="w-full">
@@ -239,7 +239,7 @@ export function KeywordExtract() {
         </div>
 
         <div className="mt-6">
-          <h3 className="text-sm font-black text-ink">토픽</h3>
+          <h3 className="text-sm font-black text-title">토픽</h3>
           <div className="mt-3 flex flex-wrap gap-2">
             {displayTopics.length === 0 ? (
               <WorkspaceEmptyState icon={<Hash size={16} />} className="w-full">
@@ -256,7 +256,7 @@ export function KeywordExtract() {
         </div>
 
         <div className="mt-6">
-          <h3 className="text-sm font-black text-ink">추출 이력</h3>
+          <h3 className="text-sm font-black text-title">추출 이력</h3>
           <div className="mt-3 grid gap-3">
             {history.length === 0 ? (
               <WorkspaceEmptyState icon={<History size={16} />}>
@@ -264,9 +264,9 @@ export function KeywordExtract() {
               </WorkspaceEmptyState>
             ) : (
               history.map((item, index) => (
-                <article key={`${item.created_at ?? "keyword"}-${index}`} className="ai-panel-compact bg-white p-4">
+                <article key={`${item.created_at ?? "keyword"}-${index}`} className="ai-panel-compact bg-panel p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <strong className="text-sm text-ink">{item.scope}</strong>
+                    <strong className="text-sm text-title">{item.scope}</strong>
                     <span className="ai-badge ai-badge-info">{item.created_at ? new Date(item.created_at).toLocaleString() : "-"}</span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -285,11 +285,11 @@ export function KeywordExtract() {
 
       <div className="ai-card p-6">
         <div className="flex items-center gap-3">
-          <Hash className="text-coral" size={22} />
-          <h3 className="text-xl font-black text-ink">추출 설정</h3>
+          <Hash className="text-primary" size={22} />
+          <h3 className="text-xl font-black text-title">추출 설정</h3>
         </div>
         <div className="mt-5 grid gap-4">
-          <label className="grid gap-2 text-sm font-bold text-neutral-700">
+          <label className="grid gap-2 text-sm font-bold text-body">
             분석할 문서
             <select
               value={selectedFileId}
@@ -304,11 +304,11 @@ export function KeywordExtract() {
               ))}
             </select>
           </label>
-          <label className="grid gap-2 text-sm font-bold text-neutral-700">
+          <label className="grid gap-2 text-sm font-bold text-body">
             키워드 개수: {count}
             <input type="range" min="5" max="30" value={count} onChange={(event) => setCount(Number(event.target.value))} className="accent-coral" aria-label="키워드 개수" />
           </label>
-          <label className="grid gap-2 text-sm font-bold text-neutral-700">
+          <label className="grid gap-2 text-sm font-bold text-body">
             분석 범위
             <select value={scope} onChange={(event) => setScope(event.target.value)} className="ai-select min-h-12 rounded-xl px-4">
               <option>전체 문서</option>

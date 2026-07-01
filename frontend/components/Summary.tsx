@@ -204,10 +204,10 @@ export function Summary() {
         <div className="ai-modal-icon h-12 w-12 rounded-xl">
           <Sparkles size={24} />
         </div>
-        <h2 className="mt-5 text-2xl font-black text-ink">AI 자동 요약</h2>
-        <p className="mt-3 text-sm leading-7 text-neutral-600">문서 전체를 읽고 목적에 맞는 요약 결과를 생성합니다.</p>
+        <h2 className="mt-5 text-2xl font-black text-title">AI 자동 요약</h2>
+        <p className="mt-3 text-sm leading-7 text-body">문서 전체를 읽고 목적에 맞는 요약 결과를 생성합니다.</p>
 
-        <label className="mt-6 grid gap-2 text-sm font-bold text-neutral-700">
+        <label className="mt-6 grid gap-2 text-sm font-bold text-body">
           요약할 문서
           <select
             value={selectedFileId}
@@ -252,24 +252,24 @@ export function Summary() {
 
       <div className="ai-card p-6">
         <div className="flex items-center gap-3">
-          <ClipboardList className="text-coral" size={22} />
-          <h3 className="text-xl font-black text-ink">요약 결과</h3>
+          <ClipboardList className="text-primary" size={22} />
+          <h3 className="text-xl font-black text-title">요약 결과</h3>
         </div>
         <WorkspaceResultPanel>
-          <p className="whitespace-pre-wrap text-sm leading-8 text-neutral-700">{summary || "요약 결과가 여기에 표시됩니다."}</p>
+          <p className="whitespace-pre-wrap text-sm leading-8 text-body">{summary || "요약 결과가 여기에 표시됩니다."}</p>
         </WorkspaceResultPanel>
 
         <div className="mt-6">
-          <h4 className="text-sm font-black text-ink">요약 이력</h4>
+          <h4 className="text-sm font-black text-title">요약 이력</h4>
           <div className="mt-3 grid max-h-[min(52vh,36rem)] gap-3 overflow-y-auto overscroll-contain pr-1 [scrollbar-color:var(--ai-color-border)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--ai-color-border)] [&::-webkit-scrollbar-track]:bg-transparent">
             {history.length === 0 ? (
               <WorkspaceEmptyState>저장된 요약 이력이 없습니다.</WorkspaceEmptyState>
             ) : (
               history.map((item, index) => (
-                <article key={`${item.created_at ?? "summary"}-${index}`} className="ai-panel-compact bg-white p-4">
+                <article key={`${item.created_at ?? "summary"}-${index}`} className="ai-panel-compact bg-panel p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <strong className="text-sm text-ink">{item.summary_type}</strong>
+                      <strong className="text-sm text-title">{item.summary_type}</strong>
                       <span className="ai-badge ai-badge-info mt-2">{item.created_at ? new Date(item.created_at).toLocaleString() : "-"}</span>
                     </div>
                     <button
@@ -283,7 +283,7 @@ export function Summary() {
                       <Trash2 size={15} />
                     </button>
                   </div>
-                  <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm leading-7 text-neutral-700">{item.summary}</p>
+                  <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm leading-7 text-body">{item.summary}</p>
                 </article>
               ))
             )}

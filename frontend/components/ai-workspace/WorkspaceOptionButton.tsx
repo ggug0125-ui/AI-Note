@@ -15,7 +15,7 @@ export function WorkspaceOptionButton({ children, isSelected, disabled = false, 
       disabled={disabled}
       className={[
         "ai-btn min-h-14 justify-start rounded-xl px-4 text-left text-sm",
-        isSelected ? "ai-btn-active" : "ai-btn-secondary bg-neutral-50",
+        isSelected ? "ai-btn-active" : "ai-btn-secondary bg-surface",
       ].join(" ")}
     >
       {children}

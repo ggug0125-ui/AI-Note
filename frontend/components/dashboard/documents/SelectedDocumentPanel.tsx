@@ -26,7 +26,7 @@ export function SelectedDocumentPanel({
         <div className="ai-modal-icon h-12 w-12">
           <FileText size={23} />
         </div>
-        <h2 className="mt-5 text-2xl font-black text-[#2F2418]">문서를 선택하면 AI 작업을 시작할 수 있어요</h2>
+        <h2 className="mt-5 text-2xl font-black text-title">문서를 선택하면 AI 작업을 시작할 수 있어요</h2>
         <p className="ai-caption mt-3 font-bold">
           왼쪽 문서 카드에서 분석할 문서를 선택해주세요.
         </p>
@@ -49,10 +49,10 @@ export function SelectedDocumentPanel({
 
   return (
     <aside className="ai-card min-w-0 p-6 transition-all duration-200 2xl:sticky 2xl:top-28">
-      <p className="ai-modal-eyebrow text-[#8A7354]">Selected Document</p>
-      <h2 className="mt-2 min-w-0 break-words text-2xl font-black text-[#2F2418]">{document.filename}</h2>
+      <p className="ai-modal-eyebrow text-muted">Selected Document</p>
+      <h2 className="mt-2 min-w-0 break-words text-2xl font-black text-title">{document.filename}</h2>
 
-      <div className="mt-5 grid gap-3 text-sm font-bold text-[#5F4B32]">
+      <div className="mt-5 grid gap-3 text-sm font-bold text-body">
         <InfoRow label="파일 형식" value={document.extension} />
         <InfoRow label="상태" value={document.statusLabel} />
         <InfoRow label="업로드 날짜" value={document.createdLabel} />
@@ -60,7 +60,7 @@ export function SelectedDocumentPanel({
       </div>
 
       <div className="ai-panel-compact mt-5">
-        <p className="text-xs font-black uppercase tracking-wide text-[#8A7354]">크레딧 안내</p>
+        <p className="text-xs font-black uppercase tracking-wide text-muted">크레딧 안내</p>
         <p className="ai-caption mt-2 font-bold">
           문서 분석이 성공한 경우에만 크레딧이 차감됩니다.
         </p>
@@ -105,13 +105,13 @@ export function SelectedDocumentPanel({
               </div>
               <div className="min-w-0">
                 <p className="ai-modal-eyebrow">Delete Document</p>
-                <h2 className="mt-1 text-xl font-black text-[#2F2418]">문서 삭제</h2>
+                <h2 className="mt-1 text-xl font-black text-title">문서 삭제</h2>
               </div>
             </div>
 
-            <div className="ai-panel-compact mt-5 bg-white/75 text-sm font-bold leading-6">
+            <div className="ai-panel-compact mt-5 bg-panel text-sm font-bold leading-6">
               <p>
-                <span className="font-black text-[#2F2418] [overflow-wrap:anywhere]">{document.filename}</span>
+                <span className="font-black text-title [overflow-wrap:anywhere]">{document.filename}</span>
                 {" "}문서를 삭제할까요?
               </p>
               <p className="mt-2">관련 요약, 키워드, 질문 기록도 함께 삭제됩니다.</p>

@@ -112,7 +112,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-ivory text-ink dark:bg-[#11100D] dark:text-neutral-100">
+    <main className="min-h-screen overflow-x-hidden bg-app text-title">
       <div className="grid min-h-screen lg:grid-cols-[0.92fr_1.08fr]">
         <section className="flex items-center px-4 py-8 md:px-10 lg:px-16">
           <div className="mx-auto w-full max-w-md">
@@ -122,52 +122,52 @@ export default function LoginPage() {
             </div>
             <div className="mt-12 md:mt-16">
               <h1 className="text-3xl font-black leading-tight sm:text-4xl md:text-5xl">다시 만나 반가워요</h1>
-              <p className="mt-4 text-base text-neutral-600 dark:text-neutral-300 sm:text-lg">로그인하고 문서 분석을 이어가세요.</p>
+              <p className="mt-4 text-base text-body sm:text-lg">로그인하고 문서 분석을 이어가세요.</p>
             </div>
 
             <form className="mt-8 space-y-5 md:mt-10" onSubmit={handleLogin}>
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-neutral-700 dark:text-neutral-300">이메일</span>
-                <span className="flex w-full items-center gap-3 rounded-2xl border border-black/10 bg-white px-4 py-4 shadow-sm dark:border-white/10 dark:bg-white/5">
-                  <Mail size={18} className="shrink-0 text-neutral-400" />
+                <span className="mb-2 block text-sm font-bold text-body">이메일</span>
+                <span className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-4 shadow-sm">
+                  <Mail size={18} className="shrink-0 text-muted" />
                   <input
                     type="email"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     placeholder="you@noteflow.ai"
-                    className="w-full min-w-0 bg-transparent text-base outline-none placeholder:text-neutral-400"
+                    className="w-full min-w-0 bg-transparent text-base outline-none placeholder:text-muted"
                     required
                   />
                 </span>
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-neutral-700 dark:text-neutral-300">비밀번호</span>
-                <span className="flex w-full items-center gap-3 rounded-2xl border border-black/10 bg-white px-4 py-4 shadow-sm dark:border-white/10 dark:bg-white/5">
-                  <LockKeyhole size={18} className="shrink-0 text-neutral-400" />
+                <span className="mb-2 block text-sm font-bold text-body">비밀번호</span>
+                <span className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-4 shadow-sm">
+                  <LockKeyhole size={18} className="shrink-0 text-muted" />
                   <input
                     type="password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     placeholder="비밀번호를 입력하세요"
-                    className="w-full min-w-0 bg-transparent text-base outline-none placeholder:text-neutral-400"
+                    className="w-full min-w-0 bg-transparent text-base outline-none placeholder:text-muted"
                     required
                   />
                 </span>
               </label>
 
               {errorMessage && (
-                <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-200">
+                <p className="ai-alert ai-alert-danger px-4 py-3">
                   {errorMessage}
                 </p>
               )}
 
               <div className="flex items-center justify-between gap-3 text-sm">
-                <label className="flex min-w-0 items-center gap-2 font-semibold text-neutral-600 dark:text-neutral-300">
-                  <input type="checkbox" className="h-4 w-4 shrink-0 rounded border-neutral-300 accent-coral" />
+                <label className="flex min-w-0 items-center gap-2 font-semibold text-body">
+                  <input type="checkbox" className="h-4 w-4 shrink-0 rounded border-border accent-primary" />
                   <span className="whitespace-nowrap">로그인 상태 유지</span>
                 </label>
-                <Link href="/register" className="!hidden shrink-0 font-bold text-coral" aria-hidden="true" tabIndex={-1}>
+                <Link href="/register" className="!hidden shrink-0 font-bold text-primary" aria-hidden="true" tabIndex={-1}>
                   회원가입
                 </Link>
               </div>
@@ -175,7 +175,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex min-h-14 w-full items-center justify-center rounded-full bg-coral px-6 text-base font-black text-white shadow-soft transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex min-h-14 w-full items-center justify-center rounded-full bg-primary px-6 text-base font-black text-white shadow-soft transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ? "로그인 중..." : "로그인"}
                 <ArrowRight className="ml-2" size={19} />
@@ -183,10 +183,10 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-8">
-              <div className="flex items-center gap-4 text-sm text-neutral-400">
-                <span className="h-px flex-1 bg-black/10 dark:bg-white/10" />
+              <div className="flex items-center gap-4 text-sm text-muted">
+                <span className="h-px flex-1 bg-border" />
                 <span className="shrink-0 whitespace-nowrap">소셜 계정으로 로그인</span>
-                <span className="h-px flex-1 bg-black/10 dark:bg-white/10" />
+                <span className="h-px flex-1 bg-border" />
               </div>
               <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {socialProviders.map((provider) => (
@@ -194,7 +194,7 @@ export default function LoginPage() {
                     key={provider.name}
                     type="button"
                     onClick={() => handleSocialLogin(provider)}
-                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-black/10 bg-white px-3 text-sm font-black shadow-sm transition hover:bg-neutral-50 dark:border-white/10 dark:bg-white/5 dark:text-neutral-100 dark:hover:bg-white/10"
+                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card px-3 text-sm font-black shadow-sm transition hover:bg-panel"
                   >
                     <Image src={provider.icon} alt="" width={22} height={22} aria-hidden="true" />
                     <span className="whitespace-nowrap">{provider.name}</span>
@@ -211,15 +211,15 @@ export default function LoginPage() {
             <ThemeToggle />
           </div>
           <div className="relative z-10 flex h-full items-end justify-center p-12">
-            <article className="mb-10 max-w-xl rounded-3xl border border-white/60 bg-white/70 p-8 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-[#1A1814]/75">
+            <article className="mb-10 max-w-xl rounded-3xl border border-border bg-card/70 p-8 shadow-soft backdrop-blur-xl">
               <p className="text-2xl font-black leading-10">
                 긴 문서 분석 시간을 줄이고, AI와 대화하며 필요한 내용을 바로 찾아보세요.
               </p>
               <div className="mt-7 flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-red-200 to-coral" />
+                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-gold to-primary" />
                 <div>
                   <strong>정서윤</strong>
-                  <span className="block text-sm text-neutral-500 dark:text-neutral-400">전략기획팀 리드</span>
+                  <span className="block text-sm text-muted">전략기획팀 리드</span>
                 </div>
               </div>
             </article>

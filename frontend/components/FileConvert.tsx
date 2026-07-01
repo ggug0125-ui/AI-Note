@@ -189,10 +189,10 @@ export function FileConvert() {
       <div className="ai-card p-5 md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--ai-color-surface)] text-coral">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface text-primary">
               <ArrowRightLeft size={24} />
             </div>
-            <span className="mt-5 block text-xs font-extrabold uppercase tracking-wide text-coral">Convert Studio</span>
+            <span className="mt-5 block text-xs font-extrabold uppercase tracking-wide text-primary">Convert Studio</span>
             <h2 className="mt-2 text-2xl font-black text-[var(--ai-color-text-primary)]">Convert Studio</h2>
             <p className="mt-3 max-w-2xl text-sm font-bold leading-7 text-[var(--ai-color-text-secondary)]">
               문서를 원하는 형식으로 변환하세요.
@@ -219,11 +219,11 @@ export function FileConvert() {
             aria-disabled={isConverting}
             className={[
               "ai-upload-zone min-h-56",
-              isDragging ? "border-coral bg-[var(--ai-color-surface)] shadow-md" : "",
+              isDragging ? "border-primary bg-surface shadow-md" : "",
               isConverting ? "is-disabled" : "",
             ].filter(Boolean).join(" ")}
           >
-            <UploadCloud className="text-coral" size={34} />
+            <UploadCloud className="text-primary" size={34} />
             {selectedFile ? (
               <>
                 <strong className="mt-4 max-w-full break-words text-lg font-black text-[var(--ai-color-text-primary)]">
@@ -307,7 +307,7 @@ export function FileConvert() {
 
       <aside className="grid gap-4">
         <div className="ai-card p-5">
-          <span className="text-xs font-extrabold uppercase tracking-wide text-coral">Supported Formats</span>
+          <span className="text-xs font-extrabold uppercase tracking-wide text-primary">Supported Formats</span>
           <h3 className="mt-2 text-xl font-black text-[var(--ai-color-text-primary)]">지원 형식</h3>
           <p className="mt-2 text-sm font-bold leading-6 text-[var(--ai-color-text-secondary)]">
             현재 사용 가능한 변환과 준비 중인 변환을 구분해서 확인할 수 있습니다.
@@ -322,7 +322,7 @@ export function FileConvert() {
             return (
               <article key={option.title} className="ai-card ai-card-hover p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--ai-color-surface)] text-coral">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-surface text-primary">
                     <Icon size={22} />
                   </div>
                   <span className={["ai-badge", isAvailable ? "ai-badge-success" : "ai-badge-warning"].join(" ")}>

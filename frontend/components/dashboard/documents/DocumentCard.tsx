@@ -10,37 +10,37 @@ type DocumentCardProps = {
 function getExtensionBadgeClass(extension: string) {
   const normalized = extension.toUpperCase();
   if (normalized === "PDF") {
-    return "border-[#E7D6B8] bg-[#FFF3E5] text-[#8A551F]";
+    return "border-gold/45 bg-gold/12 text-gold";
   }
   if (normalized === "TXT") {
-    return "border-[#BFD4F2] bg-[#EFF6FF] text-[#1D4F91]";
+    return "border-border bg-panel text-body";
   }
   if (normalized === "DOCX" || normalized === "DOC") {
-    return "border-[#BFD4F2] bg-[#EFF6FF] text-[#1D4F91]";
+    return "border-border bg-panel text-body";
   }
   if (normalized === "PPTX" || normalized === "PPT") {
-    return "border-[#F4C7A0] bg-[#FFF1E7] text-[#A34E1D]";
+    return "border-primary/30 bg-primary/10 text-primary";
   }
   if (normalized === "XLSX" || normalized === "XLS" || normalized === "CSV") {
-    return "border-[#BFE3C5] bg-[#EFFAF1] text-[#28713A]";
+    return "border-emerald-400/30 bg-emerald-500/10 text-body";
   }
   if (normalized === "HWPX" || normalized === "HWP") {
-    return "border-[#DAC9F6] bg-[#F6F0FF] text-[#6740A5]";
+    return "border-border bg-panel text-body";
   }
-  return "border-[#D8DEE8] bg-[#F5F7FA] text-[#4B5C70]";
+  return "border-border bg-panel text-muted";
 }
 
 function getStatusBadgeClass(status: DocumentStatus) {
   if (status === "complete") {
-    return "border-[#BFE3C5] bg-[#EFFAF1] text-[#28713A]";
+    return "border-emerald-400/30 bg-emerald-500/10 text-body";
   }
   if (status === "processing") {
-    return "border-[#E7D6B8] bg-[#FFF6DA] text-[#7A551D]";
+    return "border-gold/45 bg-gold/12 text-gold";
   }
   if (status === "failed") {
-    return "border-[#E8A77A]/70 bg-[#FFF3EE] text-[#9A3E1F]";
+    return "border-primary/35 bg-primary/10 text-primary";
   }
-  return "border-[#E2D4BF] bg-white text-[#6F5A40]";
+  return "border-border bg-panel text-body";
 }
 
 export function DocumentCard({ document, isSelected, onSelect }: DocumentCardProps) {
@@ -53,12 +53,12 @@ export function DocumentCard({ document, isSelected, onSelect }: DocumentCardPro
       className={[
         "group relative flex h-full min-w-0 cursor-pointer flex-col rounded-3xl border p-4 text-left transition-all duration-300 ease-out focus:outline-none focus-visible:ring-4 focus-visible:ring-[#E8C77A]/35",
         isSelected
-          ? "-translate-y-0.5 border-[#D89A3D] bg-[#FFF5E8] shadow-[0_20px_42px_rgba(184,103,38,0.18)] ring-2 ring-[#F0C36B]/45"
-          : "border-[#E9D8BD] bg-white shadow-[0_10px_24px_rgba(124,82,27,0.06)] hover:-translate-y-1 hover:border-[#D8AE5E] hover:bg-[#FFFDF8] hover:shadow-[0_18px_36px_rgba(124,82,27,0.13)]",
+          ? "-translate-y-0.5 border-gold bg-panel shadow-soft ring-2 ring-gold/35"
+          : "border-border bg-card shadow-soft hover:-translate-y-1 hover:border-gold/80 hover:bg-panel",
       ].join(" ")}
     >
       {isSelected && (
-        <span className="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full border border-[#E0B66D] bg-[#2F2418] px-2.5 py-1 text-[10px] font-black text-white shadow-[0_8px_18px_rgba(47,36,24,0.18)]">
+        <span className="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full border border-gold/70 bg-title px-2.5 py-1 text-[10px] font-black text-app shadow-soft">
           <CheckCircle2 size={13} />
           선택됨
         </span>
@@ -68,8 +68,8 @@ export function DocumentCard({ document, isSelected, onSelect }: DocumentCardPro
         className={[
           "relative mx-auto flex aspect-[3/4] w-full max-w-[168px] flex-col rounded-2xl border p-4 shadow-inner transition-all duration-300",
           isSelected
-            ? "border-[#D8AE5E] bg-[#FFF8EE] shadow-[inset_0_0_0_1px_rgba(216,174,94,0.22)]"
-            : "border-[#EAD8C1] bg-[#FFFDF8] group-hover:border-[#D8AE5E]/80 group-hover:bg-[#FFF8EE] group-hover:shadow-[inset_0_0_0_1px_rgba(216,174,94,0.14)]",
+            ? "border-gold bg-panel shadow-[inset_0_0_0_1px_rgba(232,188,115,0.22)]"
+            : "border-border bg-surface group-hover:border-gold/80 group-hover:bg-panel",
         ].join(" ")}
       >
         <div className="flex items-center justify-between gap-2">
@@ -79,7 +79,7 @@ export function DocumentCard({ document, isSelected, onSelect }: DocumentCardPro
           <FileText
             className={[
               "shrink-0 transition-colors duration-300",
-              isSelected ? "text-coral" : "text-[#D8AE5E] group-hover:text-coral",
+              isSelected ? "text-primary" : "text-gold group-hover:text-primary",
             ].join(" ")}
             size={18}
           />
@@ -99,16 +99,16 @@ export function DocumentCard({ document, isSelected, onSelect }: DocumentCardPro
       </div>
 
       <div className="mt-4 min-w-0 flex-1">
-        <h3 className="line-clamp-2 min-h-[3rem] break-words text-base font-black leading-6 text-[#2F2418] transition-colors duration-300 group-hover:text-[#1F1710]">
+        <h3 className="line-clamp-2 min-h-[3rem] break-words text-base font-black leading-6 text-title transition-colors duration-300 group-hover:text-primary">
           {document.filename}
         </h3>
-        <p className="mt-2 truncate text-xs font-bold text-[#8A7354]">{document.createdLabel}</p>
+        <p className="mt-2 truncate text-xs font-bold text-muted">{document.createdLabel}</p>
         <p
           className={[
             "mt-3 rounded-2xl border px-3 py-2 text-xs font-black transition-all duration-300",
             isSelected
-              ? "border-[#D8AE5E] bg-white text-[#5F3608]"
-              : "border-[#EAD8C1] bg-[#FFFDF8] text-[#6F5A40] group-hover:border-[#D9B16A] group-hover:bg-[#FFF8EE] group-hover:text-[#5F3608]",
+              ? "border-gold bg-card text-title"
+              : "border-border bg-surface text-body group-hover:border-gold/70 group-hover:bg-panel group-hover:text-title",
           ].join(" ")}
         >
           {metaText}

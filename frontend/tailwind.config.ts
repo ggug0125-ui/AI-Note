@@ -9,12 +9,22 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ivory: "#F8F4EC",
-        coral: "#EF4444",
-        ink: "#111111"
+        app: "rgb(var(--ai-bg) / <alpha-value>)",
+        surface: "rgb(var(--ai-surface) / <alpha-value>)",
+        card: "rgb(var(--ai-card) / <alpha-value>)",
+        panel: "rgb(var(--ai-panel) / <alpha-value>)",
+        border: "rgb(var(--ai-border) / <alpha-value>)",
+        primary: "rgb(var(--ai-primary) / <alpha-value>)",
+        gold: "rgb(var(--ai-gold) / <alpha-value>)",
+        title: "rgb(var(--ai-title) / <alpha-value>)",
+        body: "rgb(var(--ai-body) / <alpha-value>)",
+        muted: "rgb(var(--ai-muted) / <alpha-value>)",
+        ivory: "rgb(var(--ai-bg) / <alpha-value>)",
+        coral: "rgb(var(--ai-primary) / <alpha-value>)",
+        ink: "rgb(var(--ai-title) / <alpha-value>)"
       },
       boxShadow: {
-        soft: "0 24px 70px rgba(111, 64, 40, 0.12)"
+        soft: "var(--ai-shadow-soft)"
       }
     }
   },

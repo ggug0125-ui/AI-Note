@@ -13,9 +13,9 @@ export function PrimaryLink({ href, children, variant = "primary" }: PrimaryLink
   }
 
   const styles = {
-    primary: "bg-coral text-white shadow-soft hover:bg-red-500",
-    secondary: "border border-black/10 bg-white/35 text-neutral-800 hover:bg-white/70 dark:border-white/15 dark:bg-white/10 dark:text-neutral-100 dark:hover:bg-white/15",
-    light: "border border-white/50 bg-white/20 text-white hover:bg-white/30"
+    primary: "bg-primary text-white shadow-soft hover:bg-primary/90",
+    secondary: "border border-border bg-surface/70 text-body hover:bg-panel hover:text-title",
+    light: "border border-border bg-surface/20 text-title hover:bg-surface/30"
   };
 
   return (

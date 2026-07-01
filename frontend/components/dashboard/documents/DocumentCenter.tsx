@@ -448,22 +448,22 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
               <div className="ai-alert ai-alert-success p-4">
                 <p className="text-sm font-black text-[var(--ai-color-text-primary)]">{uploadStatus}</p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="ai-panel-compact bg-[#FFF3E5] px-4 py-3">
-                    <span className="block text-xs font-black uppercase tracking-wide text-[#9A6A43]">차감 크레딧</span>
-                    <strong className="mt-1 block text-2xl font-black text-coral">
+                  <div className="ai-panel-compact bg-panel px-4 py-3">
+                    <span className="block text-xs font-black uppercase tracking-wide text-muted">차감 크레딧</span>
+                    <strong className="mt-1 block text-2xl font-black text-primary">
                       {formatCreditAmount(Number(uploadCreditUsage.credit_cost ?? 0))} Credit{Number(uploadCreditUsage.credit_cost ?? 0) === 1 ? "" : "s"}
                     </strong>
                   </div>
-                  <div className="ai-panel-compact bg-[#FFF6D9] px-4 py-3">
-                    <span className="block text-xs font-black uppercase tracking-wide text-[#8A7354]">현재 보유 크레딧</span>
-                    <strong className="mt-1 block text-2xl font-black text-[#6F4D16]">
+                  <div className="ai-panel-compact bg-gold/10 px-4 py-3">
+                    <span className="block text-xs font-black uppercase tracking-wide text-muted">현재 보유 크레딧</span>
+                    <strong className="mt-1 block text-2xl font-black text-gold">
                       {Number(uploadCreditUsage.credits_after ?? 0).toLocaleString("en-US")} Credits
                     </strong>
                   </div>
                 </div>
               </div>
             ) : (
-              <p className="ai-alert bg-white p-4">
+              <p className="ai-alert bg-panel p-4">
                 {uploadStatus}
               </p>
             )
@@ -479,11 +479,11 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
 
           <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {isLoading ? (
-              <p className="ai-alert bg-white p-5 sm:col-span-2 xl:col-span-3">
+              <p className="ai-alert bg-panel p-5 sm:col-span-2 xl:col-span-3">
                 문서 목록을 불러오는 중입니다.
               </p>
             ) : visibleDocuments.length === 0 ? (
-              <p className="ai-alert bg-white p-5 sm:col-span-2 xl:col-span-3">
+              <p className="ai-alert bg-panel p-5 sm:col-span-2 xl:col-span-3">
                 {statusMessage || "아직 업로드된 문서가 없습니다."}
               </p>
             ) : (
@@ -515,9 +515,9 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
 
       <section className="ai-card p-4 md:p-5">
         <div className="mb-5">
-          <p className="ai-modal-eyebrow text-[#8A7354]">Legacy Analysis Tool</p>
-          <h2 className="mt-2 text-2xl font-black text-[#2F2418]">문서 업로드 및 분석</h2>
-          <p className="mt-2 text-sm font-bold leading-6 text-[#6F5A40]">
+          <p className="ai-modal-eyebrow text-muted">Legacy Analysis Tool</p>
+          <h2 className="mt-2 text-2xl font-black text-title">문서 업로드 및 분석</h2>
+          <p className="mt-2 text-sm font-bold leading-6 text-body">
             기존 분석 도구는 그대로 유지됩니다. 위 드롭존에서 문서를 업로드하고, 아래 영역에서 분석 상태를 확인할 수 있습니다.
           </p>
         </div>
@@ -532,25 +532,25 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
                 <FileUp size={22} />
               </div>
               <div>
-                <p className="ai-modal-eyebrow text-coral">Credit Preview</p>
-                <h2 className="mt-1 text-2xl font-black text-[#2F2418]">문서 분석 크레딧 안내</h2>
+                <p className="ai-modal-eyebrow text-primary">Credit Preview</p>
+                <h2 className="mt-1 text-2xl font-black text-title">문서 분석 크레딧 안내</h2>
                 <p className="ai-modal-description">
                   요약, 키워드, 문서 질문은 문서 분석 비용에 포함됩니다.
                 </p>
               </div>
             </div>
 
-            <div className="mt-6 grid gap-3 text-sm font-bold text-[#5F4B32]">
-                <div className="ai-panel-compact bg-white/80 px-4 py-3">
-                <span className="block text-xs font-black uppercase tracking-wide text-[#8A7354]">선택한 파일</span>
+            <div className="mt-6 grid gap-3 text-sm font-bold text-body">
+                <div className="ai-panel-compact bg-panel px-4 py-3">
+                <span className="block text-xs font-black uppercase tracking-wide text-muted">선택한 파일</span>
                 <span className="mt-1 block [overflow-wrap:anywhere]">{creditPreview.file.name}</span>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="ai-panel-compact bg-[#FFF8EE] px-4 py-3">
-                  <span className="block text-xs font-black uppercase tracking-wide text-[#8A7354]">
+                <div className="ai-panel-compact bg-panel px-4 py-3">
+                  <span className="block text-xs font-black uppercase tracking-wide text-muted">
                     {isTxtFile(creditPreview.file) ? "파일 형식" : "예상 페이지 수"}
                   </span>
-                  <span className="mt-1 block text-lg font-black text-[#2F2418]">
+                  <span className="mt-1 block text-lg font-black text-title">
                     {isTxtFile(creditPreview.file)
                       ? "TXT"
                       : creditPreview.pageCount === null
@@ -558,16 +558,16 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
                       : `${creditPreview.pageCount} pages`}
                   </span>
                 </div>
-                <div className="ai-panel-compact bg-[#FFF6D9] px-4 py-3 text-[#7A551D]">
+                <div className="ai-panel-compact bg-gold/10 px-4 py-3 text-gold">
                   <span className="block text-xs font-black uppercase tracking-wide">예상 차감 크레딧</span>
                   <span className="mt-1 block text-lg font-black">
                     {formatCreditAmount(creditPreview.credits)} Credits
                   </span>
                 </div>
               </div>
-              <div className="ai-panel-compact bg-white/70 px-4 py-3">
-                <span className="block text-xs font-black uppercase tracking-wide text-[#8A7354]">현재 보유 크레딧</span>
-                <span className="mt-1 block text-lg font-black text-[#2F2418]">
+              <div className="ai-panel-compact bg-panel px-4 py-3">
+                <span className="block text-xs font-black uppercase tracking-wide text-muted">현재 보유 크레딧</span>
+                <span className="mt-1 block text-lg font-black text-title">
                   {creditPreview.currentCredits === null
                     ? "확인할 수 없음"
                     : `${creditPreview.currentCredits.toLocaleString("en-US")} Credits`}
@@ -575,20 +575,20 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
               </div>
             </div>
 
-            <div className="ai-panel-compact mt-5 bg-white/70">
-              <p className="text-xs font-black uppercase tracking-wide text-[#8A7354]">포함 기능</p>
-              <ul className="mt-3 grid gap-2 text-sm font-bold text-neutral-700 sm:grid-cols-3">
-                <li className="rounded-xl bg-[#FFF3E5] px-3 py-2 text-center">요약</li>
-                <li className="rounded-xl bg-[#FFF3E5] px-3 py-2 text-center">키워드</li>
-                <li className="rounded-xl bg-[#FFF3E5] px-3 py-2 text-center">문서 질문</li>
+            <div className="ai-panel-compact mt-5 bg-panel">
+              <p className="text-xs font-black uppercase tracking-wide text-muted">포함 기능</p>
+              <ul className="mt-3 grid gap-2 text-sm font-bold text-body sm:grid-cols-3">
+                <li className="rounded-xl bg-card px-3 py-2 text-center">요약</li>
+                <li className="rounded-xl bg-card px-3 py-2 text-center">키워드</li>
+                <li className="rounded-xl bg-card px-3 py-2 text-center">문서 질문</li>
               </ul>
               {creditPreview.pageCount === null && !isTxtFile(creditPreview.file) && (
-                <p className="mt-3 text-xs font-bold leading-5 text-neutral-500">
+                <p className="mt-3 text-xs font-bold leading-5 text-muted">
                   페이지 수는 업로드 후 서버에서 최종 계산됩니다.
                 </p>
               )}
               {isTxtFile(creditPreview.file) && (
-                <p className="mt-3 text-xs font-bold leading-5 text-neutral-500">
+                <p className="mt-3 text-xs font-bold leading-5 text-muted">
                   TXT 문서는 이번 단계에서 1크레딧부터 시작합니다.
                 </p>
               )}
@@ -625,19 +625,19 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
               </div>
               <div>
                 <p className="ai-modal-eyebrow">Final Check</p>
-                <h2 className="mt-1 text-xl font-black text-[#2F2418]">문서 분석 시작</h2>
-                <p className="mt-2 text-sm font-bold leading-6 text-[#6F5A40]">문서 분석을 시작합니다.</p>
+                <h2 className="mt-1 text-xl font-black text-title">문서 분석 시작</h2>
+                <p className="mt-2 text-sm font-bold leading-6 text-body">문서 분석을 시작합니다.</p>
               </div>
             </div>
 
-            <div className="mt-5 grid gap-2.5 text-sm font-bold text-neutral-700">
-              <div className="ai-panel-compact flex items-start justify-between gap-4 bg-white/80 px-4 py-3">
-                <span className="shrink-0 text-[#8A7354]">선택한 파일</span>
-                <span className="text-right text-[#2F2418] [overflow-wrap:anywhere]">{creditPreview.file.name}</span>
+            <div className="mt-5 grid gap-2.5 text-sm font-bold text-body">
+              <div className="ai-panel-compact flex items-start justify-between gap-4 bg-panel px-4 py-3">
+                <span className="shrink-0 text-muted">선택한 파일</span>
+                <span className="text-right text-title [overflow-wrap:anywhere]">{creditPreview.file.name}</span>
               </div>
-              <div className="ai-panel-compact flex items-center justify-between gap-4 bg-white/80 px-4 py-3">
-                <span className="text-[#8A7354]">{isTxtFile(creditPreview.file) ? "파일 형식" : "예상 페이지 수"}</span>
-                <span className="text-[#2F2418]">
+              <div className="ai-panel-compact flex items-center justify-between gap-4 bg-panel px-4 py-3">
+                <span className="text-muted">{isTxtFile(creditPreview.file) ? "파일 형식" : "예상 페이지 수"}</span>
+                <span className="text-title">
                   {isTxtFile(creditPreview.file)
                     ? "TXT"
                     : creditPreview.pageCount === null
@@ -645,13 +645,13 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
                     : `${creditPreview.pageCount} Pages`}
                 </span>
               </div>
-              <div className="ai-panel-compact flex items-center justify-between gap-4 bg-[#FFF6D9] px-4 py-3 text-[#7A551D]">
+              <div className="ai-panel-compact flex items-center justify-between gap-4 bg-gold/10 px-4 py-3 text-gold">
                 <span>차감 예정</span>
                 <span className="text-lg font-black">{formatCreditAmount(creditPreview.credits)} Credits</span>
               </div>
-              <div className="ai-panel-compact flex items-center justify-between gap-4 bg-white/80 px-4 py-3">
-                <span className="text-[#8A7354]">현재 보유</span>
-                <span className="text-[#2F2418]">
+              <div className="ai-panel-compact flex items-center justify-between gap-4 bg-panel px-4 py-3">
+                <span className="text-muted">현재 보유</span>
+                <span className="text-title">
                   {creditPreview.currentCredits === null
                     ? "확인할 수 없음"
                     : `${creditPreview.currentCredits.toLocaleString("en-US")} Credits`}
@@ -667,7 +667,7 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
               <p className="mt-3">업로드 또는 분석 과정에서 오류가 발생하면 크레딧은 차감되지 않습니다.</p>
             </div>
 
-            <p className="mt-4 text-center text-sm font-black text-[#2F2418]">계속 진행하시겠습니까?</p>
+            <p className="mt-4 text-center text-sm font-black text-title">계속 진행하시겠습니까?</p>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <button

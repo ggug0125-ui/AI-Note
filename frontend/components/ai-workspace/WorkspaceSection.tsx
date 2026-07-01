@@ -16,7 +16,7 @@ export function WorkspaceSection({ icon, title, description, children, className
           {icon}
         </div>
       )}
-      {title && <h2 className="mt-5 text-2xl font-black text-ink">{title}</h2>}
+      {title && <h2 className="mt-5 text-2xl font-black text-title">{title}</h2>}
       {description && (
         <p className="ai-caption mt-3 leading-7">{description}</p>
       )}

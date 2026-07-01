@@ -214,10 +214,10 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <section className="rounded-3xl border border-[#E9D8BD] bg-white p-5 shadow-[0_14px_34px_rgba(124,82,27,0.07)] md:p-6">
+        <section className="rounded-3xl border border-border bg-card p-5 shadow-soft md:p-6">
           <div className="flex items-center gap-3">
-            <History className="text-coral" size={22} />
-            <h2 className="text-xl font-black text-[#2F2418]">최근 활동</h2>
+            <History className="text-primary" size={22} />
+            <h2 className="text-xl font-black text-title">최근 활동</h2>
           </div>
           <div className="mt-5 grid gap-3 md:grid-cols-2">
             {recentCards.map((card) => (
@@ -226,10 +226,10 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-[#E9D8BD] bg-[linear-gradient(135deg,#FFFDF8_0%,#FFF8EE_100%)] p-5 shadow-[0_14px_34px_rgba(124,82,27,0.07)] md:p-6">
+        <section className="rounded-3xl border border-border bg-[linear-gradient(135deg,rgb(var(--ai-card))_0%,rgb(var(--ai-surface))_100%)] p-5 shadow-soft md:p-6">
           <div className="flex items-center gap-3">
-            <Sparkles className="text-coral" size={22} />
-            <h2 className="text-xl font-black text-[#2F2418]">빠른 시작</h2>
+            <Sparkles className="text-primary" size={22} />
+            <h2 className="text-xl font-black text-title">빠른 시작</h2>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {actionCards.map((card) => (
@@ -249,16 +249,16 @@ export function DashboardOverview({ onNavigate }: DashboardOverviewProps) {
         {overviewSteps.map((step, index) => (
           <article
             key={step.title}
-            className="rounded-3xl border border-[#E9D8BD] bg-white p-5 shadow-[0_14px_34px_rgba(124,82,27,0.07)]"
+            className="rounded-3xl border border-border bg-card p-5 shadow-soft"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFF3E5] text-coral">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               {step.icon}
             </div>
-            <p className="mt-5 text-xs font-black uppercase tracking-wide text-[#8A7354]">
+            <p className="mt-5 text-xs font-black uppercase tracking-wide text-muted">
               Step {index + 1}
             </p>
-            <h2 className="mt-2 text-xl font-black text-[#2F2418]">{step.title}</h2>
-            <p className="mt-3 text-sm font-bold leading-6 text-[#6F5A40]">{step.description}</p>
+            <h2 className="mt-2 text-xl font-black text-title">{step.title}</h2>
+            <p className="mt-3 text-sm font-bold leading-6 text-body">{step.description}</p>
           </article>
         ))}
       </section>

@@ -150,8 +150,8 @@ export default function DashboardPage() {
 
   if (isCheckingAuth) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F5F2EC] px-4 text-ink">
-        <p className="rounded-2xl bg-white px-5 py-4 text-sm font-bold shadow-sm">
+      <main className="flex min-h-screen items-center justify-center bg-app px-4 text-title">
+        <p className="rounded-2xl bg-card px-5 py-4 text-sm font-bold shadow-sm">
           로그인 상태를 확인하고 있습니다...
         </p>
       </main>
@@ -159,7 +159,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#F5F2EC] text-ink">
+    <main className="min-h-screen overflow-x-hidden bg-app text-title">
       <SiteHeader />
       <Navbar
         activeTab={navbarActiveTab}
@@ -170,21 +170,21 @@ export default function DashboardPage() {
       />
 
       <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-5 md:px-8 md:py-8">
-        <section className="rounded-3xl border border-[#E9D8BD] bg-[linear-gradient(135deg,#FFFDF8_0%,#FFF8EE_56%,#F7EFE2_100%)] p-5 shadow-[0_18px_45px_rgba(124,82,27,0.08)] md:p-7">
+        <section className="rounded-3xl border border-border bg-[linear-gradient(135deg,rgb(var(--ai-card))_0%,rgb(var(--ai-panel))_56%,rgb(var(--ai-surface))_100%)] p-5 shadow-soft md:p-7">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <p className="text-xs font-black uppercase tracking-wide text-[#8A6A35]">AI Note 2.0</p>
-              <h1 className="mt-2 text-4xl font-black text-[#2F2418] sm:text-5xl">AI Workspace</h1>
-              <p className="mt-4 text-base font-bold leading-7 text-[#6F5A40]">
+              <p className="text-xs font-black uppercase tracking-wide text-muted">AI Note 2.0</p>
+              <h1 className="mt-2 text-4xl font-black text-title sm:text-5xl">AI Workspace</h1>
+              <p className="mt-4 text-base font-bold leading-7 text-body">
                 문서를 업로드하고, 분석하고, 변환하고, AI와 대화하세요.
               </p>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:flex-col lg:items-end">
               <CreditBadge credits={user?.credits} tone="blue" />
-              <div className="flex items-center gap-3 rounded-2xl border border-[#E2C985]/70 bg-white/70 px-4 py-3 text-sm font-bold text-[#6F5A40]">
+              <div className="flex items-center gap-3 rounded-2xl border border-gold/70 bg-card/70 px-4 py-3 text-sm font-bold text-body">
                 <span className="max-w-40 truncate">{user?.name}</span>
-                <span className="rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs font-black text-[#7A551D]">
+                <span className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-black text-gold">
                   {user?.plan}
                 </span>
               </div>
@@ -194,7 +194,7 @@ export default function DashboardPage() {
 
         <nav
           aria-label="AI Workspace menu"
-          className="grid gap-2 rounded-3xl border border-black/10 bg-white p-2 shadow-sm sm:grid-cols-2 lg:grid-cols-6"
+          className="grid gap-2 rounded-3xl border border-border bg-card p-2 shadow-sm sm:grid-cols-2 lg:grid-cols-6"
         >
           {workspaceTabs.map((item) => {
             const Icon = item.icon;
@@ -208,8 +208,8 @@ export default function DashboardPage() {
                 className={[
                   "inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black transition",
                   isActive
-                    ? "bg-[#2F2418] text-white shadow-[0_12px_24px_rgba(47,36,24,0.18)]"
-                    : "border border-coral bg-coral text-white shadow-[0_8px_18px_rgba(242,72,72,0.14)] hover:-translate-y-0.5 hover:border-red-500 hover:bg-red-500 hover:shadow-[0_14px_28px_rgba(242,72,72,0.22)]",
+                    ? "border border-primary bg-primary text-white shadow-soft hover:bg-primary/90"
+                    : "border border-border bg-card text-body hover:-translate-y-0.5 hover:border-primary/40 hover:bg-panel hover:text-title",
                 ].join(" ")}
                 aria-current={isActive ? "page" : undefined}
               >
@@ -255,20 +255,20 @@ function MyPage({ user }: { user: AuthUser }) {
 
   return (
     <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-      <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
-        <span className="text-xs font-extrabold uppercase tracking-wide text-coral">Profile</span>
-        <h2 className="mt-3 text-2xl font-black text-ink">{user.name}</h2>
-        <p className="mt-2 text-sm font-semibold text-neutral-500">{user.email}</p>
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <span className="text-xs font-extrabold uppercase tracking-wide text-primary">Profile</span>
+        <h2 className="mt-3 text-2xl font-black text-title">{user.name}</h2>
+        <p className="mt-2 text-sm font-semibold text-muted">{user.email}</p>
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           <InfoCard label="등급" value={user.plan} />
           <InfoCard label="권한 상태" value={isAdmin ? "관리자" : "일반 회원"} />
         </div>
       </div>
 
-      <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
-        <span className="text-xs font-extrabold uppercase tracking-wide text-coral">Access</span>
-        <h3 className="mt-3 text-xl font-black text-ink">AI 문서 어시스턴트</h3>
-        <p className="mt-4 rounded-2xl bg-neutral-50 p-5 text-sm font-bold leading-7 text-neutral-700">
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <span className="text-xs font-extrabold uppercase tracking-wide text-primary">Access</span>
+        <h3 className="mt-3 text-xl font-black text-title">AI 문서 어시스턴트</h3>
+        <p className="mt-4 rounded-2xl bg-panel p-5 text-sm font-bold leading-7 text-body">
           {isAdmin
             ? "관리자는 모든 AI 문서 어시스턴트 기능을 사용할 수 있습니다."
             : "현재 일반 회원은 AI 문서 어시스턴트 이용이 제한되어 있습니다."}
@@ -280,9 +280,9 @@ function MyPage({ user }: { user: AuthUser }) {
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-2xl border border-black/5 bg-neutral-50 p-4">
-      <p className="text-xs font-bold text-neutral-500">{label}</p>
-      <strong className="mt-2 block text-lg font-black text-ink">{value}</strong>
+    <article className="rounded-2xl border border-border bg-panel p-4">
+      <p className="text-xs font-bold text-muted">{label}</p>
+      <strong className="mt-2 block text-lg font-black text-title">{value}</strong>
     </article>
   );
 }

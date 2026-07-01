@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { API_BASE_URL, authenticatedFetch } from "@/lib/api";
+import { SiteHeader } from "@/components/SiteHeader";
 
 const TOKEN_KEY = "access_token";
 const USER_KEY = "user";
@@ -386,7 +387,7 @@ function getPaymentStatusBadgeClass(status: string | undefined) {
     return "border-[#E8A77A]/70 bg-[#FFF3EE] text-[#9A3E1F]";
   }
 
-  return "border-[#E2D4BF] bg-white text-[#6F5A40]";
+  return "border-border bg-card text-body";
 }
 
 function getProductAmount(product: CreditProduct) {
@@ -477,11 +478,11 @@ function getCreditProductTone(productId: string) {
   }> = {
     kr_starter: {
       card: "border-[#EEE3D2] bg-[#FFFFFB] hover:border-[#DCC393]",
-      badge: "border-[#E7D6B8] bg-white/80 text-[#7A6245]",
+      badge: "border-border bg-card/80 text-body",
       badgePrefix: "",
       accent: "text-[#8A6A35]",
-      amount: "text-[#2F2418]",
-      panel: "border-[#EADCC6] bg-white/70",
+      amount: "text-title",
+      panel: "border-border bg-panel",
       extra: "border-[#E3D0A9] bg-[#FFF8EA] text-[#80612D]",
       button: "bg-[linear-gradient(135deg,#E8C985_0%,#F1DCA7_100%)] hover:bg-[linear-gradient(135deg,#DDB86D_0%,#EBCF91_100%)]",
       bar: "bg-[#E8D3A5]",
@@ -491,7 +492,7 @@ function getCreditProductTone(productId: string) {
       badge: "border-[#C99745]/75 bg-[#E8C982] text-[#563912]",
       badgePrefix: "",
       accent: "text-[#7C551E]",
-      amount: "text-[#2F2418]",
+      amount: "text-title",
       panel: "border-[#E4CE9B] bg-[#FFF9EC]",
       extra: "border-[#DFC27E] bg-[#FFF1C9] text-[#73501C]",
       button: "bg-[linear-gradient(135deg,#DDB96C_0%,#F0D59B_100%)] hover:bg-[linear-gradient(135deg,#CB9F50_0%,#E3C17D_100%)]",
@@ -502,7 +503,7 @@ function getCreditProductTone(productId: string) {
       badge: "border-[#C99E52]/70 bg-[#ECD096] text-[#543915]",
       badgePrefix: "",
       accent: "text-[#76501C]",
-      amount: "text-[#2F2418]",
+      amount: "text-title",
       panel: "border-[#DDC184] bg-[#FFF7E4]",
       extra: "border-[#D4AD65] bg-[#FBE8B7] text-[#694715]",
       button: "bg-[linear-gradient(135deg,#D2A557_0%,#E9CB8F_100%)] hover:bg-[linear-gradient(135deg,#BE8F3F_0%,#DDBB7A_100%)]",
@@ -513,7 +514,7 @@ function getCreditProductTone(productId: string) {
       badge: "border-[#A8752E]/75 bg-[#D6B06B] text-[#432B0E]",
       badgePrefix: "",
       accent: "text-[#684412]",
-      amount: "text-[#2F2418]",
+      amount: "text-title",
       panel: "border-[#CFA45B] bg-[#FFF1D0]",
       extra: "border-[#B98536] bg-[#F0D498] text-[#55360D]",
       button: "bg-[linear-gradient(135deg,#BE8C3C_0%,#E0BD7B_100%)] hover:bg-[linear-gradient(135deg,#D89B22_0%,#D1AA66_100%)]",
@@ -521,13 +522,13 @@ function getCreditProductTone(productId: string) {
     },
     global_starter: {
       card: "border-[#EADDC9] bg-[#FFFDF8] hover:border-[#DFC79F]",
-      badge: "border-[#E7D6B8] bg-white/80 text-[#7A6245]",
+      badge: "border-border bg-card/80 text-body",
       badgePrefix: "",
       accent: "text-[#8A6A35]",
-      amount: "text-[#2F2418]",
-      panel: "border-[#EADCC6] bg-white/70",
+      amount: "text-title",
+      panel: "border-border bg-panel",
       extra: "border-[#E3D0A9] bg-[#FFF8EA] text-[#80612D]",
-      button: "bg-white",
+      button: "border border-border bg-surface text-body",
       bar: "bg-[#E8D3A5]",
     },
     global_standard: {
@@ -535,10 +536,10 @@ function getCreditProductTone(productId: string) {
       badge: "border-[#D4A94F]/70 bg-[#F4E1AF] text-[#684817]",
       badgePrefix: "",
       accent: "text-[#7C551E]",
-      amount: "text-[#2F2418]",
+      amount: "text-title",
       panel: "border-[#E4CE9B] bg-[#FFF9EC]",
       extra: "border-[#DFC27E] bg-[#FFF1C9] text-[#73501C]",
-      button: "bg-white",
+      button: "border border-border bg-surface text-body",
       bar: "bg-[#DDB96C]",
     },
     global_premium: {
@@ -546,10 +547,10 @@ function getCreditProductTone(productId: string) {
       badge: "border-[#C99E52]/70 bg-[#ECD096] text-[#543915]",
       badgePrefix: "",
       accent: "text-[#76501C]",
-      amount: "text-[#2F2418]",
+      amount: "text-title",
       panel: "border-[#DDC184] bg-[#FFF7E4]",
       extra: "border-[#D4AD65] bg-[#FBE8B7] text-[#694715]",
-      button: "bg-white",
+      button: "border border-border bg-surface text-body",
       bar: "bg-[#CFA154]",
     },
     global_business: {
@@ -557,10 +558,10 @@ function getCreditProductTone(productId: string) {
       badge: "border-[#A8752E]/75 bg-[#D6B06B] text-[#432B0E]",
       badgePrefix: "",
       accent: "text-[#684412]",
-      amount: "text-[#2F2418]",
+      amount: "text-title",
       panel: "border-[#CFA45B] bg-[#FFF1D0]",
       extra: "border-[#B98536] bg-[#F0D498] text-[#55360D]",
-      button: "bg-white",
+      button: "border border-border bg-surface text-body",
       bar: "bg-[linear-gradient(90deg,#9A641F_0%,#D89B22_48%,#B6782B_100%)]",
     },
   };
@@ -575,7 +576,7 @@ function getCreditProductTone(productId: string) {
       badge: "border-[#B88322]/70 bg-[#E3B456] text-[#3B260D]",
       badgePrefix: "♛ ",
       accent: "text-[#6E4614]",
-      amount: "text-[#2F2418]",
+      amount: "text-title",
       panel: "border-[#E4C889] bg-[#FFF8EA]",
       extra: "border-[#D9B86B]/75 bg-[#FFF1C4] text-[#6E4614]",
       button: "bg-[linear-gradient(135deg,#D79B34_0%,#EFC36B_100%)]"
@@ -588,7 +589,7 @@ function getCreditProductTone(productId: string) {
       badge: "border-[#C89A35]/70 bg-[#FFE7A8] text-[#604019]",
       badgePrefix: "",
       accent: "text-[#7A4F16]",
-      amount: "text-[#2F2418]",
+      amount: "text-title",
       panel: "border-[#E4C889] bg-[#FFF9EA]",
       extra: "border-[#D9B86B]/70 bg-[#FFF2C9] text-[#7A4F16]",
       button: "bg-[linear-gradient(135deg,#DFA84A_0%,#F1C875_100%)]"
@@ -601,7 +602,7 @@ function getCreditProductTone(productId: string) {
       badge: "border-[#D3A84F]/70 bg-[#FFEBC0] text-[#73501C]",
       badgePrefix: "",
       accent: "text-[#875D1F]",
-      amount: "text-[#2F2418]",
+      amount: "text-title",
       panel: "border-[#EAD8AA] bg-[#FFFBF0]",
       extra: "border-[#E2C985]/70 bg-[#FFF6D9] text-[#7A551D]",
       button: "bg-[linear-gradient(135deg,#E5AE54_0%,#F2CC82_100%)]"
@@ -614,7 +615,7 @@ function getCreditProductTone(productId: string) {
       badge: "border-[#D9A23A]/70 bg-[#F4C96F] text-[#4D3212]",
       badgePrefix: "★ ",
       accent: "text-[#8A5B1C]",
-      amount: "text-[#2F2418]",
+      amount: "text-title",
       panel: "border-[#EABF9D] bg-[#FFF7EF]",
       extra: "border-[#E5C575]/70 bg-[#FFF4CE] text-[#7B551A]",
       button: "bg-[linear-gradient(135deg,#E7A15F_0%,#EFC66F_100%)]"
@@ -627,7 +628,7 @@ function getCreditProductTone(productId: string) {
       badge: "border-[#E7A875]/70 bg-[#FFDDBF] text-[#7B4D22]",
       badgePrefix: "",
       accent: "text-[#9A6230]",
-      amount: "text-[#2F2418]",
+      amount: "text-title",
       panel: "border-[#F1D3B8] bg-[#FFF9F2]",
       extra: "border-[#E8C77A]/65 bg-[#FFF6D9] text-[#80591D]",
       button: "bg-[linear-gradient(135deg,#E9A86B_0%,#EFC77E_100%)]"
@@ -640,8 +641,8 @@ function getCreditProductTone(productId: string) {
       badge: "border-[#E9BD98]/70 bg-[#FFF0E2] text-[#7A4E2B]",
       badgePrefix: "",
       accent: "text-[#5F4128]",
-      amount: "text-[#2F2418]",
-      panel: "border-[#EAD8C1] bg-white/70",
+      amount: "text-title",
+      panel: "border-border bg-panel",
       extra: "border-[#EAD8C1] bg-[#FFF8EE] text-[#7A6245]",
       button: "bg-[linear-gradient(135deg,#E8AA73_0%,#EBCB8A_100%)]"
     };
@@ -649,11 +650,11 @@ function getCreditProductTone(productId: string) {
 
   return {
     card: "border-[#EAD8C1] bg-[#FFFDF8] hover:border-[#EBC8A8]",
-    badge: "border-[#EAD8C1] bg-white/75 text-[#7A6245]",
+    badge: "border-border bg-card/75 text-body",
     badgePrefix: "",
     accent: "text-[#7A6245]",
-    amount: "text-[#2F2418]",
-    panel: "border-[#EAD8C1] bg-white/70",
+    amount: "text-title",
+    panel: "border-border bg-panel",
     extra: "border-[#EAD8C1] bg-[#FFF8EE] text-[#7A6245]",
     button: "bg-[linear-gradient(135deg,#E6A970_0%,#E9CA8A_100%)]"
   };
@@ -1048,9 +1049,9 @@ export default function MyPage() {
 
   if (!authChecked) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F5F2EC] px-5 text-ink">
-        <div className="rounded-3xl border border-black/10 bg-white px-6 py-5 text-center shadow-sm">
-          <p className="text-base font-black text-neutral-800">내정보를 불러오는 중...</p>
+      <main className="flex min-h-screen items-center justify-center bg-app px-5 text-title">
+        <div className="rounded-3xl border border-border bg-card px-6 py-5 text-center shadow-sm">
+          <p className="text-base font-black text-title">내정보를 불러오는 중...</p>
         </div>
       </main>
     );
@@ -1058,26 +1059,27 @@ export default function MyPage() {
 
   if (!user) {
     return (
-      <main className="min-h-screen bg-[#F5F2EC] px-5 py-8 text-ink sm:px-8 lg:px-10">
+      <main className="min-h-screen bg-app px-5 pb-8 pt-20 text-title sm:px-8 lg:px-10">
+        <SiteHeader />
         <Header />
-        <section className="mx-auto mt-24 w-full max-w-xl rounded-3xl border border-black/10 bg-white p-6 text-center shadow-soft md:p-8">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-coral/10 text-coral">
+        <section className="mx-auto mt-8 w-full max-w-xl rounded-3xl border border-border bg-card p-6 text-center shadow-soft md:p-8">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <UserRound size={28} />
           </div>
-          <h1 className="text-2xl font-black text-ink sm:text-3xl">내정보는 로그인 후 확인할 수 있습니다.</h1>
-          <p className="mt-4 text-sm font-bold leading-7 text-neutral-600 sm:text-base">
+          <h1 className="text-2xl font-black text-title sm:text-3xl">내정보는 로그인 후 확인할 수 있습니다.</h1>
+          <p className="mt-4 text-sm font-bold leading-7 text-body sm:text-base">
             로그인하고 계정 정보와 개인 서비스 이용 현황을 관리해보세요.
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:justify-center">
             <Link
               href="/login"
-              className="inline-flex h-12 items-center justify-center rounded-full bg-coral px-6 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-red-500"
+              className="inline-flex h-12 items-center justify-center rounded-full bg-primary px-6 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-primary/90"
             >
               로그인하러 가기
             </Link>
             <Link
               href="/"
-              className="inline-flex h-12 items-center justify-center rounded-full border border-black/10 bg-white px-6 text-sm font-black text-neutral-700 transition hover:-translate-y-0.5 hover:border-coral/40 hover:text-coral"
+              className="inline-flex h-12 items-center justify-center rounded-full border border-border bg-surface px-6 text-sm font-black text-body transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-panel hover:text-primary"
             >
               NoteFlow AI 홈
             </Link>
@@ -1088,26 +1090,27 @@ export default function MyPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F5F2EC] px-4 py-6 text-ink sm:px-6 lg:px-10">
+    <main className="min-h-screen bg-app px-4 pb-6 pt-20 text-title sm:px-6 lg:px-10">
+      <SiteHeader />
       <Header />
 
       {paymentResult === "success" && (
-        <div className="mx-auto mt-6 max-w-7xl rounded-2xl border border-[#E2C985]/70 bg-[#FFF8EE] p-4 text-sm font-bold text-[#7A551D]">
+        <div className="mx-auto mt-6 max-w-7xl rounded-2xl border border-gold/70 bg-panel p-4 text-sm font-bold text-gold">
           결제가 완료되었습니다. Stripe Webhook 확인 후 크레딧이 반영됩니다.
         </div>
       )}
       {paymentResult === "cancel" && (
-        <div className="mx-auto mt-6 max-w-7xl rounded-2xl border border-[#EAD8C1] bg-white/75 p-4 text-sm font-bold text-[#7A6245]">
+        <div className="mx-auto mt-6 max-w-7xl rounded-2xl border border-border bg-card/75 p-4 text-sm font-bold text-body">
           결제가 취소되었습니다. 크레딧은 반영되지 않았습니다.
         </div>
       )}
 
       <section className="mx-auto mt-8 grid max-w-7xl gap-5 lg:grid-cols-[280px_1fr]">
-        <aside className="h-fit rounded-3xl border border-black/10 bg-white p-4 shadow-sm">
-          <div className="rounded-2xl bg-gradient-to-br from-coral/12 to-red-100/50 p-4">
-            <p className="text-xs font-black uppercase tracking-wide text-coral">Service Portal</p>
-            <h1 className="mt-2 text-2xl font-black text-ink">내정보</h1>
-            <p className="mt-2 truncate text-sm font-bold text-neutral-600">{user.name || "로그인됨"}</p>
+        <aside className="h-fit rounded-3xl border border-border bg-card p-4 shadow-sm">
+          <div className="rounded-2xl border border-border bg-surface p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-primary">Service Portal</p>
+            <h1 className="mt-2 text-2xl font-black text-title">내정보</h1>
+            <p className="mt-2 truncate text-sm font-bold text-body">{user.name || "로그인됨"}</p>
           </div>
 
           <nav className="mt-4 grid gap-2" aria-label="내정보 메뉴">
@@ -1121,8 +1124,8 @@ export default function MyPage() {
                   className={[
                     "flex h-12 items-center gap-3 rounded-2xl px-4 text-left text-sm font-black transition",
                     isActive
-                      ? "bg-coral text-white shadow-soft"
-                      : "bg-neutral-50 text-neutral-700 hover:bg-red-50 hover:text-coral"
+                      ? "bg-primary text-white shadow-soft"
+                      : "border border-border bg-surface text-body hover:bg-panel hover:text-primary"
                   ].join(" ")}
                 >
                   {item.icon}
@@ -1132,11 +1135,11 @@ export default function MyPage() {
             })}
           </nav>
 
-          <div className="mt-4 border-t border-black/10 pt-4">
+          <div className="mt-4 border-t border-border pt-4">
             <button
               type="button"
               onClick={() => setConfirmationModal("logout")}
-              className="flex h-12 w-full items-center gap-3 rounded-2xl px-4 text-left text-sm font-black text-neutral-700 transition hover:bg-neutral-100 hover:text-coral"
+              className="flex h-12 w-full items-center gap-3 rounded-2xl px-4 text-left text-sm font-black text-body transition hover:bg-panel hover:text-primary"
             >
               <LogOut size={18} />
               로그아웃
@@ -1407,12 +1410,12 @@ function Header() {
     <header className="mx-auto flex max-w-7xl items-center justify-between gap-4">
       <Link
         href="/"
-        className="inline-flex h-10 items-center gap-2 rounded-full border border-black/10 bg-white px-4 text-sm font-bold text-neutral-700 shadow-sm transition hover:border-coral/40 hover:text-coral"
+        className="inline-flex h-10 items-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-bold text-body shadow-sm transition hover:border-primary/40 hover:bg-panel hover:text-primary"
       >
         <ArrowLeft size={16} />
         NoteFlow AI
       </Link>
-      <div className="rounded-full bg-coral/10 px-4 py-2 text-sm font-extrabold text-coral">
+      <div className="rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-extrabold text-primary">
         내정보
       </div>
     </header>
@@ -1429,10 +1432,10 @@ function PanelHeader({
   description: string;
 }) {
   return (
-    <div className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm md:p-7">
-      <p className="text-xs font-black uppercase tracking-wide text-coral">{eyebrow}</p>
-      <h2 className="mt-2 text-3xl font-black text-ink sm:text-4xl">{title}</h2>
-      <p className="mt-3 max-w-3xl text-sm font-bold leading-7 text-neutral-600 sm:text-base">{description}</p>
+    <div className="rounded-3xl border border-border bg-card p-5 shadow-sm md:p-7">
+      <p className="text-xs font-black uppercase tracking-wide text-primary">{eyebrow}</p>
+      <h2 className="mt-2 text-3xl font-black text-title sm:text-4xl">{title}</h2>
+      <p className="mt-3 max-w-3xl text-sm font-bold leading-7 text-body sm:text-base">{description}</p>
     </div>
   );
 }
@@ -1496,19 +1499,19 @@ function AssistantPanel({
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {assistantStats.map((stat) => (
-          <article key={stat.label} className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-coral/10 text-coral">
+          <article key={stat.label} className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               {stat.icon}
             </div>
-            <p className="mt-5 text-sm font-black text-neutral-500">{stat.label}</p>
-            <strong className="mt-2 block text-4xl font-black text-ink">
+            <p className="mt-5 text-sm font-black text-muted">{stat.label}</p>
+            <strong className="mt-2 block text-4xl font-black text-title">
               {isLoading ? "..." : records[stat.id].length}
             </strong>
-            <p className="mt-2 text-sm font-bold text-neutral-500">{stat.description}</p>
+            <p className="mt-2 text-sm font-bold text-body">{stat.description}</p>
             <button
               type="button"
               onClick={() => onOpenDetail(stat.id)}
-              className="mt-5 inline-flex h-10 items-center justify-center rounded-full border border-black/10 bg-white px-4 text-xs font-black text-neutral-700 transition hover:border-coral/40 hover:text-coral"
+              className="mt-5 inline-flex h-10 items-center justify-center rounded-full border border-border bg-surface px-4 text-xs font-black text-body transition hover:border-primary/40 hover:bg-panel hover:text-primary"
             >
               자세히 보기
             </button>
@@ -1516,17 +1519,17 @@ function AssistantPanel({
         ))}
       </div>
 
-      <section className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm md:p-6">
+      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h3 className="text-2xl font-black text-ink">문서 분석 작업을 계속하세요</h3>
-            <p className="mt-2 text-sm font-bold leading-7 text-neutral-600">
+            <h3 className="text-2xl font-black text-title">문서 분석 작업을 계속하세요</h3>
+            <p className="mt-2 text-sm font-bold leading-7 text-body">
               실제 문서 업로드와 분석 기록은 AI 어시스턴트 화면에서 확인할 수 있습니다.
             </p>
           </div>
           <Link
             href="/dashboard"
-            className="inline-flex h-12 items-center justify-center rounded-full bg-coral px-6 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-red-500"
+            className="inline-flex h-12 items-center justify-center rounded-full bg-primary px-6 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-primary/90"
           >
             AI 어시스턴트로 이동
           </Link>
@@ -1569,26 +1572,26 @@ function AssistantDetailPanel({
 
   return (
     <div className="space-y-5">
-      <section className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm md:p-7">
+      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm md:p-7">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex h-10 items-center gap-2 rounded-full border border-black/10 bg-white px-4 text-sm font-black text-neutral-700 transition hover:border-coral/40 hover:text-coral"
+          className="inline-flex h-10 items-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-black text-body transition hover:border-primary/40 hover:bg-panel hover:text-primary"
         >
           <ArrowLeft size={16} />
           뒤로가기
         </button>
         <div className="mt-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-wide text-coral">Assistant Detail</p>
-            <h2 className="mt-2 text-3xl font-black text-ink sm:text-4xl">{assistantDetailTitles[detail]}</h2>
-            <p className="mt-3 max-w-3xl text-sm font-bold leading-7 text-neutral-600">
+            <p className="text-xs font-black uppercase tracking-wide text-primary">Assistant Detail</p>
+            <h2 className="mt-2 text-3xl font-black text-title sm:text-4xl">{assistantDetailTitles[detail]}</h2>
+            <p className="mt-3 max-w-3xl text-sm font-bold leading-7 text-body">
               실제 저장된 기록을 최신순으로 표시합니다.
             </p>
           </div>
           <Link
             href="/dashboard"
-            className="inline-flex h-12 items-center justify-center rounded-full bg-coral px-6 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-red-500"
+            className="inline-flex h-12 items-center justify-center rounded-full bg-primary px-6 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-primary/90"
           >
             AI 문서 어시스턴트로 바로가기
           </Link>
@@ -1661,7 +1664,7 @@ function AssistantRecordCard({
     description = `원본 파일: ${item.filename || "-"}\nfile_id: ${item.file_id || "-"} · chunks: ${item.chunk_count ?? "-"} · chars: ${item.text_length ?? "-"}`;
     if (item.memo?.trim()) {
       extra = (
-        <p className="mt-3 rounded-2xl border border-black/10 bg-neutral-50 p-3 text-sm font-bold leading-6 text-neutral-600">
+        <p className="mt-3 rounded-2xl border border-border bg-panel p-3 text-sm font-bold leading-6 text-body">
           메모: {item.memo.trim()}
         </p>
       );
@@ -1680,7 +1683,7 @@ function AssistantRecordCard({
     description = previewText(item.summary, "요약 내용 없음");
     if (item.memo?.trim()) {
       extra = (
-        <p className="mt-3 rounded-2xl border border-black/10 bg-neutral-50 p-3 text-sm font-bold leading-6 text-neutral-600">
+        <p className="mt-3 rounded-2xl border border-border bg-panel p-3 text-sm font-bold leading-6 text-body">
           메모: {item.memo.trim()}
         </p>
       );
@@ -1697,14 +1700,14 @@ function AssistantRecordCard({
         {item.keywords?.length ? (
           <div className="mt-3 flex flex-wrap gap-2">
             {item.keywords.map((keyword) => (
-              <span key={`${getRecordTimestamp(item)}-${keyword}`} className="rounded-full bg-coral/10 px-3 py-1 text-xs font-black text-coral">
+              <span key={`${getRecordTimestamp(item)}-${keyword}`} className="rounded-full bg-primary/10 px-3 py-1 text-xs font-black text-primary">
                 {keyword}
               </span>
             ))}
           </div>
         ) : null}
         {item.memo?.trim() && (
-          <p className="mt-3 rounded-2xl border border-black/10 bg-neutral-50 p-3 text-sm font-bold leading-6 text-neutral-600">
+          <p className="mt-3 rounded-2xl border border-border bg-panel p-3 text-sm font-bold leading-6 text-body">
             메모: {item.memo.trim()}
           </p>
         )}
@@ -1719,7 +1722,7 @@ function AssistantRecordCard({
     description = `질문: ${item.question || "질문 없음"}\n답변: ${previewText(item.answer, "답변 없음")}`;
     if (item.memo?.trim()) {
       extra = (
-        <p className="mt-3 rounded-2xl border border-black/10 bg-neutral-50 p-3 text-sm font-bold leading-6 text-neutral-600">
+        <p className="mt-3 rounded-2xl border border-border bg-panel p-3 text-sm font-bold leading-6 text-body">
           메모: {item.memo.trim()}
         </p>
       );
@@ -1727,12 +1730,12 @@ function AssistantRecordCard({
   }
 
   return (
-    <article className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm">
+    <article className="rounded-3xl border border-border bg-card p-5 shadow-sm">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-black text-coral">{meta}</p>
-          <h3 className="mt-2 truncate text-xl font-black text-ink">{title}</h3>
-          <p className="mt-2 whitespace-pre-wrap text-sm font-bold leading-7 text-neutral-600">{description}</p>
+          <p className="text-xs font-black text-primary">{meta}</p>
+          <h3 className="mt-2 truncate text-xl font-black text-title">{title}</h3>
+          <p className="mt-2 whitespace-pre-wrap text-sm font-bold leading-7 text-body">{description}</p>
           {extra}
         </div>
         <div className="flex shrink-0 gap-2">
@@ -1750,7 +1753,7 @@ function AssistantRecordCard({
                 record: record as SummaryRecord | KeywordRecord | QuestionRecord
               });
             }}
-            className="inline-flex h-9 items-center justify-center rounded-full border border-black/10 bg-white px-4 text-xs font-black text-neutral-700 transition hover:-translate-y-0.5 hover:border-coral/40 hover:text-coral"
+            className="inline-flex h-9 items-center justify-center rounded-full border border-border bg-surface px-4 text-xs font-black text-body transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-panel hover:text-primary"
           >
             수정
           </button>
@@ -1775,7 +1778,7 @@ function AssistantRecordCard({
               "inline-flex h-9 items-center justify-center rounded-full border px-4 text-xs font-black transition",
               uploadRecord?.file_id || recordId
                 ? "border-red-200 bg-red-50 text-red-600 hover:-translate-y-0.5 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
-                : "cursor-not-allowed border-black/10 bg-neutral-100 text-neutral-400"
+                : "cursor-not-allowed border-border bg-panel text-muted"
             ].join(" ")}
           >
             {uploadRecord
@@ -1963,7 +1966,7 @@ function ProfilePanel({ user }: { user: AuthUser }) {
         title="내정보 관리"
         description="로그인된 계정 정보를 기준으로 표시합니다."
       />
-      <section className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm md:p-6">
+      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm md:p-6">
         <div className="grid gap-4 md:grid-cols-2">
           <InfoTile label="이름" value={user.name || "로그인됨"} icon={<UserRound size={18} />} />
           <InfoTile label="이메일" value={user.email || "이메일 없음"} icon={<Sparkles size={18} />} />
@@ -2129,8 +2132,8 @@ function BillingPanel({ user }: { user: AuthUser }) {
     return (
       <div className="mt-5">
         <div className="flex flex-col gap-1">
-          <h4 className="text-xl font-black text-[#2F2418]">{title}</h4>
-          <p className="text-sm font-bold leading-6 text-[#6F5A40]">{description}</p>
+          <h4 className="text-xl font-black text-title">{title}</h4>
+          <p className="text-sm font-bold leading-6 text-body">{description}</p>
         </div>
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {sectionProducts.map((product) => {
@@ -2156,6 +2159,7 @@ function BillingPanel({ user }: { user: AuthUser }) {
                   "flex min-h-[460px] overflow-hidden rounded-2xl border transition-all duration-[250ms] ease-out hover:-translate-y-1",
                   cardHover,
                   tone.card,
+                  "border-gold/50 bg-[linear-gradient(135deg,rgb(var(--ai-card))_0%,rgb(var(--ai-panel))_100%)] text-title",
                 ].join(" ")}
               >
                 <div className="flex w-full flex-col">
@@ -2165,7 +2169,7 @@ function BillingPanel({ user }: { user: AuthUser }) {
                     <span className={["inline-flex max-w-[138px] items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase leading-none tracking-wide whitespace-nowrap", tone.badge].join(" ")}>
                       {isStripeProduct ? "Coming Soon" : `${tone.badgePrefix}${featuredLabel || product.badge || "Standard"}`}
                     </span>
-                    <span className="text-xs font-bold text-[#8A7354]">{product.currency}</span>
+                    <span className="text-xs font-bold text-muted">{product.currency}</span>
                   </div>
 
                   <div className="mt-3 flex min-h-[40px] items-center gap-2">
@@ -2180,40 +2184,40 @@ function BillingPanel({ user }: { user: AuthUser }) {
                         />
                       )}
                     </span>
-                    <h4 className="min-w-0 text-xl font-black leading-tight text-[#2F2418]">
+                    <h4 className="min-w-0 text-xl font-black leading-tight text-title">
                       {getProductDisplayName(product)}
                     </h4>
                   </div>
                   {productDescription && (
-                    <p className="mt-3 min-h-[78px] text-sm font-bold leading-5 text-[#7A6245]">{productDescription}</p>
+                    <p className="mt-3 min-h-[78px] text-sm font-bold leading-5 text-body">{productDescription}</p>
                   )}
 
                   <div className="mt-4 grid gap-3">
-                    <div className="min-h-[84px] rounded-2xl border border-white/70 bg-white/60 p-4">
-                      <p className="text-xs font-black uppercase tracking-wide text-[#8A7354]">Pay</p>
+                    <div className="min-h-[84px] rounded-2xl border border-border bg-card/75 p-4">
+                      <p className="text-xs font-black uppercase tracking-wide text-muted">Pay</p>
                       <p className={["mt-1 text-3xl font-black", tone.amount, amountEffect].join(" ")}>
                         {formatPaymentAmount(getProductAmount(product), product.currency)}
-                        {product.currency === "USD" && <span className="ml-2 text-sm font-bold text-[#8A7354]">USD</span>}
+                        {product.currency === "USD" && <span className="ml-2 text-sm font-bold text-muted">USD</span>}
                       </p>
                     </div>
-                    <div className="min-h-[84px] rounded-2xl border border-white/70 bg-white/60 p-4">
+                    <div className="min-h-[84px] rounded-2xl border border-border bg-card/75 p-4">
                       <p className={["text-xs font-black uppercase tracking-wide", tone.accent].join(" ")}>Receive</p>
                       <p className={["mt-1 text-3xl font-black", tone.accent, creditEffect].join(" ")}>
                         {formatCreditCount(totalCredits)}
-                        <span className="ml-2 text-sm font-bold text-[#8A7354]">Credits</span>
+                        <span className="ml-2 text-sm font-bold text-muted">Credits</span>
                       </p>
                     </div>
                   </div>
 
-                  <div className={["mt-4 min-h-[108px] rounded-2xl border p-4", tone.panel].join(" ")}>
-                    <p className="text-xs font-black uppercase tracking-wide text-[#8A7354]">Breakdown</p>
-                    <div className="mt-3 grid gap-3 text-sm font-bold text-[#5F4B32] sm:grid-cols-2">
+                  <div className={["mt-4 min-h-[108px] rounded-2xl border p-4", tone.panel, "border-border bg-panel"].join(" ")}>
+                    <p className="text-xs font-black uppercase tracking-wide text-muted">Breakdown</p>
+                    <div className="mt-3 grid gap-3 text-sm font-bold text-body sm:grid-cols-2">
                       <div>
-                        <span className="block text-xs font-black uppercase tracking-wide text-[#8A7354]">Base Credits</span>
+                        <span className="block text-xs font-black uppercase tracking-wide text-muted">Base Credits</span>
                         {formatCreditCount(baseCredits)} Base
                       </div>
                       <div>
-                        <span className="block text-xs font-black uppercase tracking-wide text-[#8A7354]">Bonus Credits</span>
+                        <span className="block text-xs font-black uppercase tracking-wide text-muted">Bonus Credits</span>
                         {bonusCredits > 0 ? `+${formatCreditCount(bonusCredits)} Bonus` : "Standard"}
                       </div>
                     </div>
@@ -2233,7 +2237,7 @@ function BillingPanel({ user }: { user: AuthUser }) {
                       "mt-5 inline-flex h-12 w-full items-center justify-center rounded-full px-5 text-sm font-black text-[#34220F] shadow-[0_10px_22px_rgba(124,82,27,0.13)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(124,82,27,0.2)] active:translate-y-0 active:shadow-[0_7px_16px_rgba(124,82,27,0.16)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-[0_10px_22px_rgba(124,82,27,0.13)]",
                       "relative overflow-hidden",
                       buttonEffect,
-                      isStripeProduct ? "border border-[#E2C985]/70 bg-white text-[#7A551D] hover:bg-[#FFF8EE]" : tone.button,
+                      isStripeProduct ? "border border-gold/70 bg-surface text-gold hover:bg-panel" : tone.button,
                     ].join(" ")}
                   >
                     {isPreparingProductId === product.product_id ? "준비 중..." : getProductButtonLabel(product)}
@@ -2256,32 +2260,32 @@ function BillingPanel({ user }: { user: AuthUser }) {
         description="AI 어시스턴트와 AI 타로에서 사용할 크레딧을 USD 기준으로 충전합니다."
       />
 
-      <section className="rounded-3xl border border-[#E9D8BD] bg-[#FFFDF7] p-5 shadow-[0_18px_45px_rgba(124,82,27,0.08)] md:p-6">
-        <div className="rounded-3xl border border-[#E9D8C1] bg-[linear-gradient(135deg,#FFFDF8_0%,#FFF8EE_100%)] p-5 shadow-[0_14px_34px_rgba(124,82,27,0.08)] md:p-6">
+      <section className="rounded-3xl border border-border bg-card p-5 shadow-soft md:p-6">
+        <div className="rounded-3xl border border-gold/60 bg-[linear-gradient(135deg,rgb(var(--ai-card))_0%,rgb(var(--ai-panel))_100%)] p-5 shadow-soft md:p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-wide text-[#8A6A35]">Current Balance</p>
-              <h3 className="mt-2 text-5xl font-black text-[#2F2418] sm:text-6xl">
+              <p className="text-xs font-black uppercase tracking-wide text-muted">Current Balance</p>
+              <h3 className="mt-2 text-5xl font-black text-title sm:text-6xl">
                 {credits.toLocaleString("en-US")}
-                <span className="ml-2 text-2xl text-[#8A6A35] sm:text-3xl">Credits</span>
+                <span className="ml-2 text-2xl text-gold sm:text-3xl">Credits</span>
               </h3>
-              <p className="mt-3 text-sm font-bold leading-6 text-[#6F5A40]">
+              <p className="mt-3 text-sm font-bold leading-6 text-body">
                 Available for AI Assistant & AI Tarot
               </p>
             </div>
-            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#E2C985]/70 bg-white/70 px-4 py-2 text-sm font-black text-[#7A551D]">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-gold/70 bg-card/70 px-4 py-2 text-sm font-black text-gold">
               <CreditCard size={16} />
               Ready for USD payment
             </div>
           </div>
         </div>
         {paymentResult === "success" && (
-          <div className="mt-4 rounded-2xl border border-[#E2C985]/70 bg-[#FFF8EE] p-4 text-sm font-bold text-[#7A551D]">
+        <div className="mt-4 rounded-2xl border border-gold/70 bg-panel p-4 text-sm font-bold text-gold">
             결제가 완료되었습니다. 결제 확인 후 크레딧이 반영됩니다.
           </div>
         )}
         {paymentResult === "cancel" && (
-          <div className="mt-4 rounded-2xl border border-[#EAD8C1] bg-white/75 p-4 text-sm font-bold text-[#7A6245]">
+          <div className="mt-4 rounded-2xl border border-border bg-card/75 p-4 text-sm font-bold text-body">
             결제가 취소되었습니다. 크레딧은 아직 반영되지 않았습니다.
           </div>
         )}
@@ -2292,11 +2296,11 @@ function BillingPanel({ user }: { user: AuthUser }) {
         )}
 
         {preparedPayment && (
-          <div className="mt-4 rounded-3xl border border-[#E8C77A]/55 bg-[#FFF8EE] p-5">
-            <p className="text-sm font-black text-[#8A5A14]">
+          <div className="mt-4 rounded-3xl border border-gold/55 bg-panel p-5">
+            <p className="text-sm font-black text-gold">
               결제 준비가 완료되었습니다. 실제 결제 연동은 다음 단계에서 진행됩니다.
             </p>
-            <div className="mt-4 grid gap-3 text-sm font-bold text-neutral-700 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="mt-4 grid gap-3 text-sm font-bold text-body sm:grid-cols-2 lg:grid-cols-5">
               <span>payment_id: {preparedPayment.payment_id}</span>
               {preparedPayment.order_id && <span>order_id: {preparedPayment.order_id}</span>}
               <span>상품명: {preparedPayment.product_name}</span>
@@ -2307,12 +2311,12 @@ function BillingPanel({ user }: { user: AuthUser }) {
               <span>상태: {preparedPayment.status}</span>
             </div>
             {preparedPayment.provider === "mock" && (
-              <p className="mt-3 text-xs font-bold text-[#8A5A14]/80">
+              <p className="mt-3 text-xs font-bold text-muted">
                 Mock 결제가 완료되어 크레딧이 즉시 반영되었습니다.
               </p>
             )}
             {preparedPayment.provider !== "mock" && !preparedPayment.checkout_url && (
-              <p className="mt-3 text-xs font-bold text-[#8A5A14]/80">
+              <p className="mt-3 text-xs font-bold text-muted">
                 checkout_url이 아직 생성되지 않아 Stripe Checkout 이동은 진행하지 않습니다.
               </p>
             )}
@@ -2322,13 +2326,13 @@ function BillingPanel({ user }: { user: AuthUser }) {
         <div className="mt-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-wide text-[#A66A1F]">Credit Products</p>
-              <h3 className="mt-1 text-2xl font-black text-ink">크레딧 충전 상품</h3>
+              <p className="text-xs font-black uppercase tracking-wide text-gold">Credit Products</p>
+              <h3 className="mt-1 text-2xl font-black text-title">크레딧 충전 상품</h3>
             </div>
           </div>
 
           {!isPaymentEnabled && (
-            <div className="mt-4 rounded-2xl border border-[#E8C77A]/60 bg-[#FFF8EE] p-4 text-sm font-bold leading-6 text-[#7A551D]">
+            <div className="mt-4 rounded-2xl border border-gold/60 bg-panel p-4 text-sm font-bold leading-6 text-gold">
               <p className="text-base font-black">🚧 결제 기능 준비 중</p>
               <p className="mt-2">현재 결제 시스템을 개발 및 테스트 중입니다.</p>
               <p>정식 서비스 오픈 후 이용 가능합니다.</p>
@@ -2350,7 +2354,7 @@ function BillingPanel({ user }: { user: AuthUser }) {
                   <button
                     type="button"
                     onClick={() => setShowGlobalProducts((current) => !current)}
-                    className="inline-flex h-10 items-center justify-center rounded-full border border-[#E2C985]/70 bg-white px-4 text-sm font-black text-[#7A551D] shadow-[0_10px_22px_rgba(124,82,27,0.08)] transition hover:-translate-y-0.5 hover:bg-[#FFF8EE]"
+                    className="inline-flex h-10 items-center justify-center rounded-full border border-gold/70 bg-surface px-4 text-sm font-black text-gold shadow-soft transition hover:-translate-y-0.5 hover:bg-panel"
                   >
                     {showGlobalProducts ? "국내 결제로 보기" : "해외 결제로 보기"}
                   </button>
@@ -2384,7 +2388,7 @@ function BillingPanel({ user }: { user: AuthUser }) {
                         <span className="text-xs font-bold text-[#8A7354]">{product.currency}</span>
                       </div>
 
-                      <h4 className="mt-4 text-xl font-black text-[#2F2418]">{product.name}</h4>
+                      <h4 className="mt-4 text-xl font-black text-title">{product.name}</h4>
 
                       <div className="mt-5 grid gap-4 sm:grid-cols-2">
                         <div>
@@ -2494,7 +2498,7 @@ function PaymentsPanel() {
         title="결제 내역"
         description="크레딧 충전을 위해 준비된 결제 내역을 최신순으로 확인합니다."
       />
-      <section className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm md:p-6">
+      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm md:p-6">
         {errorMessage ? (
           <StateMessage text={errorMessage} tone="warning" />
         ) : isLoading ? (
@@ -2511,11 +2515,11 @@ function PaymentsPanel() {
               return (
                 <article
                   key={payment.payment_id}
-                  className="rounded-2xl border border-[#E9D8BD] bg-[#FFFDF8] p-5 shadow-[0_10px_24px_rgba(124,82,27,0.06)] transition-all duration-[250ms] ease-out hover:-translate-y-1 hover:border-[#D8AE5E] hover:shadow-[0_18px_42px_rgba(124,82,27,0.14)]"
+                  className="rounded-2xl border border-border bg-panel p-5 shadow-soft transition-all duration-[250ms] ease-out hover:-translate-y-1 hover:border-gold/80"
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                      <p className="flex items-center gap-2 text-xs font-black text-coral">
+                      <p className="flex items-center gap-2 text-xs font-black text-primary">
                         <CalendarDays size={14} />
                         {formatSavedReadingDate(payment.created_at)}
                       </p>
@@ -2531,14 +2535,14 @@ function PaymentsPanel() {
                             />
                           </span>
                         )}
-                        <h3 className="min-w-0 truncate text-xl font-black text-ink">{payment.product_name}</h3>
+                        <h3 className="min-w-0 truncate text-xl font-black text-title">{payment.product_name}</h3>
                       </div>
                     </div>
                     <span className={["w-fit rounded-full border px-3 py-1 text-xs font-black uppercase", statusBadgeClass].join(" ")}>
                       {payment.status}
                     </span>
                   </div>
-                  <div className="mt-4 grid gap-3 text-sm font-bold text-neutral-700 sm:grid-cols-2">
+                  <div className="mt-4 grid gap-3 text-sm font-bold text-body sm:grid-cols-2">
                     <span>Amount: {formatPaymentAmount(payment.amount, payment.currency)} {payment.currency}</span>
                     <span>{formatCreditCount(baseCredits)} 기본 + {formatCreditCount(bonusCredits)} 보너스 = {formatCreditCount(totalCredits)} Credits</span>
                     <span>provider: {payment.provider}</span>
@@ -2556,12 +2560,12 @@ function PaymentsPanel() {
 
 function InfoTile({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
   return (
-    <article className="min-w-0 rounded-2xl border border-black/10 bg-neutral-50 p-4">
-      <p className="flex items-center gap-2 text-xs font-black text-coral">
+    <article className="min-w-0 rounded-2xl border border-border bg-panel p-4">
+      <p className="flex items-center gap-2 text-xs font-black text-primary">
         {icon}
         {label}
       </p>
-      <strong className="mt-2 block truncate text-lg font-black text-ink">{value}</strong>
+      <strong className="mt-2 block truncate text-lg font-black text-title">{value}</strong>
     </article>
   );
 }
@@ -2583,14 +2587,14 @@ function ConfirmationModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm">
-      <section className="w-full max-w-md rounded-3xl border border-black/10 bg-white p-6 text-center shadow-[0_30px_90px_rgba(0,0,0,0.28)]">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-coral/10 text-coral">
+      <section className="w-full max-w-md rounded-3xl border border-border bg-card p-6 text-center shadow-[0_30px_90px_rgba(0,0,0,0.28)]">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           {isLogout ? <LogOut size={26} /> : <Trash2 size={26} />}
         </div>
-        <h2 className="mt-5 whitespace-pre-line text-2xl font-black text-ink">
+        <h2 className="mt-5 whitespace-pre-line text-2xl font-black text-title">
           {isLogout ? "로그아웃하시겠습니까?" : "회원탈퇴를 진행하시겠습니까?"}
         </h2>
-        <p className="mt-3 text-sm font-bold leading-7 text-neutral-600">
+        <p className="mt-3 text-sm font-bold leading-7 text-body">
           {isLogout
             ? "현재 계정에서 로그아웃됩니다."
             : "계정, 문서, 질문 기록, 요약 기록, 키워드 기록, 타로 기록이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다."}
@@ -2612,7 +2616,7 @@ function ConfirmationModal({
             type="button"
             onClick={onCancel}
             disabled={isProcessing}
-            className="inline-flex h-11 items-center justify-center rounded-full border border-black/10 bg-white text-sm font-black text-neutral-700 transition hover:border-coral/40 hover:text-coral disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-11 items-center justify-center rounded-full border border-border bg-surface text-sm font-black text-body transition hover:border-primary/40 hover:bg-panel hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
             취소
           </button>
@@ -2622,7 +2626,7 @@ function ConfirmationModal({
             disabled={isProcessing}
             className={[
               "inline-flex h-11 items-center justify-center rounded-full text-sm font-black text-white shadow-soft transition disabled:cursor-not-allowed disabled:opacity-50",
-              isLogout ? "bg-coral hover:bg-red-500" : "bg-red-600 hover:bg-red-500"
+              isLogout ? "bg-primary hover:bg-primary/90" : "bg-red-600 hover:bg-red-500"
             ].join(" ")}
           >
             {isProcessing ? "처리 중..." : isLogout ? "로그아웃" : "탈퇴하기"}
@@ -2659,37 +2663,37 @@ function EditMetadataModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm">
-      <section className="w-full max-w-lg rounded-3xl border border-black/10 bg-white p-6 shadow-[0_30px_90px_rgba(0,0,0,0.28)]">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-coral/10 text-coral">
+      <section className="w-full max-w-lg rounded-3xl border border-border bg-card p-6 shadow-[0_30px_90px_rgba(0,0,0,0.28)]">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           <FileText size={26} />
         </div>
         <div className="mt-5 text-center">
-          <h2 className="text-2xl font-black text-ink">표시 정보 수정</h2>
-          <p className="mt-3 text-sm font-bold leading-7 text-neutral-600">
+          <h2 className="text-2xl font-black text-title">표시 정보 수정</h2>
+          <p className="mt-3 text-sm font-bold leading-7 text-body">
             원본 문서와 AI 결과 내용은 수정하지 않고, 내정보 페이지에서 보이는 관리용 정보만 저장합니다.
           </p>
         </div>
 
         <div className="mt-6 grid gap-4">
           <label className="block">
-            <span className="text-xs font-black text-coral">{isUpload ? "표시 이름" : "표시 제목"}</span>
+            <span className="text-xs font-black text-primary">{isUpload ? "표시 이름" : "표시 제목"}</span>
             <input
               value={primaryValue}
               onChange={(event) => setPrimaryValue(event.target.value)}
               maxLength={isUpload ? 120 : 160}
-              className="mt-2 h-11 w-full rounded-2xl border border-black/10 bg-neutral-50 px-4 text-sm font-bold text-ink outline-none transition focus:border-coral/50 focus:bg-white"
+              className="mt-2 h-11 w-full rounded-2xl border border-border bg-panel px-4 text-sm font-bold text-title outline-none transition focus:border-primary/50 focus:bg-card"
               placeholder={isUpload ? "표시 이름을 입력하세요." : "표시 제목을 입력하세요."}
             />
           </label>
 
           <label className="block">
-            <span className="text-xs font-black text-coral">메모</span>
+            <span className="text-xs font-black text-primary">메모</span>
             <textarea
               value={memo}
               onChange={(event) => setMemo(event.target.value)}
               maxLength={1000}
               rows={5}
-              className="mt-2 w-full resize-none rounded-2xl border border-black/10 bg-neutral-50 px-4 py-3 text-sm font-bold leading-6 text-ink outline-none transition focus:border-coral/50 focus:bg-white"
+              className="mt-2 w-full resize-none rounded-2xl border border-border bg-panel px-4 py-3 text-sm font-bold leading-6 text-title outline-none transition focus:border-primary/50 focus:bg-card"
               placeholder="관리용 메모를 입력하세요."
             />
           </label>
@@ -2700,7 +2704,7 @@ function EditMetadataModal({
             type="button"
             onClick={onCancel}
             disabled={isSaving}
-            className="inline-flex h-11 items-center justify-center rounded-full border border-black/10 bg-white text-sm font-black text-neutral-700 transition hover:border-coral/40 hover:text-coral disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-11 items-center justify-center rounded-full border border-border bg-surface text-sm font-black text-body transition hover:border-primary/40 hover:bg-panel hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
             취소
           </button>
@@ -2708,7 +2712,7 @@ function EditMetadataModal({
             type="button"
             onClick={() => onSave(primaryValue.trim(), memo.trim())}
             disabled={isSaving}
-            className="inline-flex h-11 items-center justify-center rounded-full bg-coral text-sm font-black text-white shadow-soft transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-11 items-center justify-center rounded-full bg-primary text-sm font-black text-white shadow-soft transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSaving ? "저장 중..." : "저장"}
           </button>
@@ -2734,18 +2738,18 @@ function DeleteConfirmationModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm">
-      <section className="w-full max-w-md rounded-3xl border border-black/10 bg-white p-6 text-center shadow-[0_30px_90px_rgba(0,0,0,0.28)]">
+      <section className="w-full max-w-md rounded-3xl border border-border bg-card p-6 text-center shadow-[0_30px_90px_rgba(0,0,0,0.28)]">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-600">
           <Trash2 size={26} />
         </div>
-        <h2 className="mt-5 whitespace-pre-line text-2xl font-black text-ink">
+        <h2 className="mt-5 whitespace-pre-line text-2xl font-black text-title">
           {isTarotDelete
             ? "타로 기록을 삭제하시겠습니까?"
             : isRecordDelete
             ? "이 문서와 연결된 요약, 키워드, 질문 기록이 모두 삭제됩니다.\n\n계속하시겠습니까?"
             : "업로드 문서를 삭제하시겠습니까?"}
         </h2>
-        <p className="mt-3 text-sm font-bold leading-7 text-neutral-600">
+        <p className="mt-3 text-sm font-bold leading-7 text-body">
           {isRecordDelete
             ? "이 기록은 내정보 페이지에서 삭제되며 되돌릴 수 없습니다."
             : `${target.title} 항목이 삭제됩니다. 삭제 후에는 목록을 다시 불러옵니다.`}
@@ -2755,7 +2759,7 @@ function DeleteConfirmationModal({
             type="button"
             onClick={onCancel}
             disabled={isDeleting}
-            className="inline-flex h-11 items-center justify-center rounded-full border border-black/10 bg-white text-sm font-black text-neutral-700 transition hover:border-coral/40 hover:text-coral disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-11 items-center justify-center rounded-full border border-border bg-surface text-sm font-black text-body transition hover:border-primary/40 hover:bg-panel hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
             취소
           </button>
@@ -2796,10 +2800,10 @@ function StateMessage({ text, tone = "default" }: { text: string; tone?: "defaul
       className={[
         "rounded-2xl border p-4 text-sm font-bold",
         tone === "success"
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+          ? "border-emerald-300/35 bg-emerald-500/10 text-body"
           : tone === "warning"
-          ? "border-red-200 bg-red-50 text-red-700"
-          : "border-black/10 bg-neutral-50 text-neutral-600"
+          ? "border-primary/30 bg-primary/10 text-body"
+          : "border-border bg-panel text-body"
       ].join(" ")}
     >
       {text}

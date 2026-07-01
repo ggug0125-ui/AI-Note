@@ -109,13 +109,13 @@ export default function LandingPage() {
     <main className="min-h-screen overflow-hidden bg-[var(--ai-color-background)] text-[var(--ai-color-text-primary)]">
       <SiteHeader />
 
-      <section className="relative overflow-hidden bg-[linear-gradient(145deg,var(--ai-color-background)_0%,#fff8f0_48%,#fff1e5_100%)] px-4 pb-10 pt-20 md:px-8 md:pb-14 md:pt-[6.5rem] lg:pb-16 lg:pt-28">
+      <section className="relative overflow-hidden bg-[linear-gradient(145deg,rgb(var(--ai-bg))_0%,rgb(var(--ai-surface))_48%,rgb(var(--ai-panel))_100%)] px-4 pb-10 pt-20 md:px-8 md:pb-14 md:pt-[6.5rem] lg:pb-16 lg:pt-28">
         <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-8 lg:min-h-[720px] lg:grid-cols-[minmax(0,0.88fr)_minmax(24rem,1.12fr)] xl:gap-16">
           <div className="max-w-3xl py-2 lg:py-8">
             <span className="ai-badge ai-badge-primary w-fit">AI Note 2.0</span>
             <h1 className="mt-5 max-w-3xl text-4xl font-black leading-[1.03] sm:text-5xl lg:text-6xl xl:text-7xl">
               <span className="block">문서 업무를</span>
-              <span className="mt-1 block text-[1.08em] text-coral">AI Workspace</span>
+              <span className="mt-1 block text-[1.08em] text-primary">AI Workspace</span>
               <span className="block">에서 끝내세요.</span>
             </h1>
             <p className="mt-5 max-w-xl text-base font-extrabold leading-7 text-[var(--ai-color-text-secondary)] md:mt-6 md:text-lg md:leading-8">
@@ -154,9 +154,9 @@ export default function LandingPage() {
               return (
                 <article
                   key={feature.title}
-                  className="group flex min-h-[17rem] flex-col overflow-hidden rounded-[var(--ai-radius-card)] border border-[rgba(232,188,115,0.58)] bg-[linear-gradient(145deg,#ffffff_0%,#fffdf8_50%,#fff8f0_100%)] p-5 shadow-[0_14px_34px_rgba(111,64,40,0.08)] transition duration-200 hover:-translate-y-1.5 hover:border-[rgba(242,72,72,0.32)] hover:shadow-[0_24px_54px_rgba(111,64,40,0.16)] md:p-6"
+                  className="group flex min-h-[17rem] flex-col overflow-hidden rounded-[var(--ai-radius-card)] border border-border bg-[linear-gradient(145deg,rgb(var(--ai-card))_0%,rgb(var(--ai-surface))_50%,rgb(var(--ai-panel))_100%)] p-5 shadow-soft transition duration-200 hover:-translate-y-1.5 hover:border-primary/35 hover:shadow-[var(--ai-shadow-hover)] md:p-6"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgba(232,188,115,0.46)] bg-[var(--ai-color-surface)] text-coral shadow-[0_10px_22px_rgba(111,64,40,0.07)] transition duration-200 group-hover:-translate-y-0.5 group-hover:scale-105 group-hover:border-coral/40 group-hover:bg-white group-hover:shadow-[0_14px_30px_rgba(242,72,72,0.16)]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-surface text-primary shadow-soft transition duration-200 group-hover:-translate-y-0.5 group-hover:scale-105 group-hover:border-primary/40 group-hover:bg-panel">
                     <Icon size={23} />
                   </div>
                   <h3 className="mt-5 text-xl font-black">{feature.title}</h3>
@@ -164,7 +164,7 @@ export default function LandingPage() {
                     {feature.description}
                   </p>
                   <div className="mt-auto pt-6">
-                    <span className="inline-flex rounded-full border border-[rgba(232,188,115,0.62)] bg-white/78 px-3 py-1 text-[0.7rem] font-black text-[var(--ai-color-active)] shadow-[0_8px_18px_rgba(111,64,40,0.06)]">
+                    <span className="inline-flex rounded-full border border-border bg-card/80 px-3 py-1 text-[0.7rem] font-black text-title shadow-soft">
                       {feature.tag}
                     </span>
                   </div>
@@ -188,8 +188,8 @@ export default function LandingPage() {
 
               return (
                 <article key={step.title} className="ai-panel-compact">
-                  <span className="text-3xl font-black text-coral">{String(index + 1).padStart(2, "0")}</span>
-                  <div className="mt-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-coral">
+                  <span className="text-3xl font-black text-primary">{String(index + 1).padStart(2, "0")}</span>
+                  <div className="mt-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-card text-primary">
                     <Icon size={21} />
                   </div>
                   <h3 className="mt-5 font-black">{step.title}</h3>
@@ -207,17 +207,17 @@ export default function LandingPage() {
         <div className="mx-auto grid max-w-7xl items-stretch gap-5 lg:grid-cols-[1fr_0.9fr]">
           <article className="relative flex h-full min-h-[30rem] flex-col overflow-hidden rounded-[var(--ai-radius-card)] border border-[rgba(232,188,115,0.58)] bg-[linear-gradient(145deg,#fffdf8_0%,#fff1f7_48%,#f4ecff_100%)] p-6 shadow-[0_18px_40px_rgba(124,82,27,0.14)] md:p-8">
             <div className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#f24848_0%,#e7a93b_42%,#c084fc_100%)]" aria-hidden="true" />
-            <span className="ai-badge w-fit border-[rgba(232,188,115,0.58)] bg-white/80 text-[var(--ai-color-active)]">AI Tarot</span>
+            <span className="ai-badge w-fit border-border bg-card/80 text-primary">AI Tarot</span>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-pink-200/80 bg-white/70 px-3 py-1 text-xs font-black text-[#8a3a62]">Chichi World</span>
-              <span className="rounded-full border border-violet-200/80 bg-white/70 px-3 py-1 text-xs font-black text-[#5f3d8a]">Lilla World</span>
+              <span className="rounded-full border border-pink-300/40 bg-card/70 px-3 py-1 text-xs font-black text-[#c44777]">Chichi World</span>
+              <span className="rounded-full border border-violet-300/40 bg-card/70 px-3 py-1 text-xs font-black text-[#9b5de5]">Lilla World</span>
             </div>
             <h2 className="mt-5 text-3xl font-black md:text-4xl">Chichi와 Lilla의 작은 세계</h2>
             <p className="mt-4 text-sm font-bold leading-7 text-[var(--ai-color-text-secondary)] md:text-base md:leading-8">
               AI Note의 문서 업무 흐름과 별도로, AI Tarot는 Chichi와 Lilla가 안내하는 감성적인 타로 경험을 제공합니다.
               오늘의 운세와 주제별 리딩을 가볍게 확인할 수 있습니다.
             </p>
-            <Link href="/tarot" className="ai-btn mt-6 min-h-12 w-fit border border-[rgba(242,72,72,0.28)] bg-white/86 px-6 text-coral shadow-[0_14px_30px_rgba(190,24,93,0.12)] hover:-translate-y-0.5 hover:bg-[var(--ai-color-surface)] hover:shadow-[0_18px_38px_rgba(190,24,93,0.18)]">
+            <Link href="/tarot" className="ai-btn mt-6 min-h-12 w-fit border border-primary/30 bg-card/90 px-6 text-primary shadow-soft hover:-translate-y-0.5 hover:bg-panel">
               Chichi & Lilla 만나러 가기
               <ArrowRight size={18} />
             </Link>
@@ -228,7 +228,7 @@ export default function LandingPage() {
           </article>
 
           <article className="ai-card-premium flex h-full min-h-[30rem] flex-col rounded-[var(--ai-radius-card)] border border-[rgba(232,188,115,0.58)] p-6 shadow-[0_18px_40px_rgba(124,82,27,0.14)] md:p-8">
-            <span className="ai-badge w-fit border-[rgba(232,188,115,0.58)] bg-white/80 text-[var(--ai-color-active)]">AI Credit System</span>
+            <span className="ai-badge w-fit border-border bg-card/80 text-primary">AI Credit System</span>
             <h2 className="mt-5 text-3xl font-black md:text-4xl">AI Credit System</h2>
             <div className="mt-4 grid gap-3 text-sm font-bold leading-7 text-[var(--ai-color-text-secondary)] md:text-base md:leading-8">
               <p>
@@ -262,7 +262,7 @@ export default function LandingPage() {
             {faqs.map((faq) => (
               <article key={faq.question} className="ai-card p-5">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--ai-color-surface)] text-coral">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-surface text-primary">
                     <HelpCircle size={20} />
                   </div>
                   <div>
@@ -304,7 +304,7 @@ export default function LandingPage() {
 
 function HeroMetric({ value, label }: { value: string; label: string }) {
   return (
-    <div className="ai-panel-compact bg-white/80 shadow-[0_12px_28px_rgba(111,64,40,0.08)] backdrop-blur">
+    <div className="ai-panel-compact bg-card/80 shadow-soft backdrop-blur">
       <strong className="block text-xl font-black text-[var(--ai-color-text-primary)]">{value}</strong>
       <span className="mt-1 block text-xs font-black text-[var(--ai-color-text-secondary)]">{label}</span>
     </div>
@@ -344,11 +344,11 @@ function CreditFeatureCard({
   highlight: string;
   highlightTone: "coral" | "mixed" | "gold";
 }) {
-  const highlightClass = highlightTone === "gold" ? "text-[var(--ai-color-payment)]" : "text-coral";
+  const highlightClass = highlightTone === "gold" ? "text-gold" : "text-primary";
 
   return (
-    <div className="flex min-h-[9.5rem] flex-col items-center justify-center rounded-2xl border border-[rgba(232,188,115,0.46)] bg-white/70 px-4 py-5 text-center shadow-[0_14px_28px_rgba(124,82,27,0.1)] transition duration-200 hover:-translate-y-1 hover:border-coral/35 hover:shadow-[0_20px_40px_rgba(124,82,27,0.16)] md:px-5">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[rgba(232,188,115,0.5)] bg-[var(--ai-color-surface)] text-coral shadow-[0_8px_18px_rgba(124,82,27,0.08)]">
+    <div className="flex min-h-[9.5rem] flex-col items-center justify-center rounded-2xl border border-border bg-card/70 px-4 py-5 text-center shadow-[0_14px_28px_rgba(124,82,27,0.1)] transition duration-200 hover:-translate-y-1 hover:border-primary/35 hover:shadow-[0_20px_40px_rgba(124,82,27,0.16)] md:px-5">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-surface text-primary shadow-[0_8px_18px_rgba(124,82,27,0.08)]">
         <Icon size={24} />
       </div>
       <span className="mt-3 text-[0.8rem] font-black leading-5 text-[var(--ai-color-text-secondary)]">{title}</span>
@@ -357,7 +357,7 @@ function CreditFeatureCard({
         {highlightTone === "mixed" ? (
           <span className="text-[0.82rem] font-black leading-5">
             <span className="text-[var(--ai-color-success)]">무료</span>
-            <span className="text-coral"> / 추가 차감</span>
+            <span className="text-primary"> / 추가 차감</span>
           </span>
         ) : (
           <span className={`text-[0.82rem] font-black leading-5 ${highlightClass}`}>{highlight}</span>
@@ -369,12 +369,12 @@ function CreditFeatureCard({
 
 function TarotWorldCard({ imageSrc, label }: { imageSrc: string; label: string }) {
   return (
-    <div className="w-36 rounded-2xl border border-white/80 bg-white/70 p-2.5 text-center shadow-[0_14px_28px_rgba(111,64,40,0.1)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:border-coral/35 hover:shadow-[0_20px_40px_rgba(111,64,40,0.16)] md:w-40 xl:w-44">
+    <div className="w-36 rounded-2xl border border-border bg-card/70 p-2.5 text-center shadow-[0_14px_28px_rgba(111,64,40,0.1)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:border-primary/35 hover:shadow-[0_20px_40px_rgba(111,64,40,0.16)] md:w-40 xl:w-44">
       <div className="aspect-square overflow-hidden rounded-xl border border-[rgba(232,188,115,0.42)] bg-[linear-gradient(145deg,#fff8f0_0%,#f8ecff_100%)]">
         <img src={imageSrc} alt={label} className="h-full w-full object-cover object-top" />
       </div>
       <span className="mt-2 inline-flex w-full items-center justify-center gap-1 text-center text-xs font-black text-[var(--ai-color-text-secondary)]">
-        <Sparkles size={13} className="text-coral" />
+        <Sparkles size={13} className="text-primary" />
         {label}
       </span>
     </div>
@@ -383,7 +383,7 @@ function TarotWorldCard({ imageSrc, label }: { imageSrc: string; label: string }
 
 function LandingFooter() {
   return (
-    <footer className="border-t border-[rgba(232,188,115,0.52)] bg-[linear-gradient(180deg,#fff8f0_0%,#fffdf8_100%)] px-4 py-10 text-[var(--ai-color-text-primary)] md:px-8">
+    <footer className="border-t border-border bg-[linear-gradient(180deg,rgb(var(--ai-panel))_0%,rgb(var(--ai-surface))_100%)] px-4 py-10 text-title md:px-8">
       <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[1.1fr_0.9fr] md:items-end">
         <div>
           <span className="ai-badge ai-badge-primary">AI Note</span>
@@ -392,7 +392,7 @@ function LandingFooter() {
             Designed & Developed by dong&jung
           </p>
           <div className="mt-5 flex flex-wrap gap-3 text-sm font-black">
-            <a href="mailto:ggug0125@gmail.com" className="inline-flex items-center gap-2 rounded-full border border-[rgba(232,188,115,0.6)] bg-white/78 px-4 py-2 text-[var(--ai-color-text-secondary)] transition hover:border-coral/40 hover:text-coral">
+            <a href="mailto:ggug0125@gmail.com" className="inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-4 py-2 text-[var(--ai-color-text-secondary)] transition hover:border-primary/40 hover:text-primary">
               <Mail size={16} />
               ggug0125@gmail.com
             </a>
@@ -400,7 +400,7 @@ function LandingFooter() {
               href="https://github.com/ggug0125-ui?tab=repositories"
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-full border border-[rgba(232,188,115,0.6)] bg-white/78 px-4 py-2 text-[var(--ai-color-text-secondary)] transition hover:border-coral/40 hover:text-coral"
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-4 py-2 text-[var(--ai-color-text-secondary)] transition hover:border-primary/40 hover:text-primary"
             >
               <Github size={16} />
               GitHub Repository
@@ -423,9 +423,9 @@ function LandingFooter() {
 function HeroWorkspaceMockup() {
   return (
     <div className="pointer-events-none relative ml-auto hidden w-full max-w-[39rem] lg:block" aria-hidden="true">
-      <div className="relative h-[31.5rem] overflow-hidden rounded-[1.75rem] border border-[var(--ai-color-border)] bg-white/75 shadow-[0_24px_64px_rgba(111,64,40,0.14)] backdrop-blur-sm xl:h-[33rem]">
+      <div className="relative h-[31.5rem] overflow-hidden rounded-[1.75rem] border border-border bg-card/75 shadow-[0_24px_64px_rgba(111,64,40,0.14)] backdrop-blur-sm xl:h-[33rem]">
         <div className="flex items-center gap-2 border-b border-[var(--ai-color-border)] px-5 py-4">
-          <span className="h-3 w-3 rounded-full bg-coral" />
+          <span className="h-3 w-3 rounded-full bg-primary" />
           <span className="h-3 w-3 rounded-full bg-[var(--ai-color-payment)]" />
           <span className="h-3 w-3 rounded-full bg-[var(--ai-color-success)]" />
           <span className="ml-4 text-xs font-black text-[var(--ai-color-text-secondary)]">AI Workspace</span>
@@ -433,13 +433,13 @@ function HeroWorkspaceMockup() {
         <div className="grid grid-cols-[0.78fr_1.22fr] gap-4 p-5 xl:gap-5 xl:p-6">
           <div className="grid gap-3">
             {["Document Center", "AI Summary", "AI Chat", "Convert Studio"].map((item, index) => (
-              <div key={item} className={index === 1 ? "ai-panel-compact bg-[var(--ai-color-surface)]" : "ai-panel-compact bg-white/80"}>
+              <div key={item} className={index === 1 ? "ai-panel-compact bg-surface" : "ai-panel-compact bg-card/80"}>
                 <span className="text-xs font-black text-[var(--ai-color-text-secondary)]">{item}</span>
                 <div className="mt-3 h-2 rounded-full bg-[var(--ai-color-border)]" />
               </div>
             ))}
           </div>
-          <div className="ai-panel-compact bg-white/80">
+          <div className="ai-panel-compact bg-card/80">
             <div className="mb-4 flex items-center justify-between">
               <span className="ai-badge ai-badge-primary">Selected Document</span>
               <span className="ai-badge">Ready</span>

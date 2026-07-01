@@ -34,7 +34,7 @@ type NavbarProps = {
 
 function StatusBadge() {
   return (
-    <span className="shrink-0 whitespace-nowrap rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300">
+    <span className="shrink-0 whitespace-nowrap rounded-full border border-gold/45 bg-panel px-2.5 py-1 text-xs font-bold text-body">
       FastAPI 연결됨
     </span>
   );
@@ -49,7 +49,7 @@ export function Navbar({ activeTab, onTabChange, userName, credits, onLogout }: 
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-black/10 bg-[#F8F4EC]/95 backdrop-blur dark:border-white/10 dark:bg-[#11100D]/95">
+    <header className="sticky top-0 z-40 border-b border-border bg-surface/95 text-title backdrop-blur">
       <div className="mx-auto flex min-h-16 max-w-7xl flex-col px-4 md:h-16 md:px-6">
         <div className="flex h-16 min-w-0 items-center gap-1.5 md:gap-3">
           <div className="flex min-w-0 shrink-0 items-center gap-1.5 md:gap-3">
@@ -70,8 +70,8 @@ export function Navbar({ activeTab, onTabChange, userName, credits, onLogout }: 
                   className={[
                     "inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-sm font-extrabold transition",
                     isActive
-                      ? "bg-ink text-white shadow-soft dark:bg-white dark:text-ink"
-                      : "border border-black/10 bg-white text-neutral-600 hover:border-coral/40 hover:text-ink dark:border-white/10 dark:bg-white/5 dark:text-neutral-300 dark:hover:text-white"
+                      ? "bg-title text-app shadow-soft"
+                      : "border border-border bg-card text-body hover:border-primary/40 hover:bg-panel hover:text-title"
                   ].join(" ")}
                   aria-current={isActive ? "page" : undefined}
                 >
@@ -85,7 +85,7 @@ export function Navbar({ activeTab, onTabChange, userName, credits, onLogout }: 
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <CreditBadge credits={credits} tone="blue" className="hidden lg:inline-flex" />
             {userName && (
-              <span className="hidden max-w-28 truncate whitespace-nowrap text-xs font-bold text-neutral-600 dark:text-neutral-300 lg:inline">
+              <span className="hidden max-w-28 truncate whitespace-nowrap text-xs font-bold text-body lg:inline">
                 {userName}
               </span>
             )}
@@ -93,7 +93,7 @@ export function Navbar({ activeTab, onTabChange, userName, credits, onLogout }: 
               <button
                 type="button"
                 onClick={onLogout}
-                className="hidden h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-black/10 bg-white px-3 text-xs font-extrabold text-neutral-600 transition hover:border-coral/40 hover:text-coral dark:border-white/10 dark:bg-white/5 dark:text-neutral-300 dark:hover:text-white sm:inline-flex"
+                className="hidden h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-border bg-card px-3 text-xs font-extrabold text-body transition hover:border-primary/40 hover:bg-panel hover:text-primary sm:inline-flex"
               >
                 <LogOut size={14} />
                 로그아웃
@@ -105,7 +105,7 @@ export function Navbar({ activeTab, onTabChange, userName, credits, onLogout }: 
               onClick={() => setIsMenuOpen((current) => !current)}
               aria-label={isMenuOpen ? "메뉴 닫기" : "메뉴 열기"}
               aria-expanded={isMenuOpen}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-700 transition hover:bg-neutral-200 dark:bg-white/10 dark:text-neutral-100 dark:hover:bg-white/20 md:hidden"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-body transition hover:border-primary/40 hover:bg-panel hover:text-title md:hidden"
             >
               {isMenuOpen ? <X size={17} /> : <Menu size={17} />}
             </button>
@@ -113,9 +113,9 @@ export function Navbar({ activeTab, onTabChange, userName, credits, onLogout }: 
         </div>
 
         {isMenuOpen && (
-          <div className="grid gap-2 border-t border-black/10 py-3 dark:border-white/10 md:hidden">
+          <div className="grid gap-2 border-t border-border py-3 md:hidden">
             {userName && (
-              <div className="flex items-center justify-between gap-3 rounded-xl bg-white/70 px-3 py-2 text-sm font-bold text-neutral-600 dark:bg-white/5 dark:text-neutral-300">
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-card px-3 py-2 text-sm font-bold text-body">
                 <span className="truncate">{userName}</span>
                 <CreditBadge credits={credits} tone="blue" />
                 {onLogout && (
@@ -138,8 +138,8 @@ export function Navbar({ activeTab, onTabChange, userName, credits, onLogout }: 
                     className={[
                       "inline-flex h-11 w-full items-center gap-2 whitespace-nowrap rounded-xl px-3 text-left text-sm font-extrabold transition",
                       isActive
-                        ? "bg-ink text-white shadow-soft dark:bg-white dark:text-ink"
-                        : "border border-black/10 bg-white text-neutral-600 hover:border-coral/40 hover:text-ink dark:border-white/10 dark:bg-white/5 dark:text-neutral-300 dark:hover:text-white"
+                        ? "bg-title text-app shadow-soft"
+                        : "border border-border bg-card text-body hover:border-primary/40 hover:bg-panel hover:text-title"
                     ].join(" ")}
                     aria-current={isActive ? "page" : undefined}
                   >

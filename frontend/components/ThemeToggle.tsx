@@ -49,8 +49,7 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       title={isDark ? "Light mode" : "Dark mode"}
       className={[
-        "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-700 transition hover:bg-neutral-200",
-        "dark:bg-white/10 dark:text-neutral-100 dark:hover:bg-white/20",
+        "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-body transition hover:border-primary/40 hover:bg-panel hover:text-title",
         className
       ].join(" ")}
     >

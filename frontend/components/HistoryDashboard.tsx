@@ -426,7 +426,7 @@ export function HistoryDashboard() {
       <div className="ai-card p-5 md:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <span className="text-xs font-extrabold uppercase tracking-wide text-coral">History Center</span>
+            <span className="text-xs font-extrabold uppercase tracking-wide text-primary">History Center</span>
             <h2 className="mt-2 text-2xl font-black text-[var(--ai-color-text-primary)]">통합 작업 타임라인</h2>
             <p className="mt-2 text-sm font-bold leading-6 text-[var(--ai-color-text-secondary)]">
               문서 업로드부터 요약, 키워드, 질문 기록까지 한 화면에서 확인하세요.

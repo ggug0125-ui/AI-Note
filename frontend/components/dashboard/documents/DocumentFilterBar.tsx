@@ -27,9 +27,9 @@ export function DocumentFilterBar({
     <section className="ai-card p-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="ai-modal-eyebrow text-[#8A7354]">Documents</p>
-          <h2 className="mt-1 text-xl font-black text-[#2F2418]">문서 목록</h2>
-          <p className="mt-1 text-sm font-bold text-[#6F5A40]">{totalCount.toLocaleString("en-US")}개 문서</p>
+          <p className="ai-modal-eyebrow text-muted">Documents</p>
+          <h2 className="mt-1 text-xl font-black text-title">문서 목록</h2>
+          <p className="mt-1 text-sm font-bold text-body">{totalCount.toLocaleString("en-US")}개 문서</p>
         </div>
 
         <div className="flex flex-col gap-3">

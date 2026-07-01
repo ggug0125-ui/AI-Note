@@ -59,16 +59,16 @@ export default function AuthCallbackPage() {
   }, [router]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-ivory px-6 text-ink dark:bg-[#11100D] dark:text-neutral-100">
-      <section className="w-full max-w-md rounded-3xl border border-coral/20 bg-white/80 p-8 text-center shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-[#1A1814]/80">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-coral/10 text-coral">
+    <main className="flex min-h-screen items-center justify-center bg-app px-6 text-title">
+      <section className="w-full max-w-md rounded-3xl border border-border bg-card/80 p-8 text-center shadow-soft backdrop-blur-xl">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           <Sparkles className="h-7 w-7" aria-hidden="true" />
         </div>
         <h1 className="mt-6 text-2xl font-black">AI Note 로그인 연결 중</h1>
-        <p className="mt-3 text-sm font-semibold leading-6 text-neutral-600 dark:text-neutral-300">
+        <p className="mt-3 text-sm font-semibold leading-6 text-body">
           Google 계정을 확인하고 AI Note 작업 공간으로 이동하고 있습니다.
         </p>
-        <div className="mt-7 flex items-center justify-center gap-2 text-sm font-black text-coral">
+        <div className="mt-7 flex items-center justify-center gap-2 text-sm font-black text-primary">
           <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
           <span>잠시만 기다려주세요</span>
         </div>
