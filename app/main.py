@@ -489,6 +489,144 @@ def _format_credit_amount(amount: float) -> str:
     return str(int(amount)) if float(amount).is_integer() else str(amount)
 
 
+def _format_page_label(page_count: Any) -> str:
+    try:
+        numeric_page_count = float(page_count)
+    except (TypeError, ValueError):
+        return ""
+
+    if numeric_page_count <= 0:
+        return ""
+
+    page_text = str(int(numeric_page_count)) if numeric_page_count.is_integer() else str(numeric_page_count)
+    return f"{page_text} Page"
+
+
+def _format_credit_delta(amount: float) -> str:
+    prefix = "+" if amount > 0 else ""
+    return f"{prefix}{_format_credit_amount(amount)} Credit"
+
+
+def _normalize_transaction_amount(transaction: Dict[str, Any]) -> float:
+    raw_amount = transaction.get("amount", transaction.get("credit_amount", transaction.get("credit_change", 0)))
+    try:
+        return float(raw_amount or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _derive_credit_transaction_details(transaction: Dict[str, Any]) -> Dict[str, Any]:
+    metadata = transaction.get("metadata") if isinstance(transaction.get("metadata"), dict) else {}
+    service = str(transaction.get("service") or transaction.get("service_type") or "").strip().lower()
+    transaction_type = str(transaction.get("type") or "").strip().lower()
+    amount = _normalize_transaction_amount(transaction)
+
+    if service in {"document_assistant", "document_upload", "upload"}:
+        service_type = "upload"
+        action = "document_upload"
+        title = "문서 업로드"
+    elif service in {"file_conversion", "convert", "conversion"}:
+        service_type = "convert"
+        action = "file_convert"
+        title = "파일 변환"
+    elif service == "tarot":
+        category = str(metadata.get("category") or "").strip()
+        service_type = "tarot"
+        action = "tarot_today" if category == TAROT_TODAY_CATEGORY else "tarot_reading"
+        title = "AI 타로"
+    elif service == "payment" or transaction_type == "deposit":
+        service_type = "payment"
+        action = "payment_deposit"
+        title = "결제 충전"
+    elif service == "admin" or transaction_type == "adjust":
+        service_type = "admin"
+        action = "admin_adjustment"
+        title = "크레딧 조정"
+    else:
+        service_type = service or "credit"
+        action = str(transaction.get("action") or transaction_type or "credit_transaction")
+        title = str(transaction.get("title") or "크레딧 내역")
+
+    status = str(transaction.get("status") or "").strip().lower()
+    if not status:
+        if service_type == "payment" and amount > 0:
+            status = "deposit"
+        elif amount == 0:
+            status = "free"
+        elif amount < 0:
+            status = "charged"
+        elif amount > 0:
+            status = "deposit"
+        else:
+            status = "recorded"
+
+    filename = (
+        metadata.get("filename")
+        or metadata.get("original_filename")
+        or transaction.get("filename")
+        or ""
+    )
+    original_type = metadata.get("original_type") or metadata.get("file_type") or transaction.get("original_type")
+    target_type = metadata.get("target_type") or transaction.get("target_type")
+    page_count = metadata.get("page_count", transaction.get("page_count"))
+    page_label = _format_page_label(page_count)
+    original_type_text = str(original_type or "").upper()
+    target_type_text = str(target_type or "").upper()
+
+    description = str(transaction.get("description") or "").strip()
+    if not description or description.startswith("Document analysis:") or description.startswith("Tarot reading:") or description.startswith("Credit purchase:"):
+        if service_type == "upload":
+            parts = [title]
+            if filename:
+                parts.append(str(filename))
+            if page_label:
+                parts.append(page_label)
+            description = " · ".join(parts)
+        elif service_type == "convert":
+            parts = [title]
+            if filename:
+                parts.append(str(filename))
+            if original_type_text and target_type_text:
+                parts.append(f"{original_type_text} → {target_type_text}")
+            if page_label:
+                parts.append(page_label)
+            description = " · ".join(parts)
+        elif service_type == "tarot":
+            category = str(metadata.get("category") or "").strip() or "타로"
+            usage_label = "무료 이용" if amount == 0 else _format_credit_delta(amount)
+            description = f"{title} · {category} · {usage_label}"
+        elif service_type == "payment":
+            product_name = metadata.get("product_name") or metadata.get("plan_name") or transaction.get("product_name")
+            parts = [title]
+            if product_name:
+                parts.append(str(product_name))
+            parts.append(_format_credit_delta(amount))
+            description = " · ".join(parts)
+
+    return {
+        "service_type": service_type,
+        "action": str(transaction.get("action") or action),
+        "title": str(transaction.get("title") or title),
+        "description": description,
+        "filename": filename,
+        "original_type": original_type,
+        "target_type": target_type,
+        "page_count": page_count,
+        "credit_change": amount,
+        "credit_amount": transaction.get("credit_amount", amount),
+        "status": status,
+    }
+
+
+def _format_credit_transaction(transaction: Dict[str, Any]) -> Dict[str, Any]:
+    details = _derive_credit_transaction_details(transaction)
+    formatted = dict(transaction)
+    formatted.update(details)
+    formatted.setdefault("transaction_id", str(transaction.get("transaction_id") or ""))
+    formatted.setdefault("amount", _normalize_transaction_amount(transaction))
+    return formatted
+
+
 def _get_pdf_page_count(pdf_path: Path) -> int:
     from pypdf import PdfReader
 
@@ -1480,7 +1618,7 @@ async def list_credit_transactions(
         include_all=can_include_all,
         limit=limit,
     )
-    return {"transactions": transactions}
+    return {"transactions": [_format_credit_transaction(transaction) for transaction in transactions]}
 
 
 @app.post("/credits/admin/adjust")
@@ -1796,16 +1934,23 @@ async def save_tarot_reading(
 
     if should_charge:
         identity = _user_identity(updated_user)
+        tarot_amount = -credit_cost
+        tarot_status = "free" if credit_cost == 0 else "charged"
+        tarot_usage_label = "무료 이용" if credit_cost == 0 else _format_credit_delta(tarot_amount)
         credit_store.append_transaction({
             "transaction_id": uuid.uuid4().hex,
             "user_id": identity["user_id"],
             "user_email": identity["user_email"],
             "type": "usage",
             "service": "tarot",
-            "amount": -credit_cost,
+            "service_type": "tarot",
+            "action": "tarot_today" if _is_today_tarot_category(request.category) else "tarot_reading",
+            "title": "AI 타로",
+            "amount": tarot_amount,
             "credits_before": credits_before,
             "credits_after": credits_after,
-            "description": f"Tarot reading: {request.category}",
+            "description": f"AI 타로 · {request.category} · {tarot_usage_label}",
+            "status": tarot_status,
             "metadata": {
                 "category": request.category,
                 "reading_id": reading_id,
@@ -2014,20 +2159,24 @@ async def upload_pdf(
 
         credits_after = float(updated_user.get("credits", 0) or 0)
         identity = _user_identity(updated_user)
+        upload_page_label = _format_page_label(page_count)
+        upload_description_parts = ["문서 업로드", filename]
+        if upload_page_label:
+            upload_description_parts.append(upload_page_label)
         credit_store.append_transaction({
             "transaction_id": uuid.uuid4().hex,
             "user_id": identity["user_id"],
             "user_email": identity["user_email"],
             "type": "usage",
             "service": "document_assistant",
+            "service_type": "upload",
+            "action": "document_upload",
+            "title": "문서 업로드",
             "amount": -credit_cost,
             "credits_before": credits_before,
             "credits_after": credits_after,
-            "description": (
-                f"Document analysis: {filename}, {page_count} pages"
-                if page_count is not None
-                else f"Document analysis: {filename}, {extractor.file_type}"
-            ),
+            "description": " · ".join(upload_description_parts),
+            "status": "charged",
             "metadata": {
                 "file_id": file_id,
                 "filename": filename,
@@ -2399,19 +2548,28 @@ async def convert_document(
         credits_after = float(updated_user.get("credits", 0) or 0)
 
         identity = _user_identity(updated_user)
+        conversion_page_label = _format_page_label(conversion.page_count)
+        conversion_description_parts = [
+            "파일 변환",
+            original_filename,
+            f"{conversion.original_type.upper()} → {conversion.target_type.upper()}",
+        ]
+        if conversion_page_label:
+            conversion_description_parts.append(conversion_page_label)
         credit_store.append_transaction({
             "transaction_id": uuid.uuid4().hex,
             "user_id": identity["user_id"],
             "user_email": identity["user_email"],
             "type": "usage",
             "service": "file_conversion",
+            "service_type": "convert",
+            "action": "file_convert",
+            "title": "파일 변환",
             "amount": -credit_cost,
             "credits_before": credits_before,
             "credits_after": credits_after,
-            "description": (
-                f"파일 변환 {conversion.original_type.upper()} → {conversion.target_type.upper()} / "
-                f"{original_filename} / {conversion.page_count}페이지"
-            ),
+            "description": " · ".join(conversion_description_parts),
+            "status": "charged",
             "metadata": {
                 "conversion_id": conversion.conversion_id,
                 "original_filename": original_filename,

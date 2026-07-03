@@ -144,21 +144,27 @@ class PaymentService:
             raise ValueError("User not found")
 
         credits_after = float(updated_user.get("credits", 0) or 0)
+        product_name = payment.get("product_name") or payment.get("plan_name") or "Credits"
         transaction = self.credit_store.append_transaction({
             "transaction_id": uuid.uuid4().hex,
             "user_id": str(payment["user_id"]),
             "user_email": str(payment.get("user_email") or "").strip().lower(),
             "type": "deposit",
             "service": "payment",
+            "service_type": "payment",
+            "action": "payment_deposit",
+            "title": "결제 충전",
             "amount": credits_added,
             "credits_before": credits_before,
             "credits_after": credits_after,
-            "description": f"Credit purchase: {payment.get('product_name') or payment.get('plan_name')}",
+            "description": f"결제 충전 · {product_name} · +{credits_added} Credit",
+            "status": "deposit",
             "metadata": {
                 "payment_id": payment_id,
                 "provider": self.provider.name,
                 "provider_payment_id": provider_payment_id,
                 "product_id": payment.get("product_id"),
+                "product_name": product_name,
                 "plan_name": payment.get("plan_name"),
             },
             "created_at": paid_at,

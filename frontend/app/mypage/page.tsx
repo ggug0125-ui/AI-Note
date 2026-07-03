@@ -159,6 +159,25 @@ type PaymentRecord = {
   paid_at?: string | null;
 };
 
+type CreditTransaction = {
+  transaction_id?: string;
+  user_id?: string;
+  user_email?: string;
+  service_type?: "upload" | "convert" | "tarot" | "payment" | "admin" | string;
+  action?: string;
+  title?: string;
+  description?: string;
+  filename?: string;
+  original_type?: string | null;
+  target_type?: string | null;
+  page_count?: number | string | null;
+  credit_change?: number;
+  credit_amount?: number;
+  amount?: number;
+  status?: "charged" | "free" | "deposit" | "refund" | string;
+  created_at?: string;
+};
+
 type MockPaymentSuccessResponse = {
   payment?: PreparedPayment;
   credit_usage?: {
@@ -169,7 +188,8 @@ type MockPaymentSuccessResponse = {
   } | null;
 };
 
-type MyPageTab = "assistant" | "tarot" | "profile" | "billing" | "payments";
+type MyPageTab = "assistant" | "tarot" | "profile" | "billing" | "payments" | "credits";
+type CreditTransactionFilter = "all" | "usage" | "free" | "deposit" | "convert" | "tarot";
 type AssistantDetailType = "uploads" | "summaries" | "keywords" | "questions";
 type ConfirmationModalType = "logout" | "withdrawal" | null;
 type DeleteTarget =
@@ -190,7 +210,8 @@ const menuItems: Array<{ id: MyPageTab; label: string; icon: ReactNode }> = [
   { id: "tarot", label: "AI 타로", icon: <Sparkles size={18} /> },
   { id: "profile", label: "내정보 관리", icon: <UserRound size={18} /> },
   { id: "billing", label: "결제 정보", icon: <CreditCard size={18} /> },
-  { id: "payments", label: "결제 내역", icon: <ReceiptText size={18} /> }
+  { id: "payments", label: "결제 내역", icon: <ReceiptText size={18} /> },
+  { id: "credits", label: "크레딧 사용내역", icon: <ReceiptText size={18} /> }
 ];
 
 const assistantStats = [
@@ -424,6 +445,75 @@ function getBonusLabel(product: CreditProduct, extraPercent: number) {
 function formatCreditCount(value: number | undefined) {
   const safeValue = typeof value === "number" && Number.isFinite(value) ? value : 0;
   return safeValue.toLocaleString("en-US");
+}
+
+function formatCreditValue(value: number) {
+  const safeValue = Number.isFinite(value) ? value : 0;
+  return safeValue.toLocaleString("en-US", {
+    maximumFractionDigits: 1
+  });
+}
+
+function getCreditTransactionAmount(transaction: CreditTransaction) {
+  const rawAmount = transaction.credit_change ?? transaction.amount ?? transaction.credit_amount ?? 0;
+  const amount = Number(rawAmount);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function formatCreditTransactionAmount(transaction: CreditTransaction) {
+  const amount = getCreditTransactionAmount(transaction);
+  if ((transaction.status || "").toLowerCase() === "free" || amount === 0) {
+    return "무료";
+  }
+
+  const prefix = amount > 0 ? "+" : "-";
+  return `${prefix}${formatCreditValue(Math.abs(amount))} Credit`;
+}
+
+function getCreditTransactionAmountClass(transaction: CreditTransaction) {
+  const amount = getCreditTransactionAmount(transaction);
+  const status = (transaction.status || "").toLowerCase();
+  if (status === "free" || amount === 0) {
+    return "border-gold/45 bg-gold/10 text-gold";
+  }
+  if (amount > 0 || status === "deposit") {
+    return "border-emerald-400/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-200";
+  }
+  return "border-primary/35 bg-primary/10 text-primary";
+}
+
+function formatCreditTransactionPage(pageCount: CreditTransaction["page_count"]) {
+  if (pageCount === null || pageCount === undefined || pageCount === "") {
+    return "";
+  }
+
+  const numericPageCount = Number(pageCount);
+  if (!Number.isFinite(numericPageCount) || numericPageCount <= 0) {
+    return "";
+  }
+
+  const pageText = Number.isInteger(numericPageCount) ? String(numericPageCount) : formatCreditValue(numericPageCount);
+  return `${pageText} Page`;
+}
+
+function matchesCreditFilter(transaction: CreditTransaction, filter: CreditTransactionFilter) {
+  const amount = getCreditTransactionAmount(transaction);
+  const serviceType = (transaction.service_type || "").toLowerCase();
+  const status = (transaction.status || "").toLowerCase();
+
+  if (filter === "all") {
+    return true;
+  }
+  if (filter === "usage") {
+    return amount < 0 || status === "charged";
+  }
+  if (filter === "free") {
+    return amount === 0 || status === "free";
+  }
+  if (filter === "deposit") {
+    return amount > 0 || status === "deposit";
+  }
+  return serviceType === filter;
 }
 
 function getCreditBreakdown(item: { base_credits?: number; bonus_credits?: number; credits?: number }) {
@@ -1227,6 +1317,7 @@ export default function MyPage() {
           {activeTab === "profile" && <ProfilePanel user={user} />}
           {activeTab === "billing" && <BillingPanel user={user} />}
           {activeTab === "payments" && <PaymentsPanel />}
+          {activeTab === "credits" && <CreditUsagePanel />}
         </section>
       </section>
 
@@ -2452,6 +2543,158 @@ function BillingPanel({ user }: { user: AuthUser }) {
               })}
             </div>
             </>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function CreditUsagePanel() {
+  const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
+  const [activeFilter, setActiveFilter] = useState<CreditTransactionFilter>("all");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const filters: Array<{ id: CreditTransactionFilter; label: string }> = [
+    { id: "all", label: "전체" },
+    { id: "usage", label: "사용" },
+    { id: "free", label: "무료" },
+    { id: "deposit", label: "충전" },
+    { id: "convert", label: "변환" },
+    { id: "tarot", label: "타로" }
+  ];
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadTransactions() {
+      setIsLoading(true);
+      setErrorMessage("");
+
+      try {
+        const response = await authenticatedFetch(`${API_BASE_URL}/credits/transactions?limit=100`);
+        if (!response.ok) {
+          throw new Error("크레딧 사용내역을 불러오지 못했습니다.");
+        }
+
+        const data = (await response.json()) as { transactions?: CreditTransaction[] };
+        if (isMounted) {
+          setTransactions(Array.isArray(data.transactions) ? data.transactions : []);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setErrorMessage(error instanceof Error ? error.message : "크레딧 사용내역을 불러오지 못했습니다.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadTransactions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const filteredTransactions = transactions.filter((transaction) => matchesCreditFilter(transaction, activeFilter));
+
+  return (
+    <div className="space-y-5">
+      <PanelHeader
+        eyebrow="Credit Usage"
+        title="크레딧 사용내역"
+        description="업로드, 파일 변환, AI 타로, 결제 충전 내역을 한 곳에서 확인합니다."
+      />
+
+      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm md:p-6">
+        <div className="flex flex-wrap gap-2">
+          {filters.map((filter) => {
+            const isActive = activeFilter === filter.id;
+            return (
+              <button
+                key={filter.id}
+                type="button"
+                onClick={() => setActiveFilter(filter.id)}
+                className={[
+                  "rounded-full border px-3 py-1.5 text-xs font-black transition-colors",
+                  isActive
+                    ? "border-primary bg-primary text-white"
+                    : "border-border bg-panel text-muted hover:border-primary/50 hover:text-primary"
+                ].join(" ")}
+              >
+                {filter.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-5">
+          {errorMessage ? (
+            <StateMessage text={errorMessage} tone="warning" />
+          ) : isLoading ? (
+            <StateMessage text="크레딧 사용내역을 불러오는 중입니다." />
+          ) : transactions.length === 0 ? (
+            <StateMessage text="아직 사용내역이 없습니다." />
+          ) : filteredTransactions.length === 0 ? (
+            <StateMessage text="해당 조건의 사용내역이 없습니다." />
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {filteredTransactions.map((transaction, index) => {
+                const amountClass = getCreditTransactionAmountClass(transaction);
+                const amountLabel = formatCreditTransactionAmount(transaction);
+                const pageLabel = formatCreditTransactionPage(transaction.page_count);
+                const formatLabel = transaction.original_type && transaction.target_type
+                  ? `${String(transaction.original_type).toUpperCase()} → ${String(transaction.target_type).toUpperCase()}`
+                  : "";
+                const dateLabel = transaction.created_at ? formatSavedReadingDate(transaction.created_at) : "";
+                const metaItems = [formatLabel, pageLabel, dateLabel].filter(Boolean);
+                const title = transaction.title || "크레딧 내역";
+                const filename = transaction.filename || transaction.description || "내역 정보 없음";
+                const description = transaction.description && transaction.description !== filename
+                  ? transaction.description
+                  : "";
+
+                return (
+                  <article
+                    key={transaction.transaction_id || `${transaction.created_at || "transaction"}-${index}`}
+                    className="rounded-2xl border border-border bg-panel p-5 shadow-soft transition-all duration-[250ms] ease-out hover:-translate-y-1 hover:border-primary/35"
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="flex items-center gap-2 text-xs font-black text-primary">
+                          <ReceiptText size={14} />
+                          {title}
+                        </p>
+                        <h3 className="mt-2 min-w-0 break-words text-lg font-black text-title">
+                          {filename}
+                        </h3>
+                        {description && (
+                          <p className="mt-1 break-words text-sm font-bold text-body">
+                            {description}
+                          </p>
+                        )}
+                      </div>
+                      <span className={["w-fit shrink-0 rounded-full border px-3 py-1.5 text-sm font-black", amountClass].join(" ")}>
+                        {amountLabel}
+                      </span>
+                    </div>
+                    {metaItems.length > 0 && (
+                      <div className="mt-4 flex flex-wrap gap-2 text-xs font-black text-muted">
+                        {metaItems.map((item) => (
+                          <span key={item} className="rounded-full border border-border bg-card px-3 py-1">
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
           )}
         </div>
       </section>
