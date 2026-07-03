@@ -11,12 +11,12 @@ import { CreditBadge } from "./CreditBadge";
 
 const navItems = [
   { label: "기능", href: "#features" },
-  { label: "사용법", href: "#how" },
+  { label: "사용법", href: "/guide" },
   { label: "AI 어시스턴트", href: "/dashboard" },
   { label: "AI 타로", href: "/tarot" },
   { label: "내정보", href: "/mypage" },
-  { label: "요금", href: "#pricing" },
-  { label: "후기", href: "#reviews" }
+  { label: "요금", href: "/pricing" },
+  { label: "후기", href: "/reviews" }
 ];
 
 const TOKEN_KEY = "access_token";

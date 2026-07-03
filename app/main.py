@@ -52,6 +52,7 @@ from app.services.payment_store import PaymentStore
 from app.services.payments.toss_provider import TossProvider
 from app.services.rag_service import RAGService
 from app.services.result_store import ResultStore
+from app.services.review_store import ReviewStore
 from app.services.stripe_payment_provider import StripeProvider
 from app.services.user_store import UserStore
 
@@ -68,6 +69,7 @@ USERS_PATH = BASE_DIR / "backend" / "data" / "users.json"
 CREDIT_TRANSACTIONS_PATH = BASE_DIR / "backend" / "data" / "credit_transactions.json"
 PAYMENTS_PATH = BASE_DIR / "backend" / "data" / "payments.json"
 CONVERTED_DOCUMENTS_PATH = BASE_DIR / "backend" / "data" / "converted_documents.json"
+REVIEWS_PATH = BASE_DIR / "backend" / "data" / "reviews.json"
 CONVERSION_DIR = BASE_DIR / "backend" / "data" / "conversions"
 CONVERSION_DIR.mkdir(parents=True, exist_ok=True)
 CONVERTED_DIR = BASE_DIR / "backend" / "data" / "converted"
@@ -97,6 +99,7 @@ user_store = UserStore(USERS_PATH)
 credit_store = CreditStore(CREDIT_TRANSACTIONS_PATH)
 payment_store = PaymentStore(PAYMENTS_PATH)
 converted_document_store = ConvertedDocumentStore(CONVERTED_DOCUMENTS_PATH)
+review_store = ReviewStore(REVIEWS_PATH)
 
 
 def _get_payment_provider(provider_name: Optional[str] = None):
@@ -190,6 +193,24 @@ class TossPaymentConfirmRequest(BaseModel):
     order_id: str = Field(..., min_length=1, max_length=120)
     amount: float
     payment_key: Optional[str] = None
+
+
+class ReviewCreateRequest(BaseModel):
+    type: Literal["review", "question"]
+    rating: Optional[int] = Field(default=None, ge=1, le=5)
+    title: str = Field(..., min_length=1, max_length=120)
+    content: str = Field(..., min_length=1, max_length=4000)
+
+
+class ReviewUpdateRequest(BaseModel):
+    type: Optional[Literal["review", "question"]] = None
+    rating: Optional[int] = Field(default=None, ge=1, le=5)
+    title: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    content: Optional[str] = Field(default=None, min_length=1, max_length=4000)
+
+
+class ReviewAnswerRequest(BaseModel):
+    answer: str = Field(..., min_length=1, max_length=4000)
 
 
 class TarotCardRequest(BaseModel):
@@ -690,6 +711,21 @@ def get_current_user(
     return user
 
 
+def get_optional_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> Optional[Dict[str, Any]]:
+    if not credentials or credentials.scheme.lower() != "bearer":
+        return None
+
+    try:
+        payload = decode_access_token(credentials.credentials)
+    except ValueError:
+        return None
+
+    user_id = str(payload.get("sub", ""))
+    return user_store.get_by_id(user_id)
+
+
 def _is_admin_user(user: Dict[str, Any]) -> bool:
     return _normalize_email(str(user.get("email", ""))) == _normalize_email(ADMIN_EMAIL)
 
@@ -718,6 +754,21 @@ def _record_belongs_to_user(record: Dict[str, Any], user: Dict[str, Any]) -> boo
         bool(record.get("user_id") and record.get("user_id") == identity["user_id"])
         or bool(record.get("user_email") and record.get("user_email") == identity["user_email"])
     )
+
+
+def _review_belongs_to_user(review: Dict[str, Any], user: Dict[str, Any]) -> bool:
+    identity = _user_identity(user)
+    return (
+        bool(review.get("user_id") and review.get("user_id") == identity["user_id"])
+        or bool(review.get("user_email") and review.get("user_email") == identity["user_email"])
+    )
+
+
+def _public_review(record: Dict[str, Any], current_user: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    public = dict(record)
+    public["can_edit"] = bool(current_user and (_is_admin_user(current_user) or _review_belongs_to_user(record, current_user)))
+    public["can_answer"] = bool(current_user and _is_admin_user(current_user))
+    return public
 
 
 def _build_ready_payment(product: Dict[str, Any], current_user: Dict[str, Any]) -> Dict[str, Any]:
@@ -1339,6 +1390,144 @@ async def get_my_credits(current_user: Dict[str, Any] = Depends(get_current_user
         "credits": current_user.get("credits", 0) or 0,
         "user": _public_user(current_user),
     }
+
+
+@app.get("/reviews")
+async def list_reviews(
+    type: Optional[Literal["review", "question"]] = Query(default=None),
+    q: str = Query(default="", max_length=120),
+    limit: int = Query(default=50, ge=1, le=100),
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_current_user),
+):
+    reviews = review_store.list_public(type_filter=type, limit=limit, query_text=q)
+    return {"reviews": [_public_review(review, current_user) for review in reviews]}
+
+
+@app.get("/reviews/stats")
+async def get_review_stats():
+    return review_store.stats()
+
+
+@app.get("/reviews/{review_id}")
+async def get_review(
+    review_id: str,
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_current_user),
+):
+    review = review_store.get_public(review_id)
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+    return {"review": _public_review(review, current_user)}
+
+
+@app.post("/reviews")
+async def create_review(
+    request: ReviewCreateRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    now = datetime.now(timezone.utc).isoformat()
+    identity = _user_identity(current_user)
+    display_name = str(current_user.get("name") or "").strip()
+    if not display_name:
+        display_name = identity["user_email"].split("@")[0] if identity["user_email"] else "AI Note 사용자"
+
+    rating = request.rating
+    if request.type == "review" and rating is None:
+        rating = 5
+    if request.type == "question":
+        rating = rating if rating is not None else None
+
+    record = {
+        "review_id": uuid.uuid4().hex,
+        "user_id": identity["user_id"],
+        "user_email": identity["user_email"],
+        "display_name": display_name,
+        "type": request.type,
+        "rating": rating,
+        "title": request.title.strip(),
+        "content": request.content.strip(),
+        "answer": "",
+        "answer_by": "",
+        "answer_at": None,
+        "status": "open",
+        "created_at": now,
+        "updated_at": now,
+    }
+    saved_review = review_store.create(record)
+    return {"review": _public_review(saved_review, current_user)}
+
+
+@app.put("/reviews/{review_id}")
+async def update_review(
+    review_id: str,
+    request: ReviewUpdateRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    review = review_store.get(review_id)
+    if not review or review.get("status") == "hidden":
+        raise HTTPException(status_code=404, detail="Review not found")
+    is_admin = _is_admin_user(current_user)
+    if not is_admin and not _review_belongs_to_user(review, current_user):
+        raise HTTPException(status_code=403, detail="Not allowed to update this review")
+    if not is_admin and review.get("status") == "answered":
+        raise HTTPException(status_code=400, detail="Answered reviews cannot be edited")
+
+    next_type = request.type or str(review.get("type") or "review")
+    updates: Dict[str, Any] = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    if request.type is not None:
+        updates["type"] = request.type
+    if request.title is not None:
+        updates["title"] = request.title.strip()
+    if request.content is not None:
+        updates["content"] = request.content.strip()
+    if next_type == "review":
+        updates["rating"] = request.rating if request.rating is not None else review.get("rating") or 5
+    else:
+        updates["rating"] = request.rating if request.rating is not None else None
+
+    updated_review = review_store.update(review_id, updates)
+    if not updated_review:
+        raise HTTPException(status_code=404, detail="Review not found")
+    return {"review": _public_review(updated_review, current_user)}
+
+
+@app.delete("/reviews/{review_id}")
+async def delete_review(
+    review_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    review = review_store.get(review_id)
+    if not review or review.get("status") == "hidden":
+        raise HTTPException(status_code=404, detail="Review not found")
+    if not _is_admin_user(current_user) and not _review_belongs_to_user(review, current_user):
+        raise HTTPException(status_code=403, detail="Not allowed to delete this review")
+
+    hidden_review = review_store.hide(review_id, datetime.now(timezone.utc).isoformat())
+    if not hidden_review:
+        raise HTTPException(status_code=404, detail="Review not found")
+    return {"message": "Review hidden", "review_id": review_id}
+
+
+@app.post("/reviews/{review_id}/answer")
+async def answer_review(
+    review_id: str,
+    request: ReviewAnswerRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    require_admin_user(current_user)
+    review = review_store.get(review_id)
+    if not review or review.get("status") == "hidden":
+        raise HTTPException(status_code=404, detail="Review not found")
+
+    answer_by = str(current_user.get("name") or current_user.get("email") or ADMIN_EMAIL)
+    answered_review = review_store.answer(
+        review_id=review_id,
+        answer=request.answer.strip(),
+        answer_by=answer_by,
+        answer_at=datetime.now(timezone.utc).isoformat(),
+    )
+    if not answered_review:
+        raise HTTPException(status_code=404, detail="Review not found")
+    return {"review": _public_review(answered_review, current_user)}
 
 
 @app.get("/payments/products")
