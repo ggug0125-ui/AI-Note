@@ -31,6 +31,23 @@ export function SiteHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
+    async function refreshCredits() {
+      try {
+        const response = await authenticatedFetch(`${API_BASE_URL}/credits/me`);
+        if (!response.ok) {
+          return;
+        }
+        const data = await response.json();
+        const nextCredits = Number(data.credits || data.user?.credits || 0);
+        setCredits(nextCredits);
+        if (data.user) {
+          window.localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+        }
+      } catch {
+        // Keep the locally cached auth state if credit refresh fails.
+      }
+    }
+
     function syncAuthState() {
       const token = window.localStorage.getItem(TOKEN_KEY)?.trim();
       const hasToken = Boolean(token && token !== "undefined" && token !== "null");
@@ -67,30 +84,15 @@ export function SiteHeader() {
       void refreshCredits();
     }
 
-    async function refreshCredits() {
-      try {
-        const response = await authenticatedFetch(`${API_BASE_URL}/credits/me`);
-        if (!response.ok) {
-          return;
-        }
-        const data = await response.json();
-        const nextCredits = Number(data.credits || data.user?.credits || 0);
-        setCredits(nextCredits);
-        if (data.user) {
-          window.localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-        }
-      } catch {
-        // Keep the locally cached auth state if credit refresh fails.
-      }
-    }
-
     syncAuthState();
     window.addEventListener("storage", syncAuthState);
     window.addEventListener("focus", syncAuthState);
+    window.addEventListener("credits:refresh", refreshCredits);
 
     return () => {
       window.removeEventListener("storage", syncAuthState);
       window.removeEventListener("focus", syncAuthState);
+      window.removeEventListener("credits:refresh", refreshCredits);
     };
   }, [pathname]);
 

@@ -408,6 +408,7 @@ export function DocumentCenter({ onNavigate, selectedDocumentId, onDocumentSelec
         onDocumentSelect(uploadedFileId);
       }
       setReloadVersion((current) => current + 1);
+      window.dispatchEvent(new Event("credits:refresh"));
     } catch (error) {
       setUploadCreditUsage(null);
       setUploadStatus(getFriendlyUploadError(error instanceof Error ? error.message : ""));

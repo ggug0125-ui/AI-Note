@@ -7,11 +7,13 @@ import {
   BarChart3,
   CheckCircle2,
   ClipboardList,
+  Download,
   Filter,
   FileSearch,
   FileText,
   Hash,
   MessageSquareText,
+  RefreshCw,
   Send,
   SlidersHorizontal,
   Sparkles,
@@ -81,6 +83,33 @@ type ChatMessage = {
 type HistoryFilter = "today" | "week" | "month";
 type DocumentPickerTarget = "documents" | "analysis" | "chat" | "convert" | null;
 type HistorySheetType = "summaries" | "keywords" | null;
+type ConvertFileType = "pdf" | "txt" | "xlsx" | "hwpx";
+
+type MobileConversionResult = {
+  status: "success" | "unsupported";
+  message?: string;
+  conversion_id?: string;
+  original_filename: string;
+  output_filename?: string;
+  display_filename?: string;
+  original_type?: ConvertFileType;
+  target_type?: ConvertFileType;
+  target_format: ConvertFileType;
+  page_count?: number;
+  credit_cost?: number;
+};
+
+type MobileConversionHistoryItem = {
+  conversion_id: string;
+  original_filename: string;
+  display_filename?: string;
+  original_type: ConvertFileType;
+  target_type: ConvertFileType;
+  output_filename: string;
+  page_count?: number;
+  credit_cost?: number;
+  created_at?: string;
+};
 
 type CreditConfirmState =
   | {
@@ -117,6 +146,18 @@ type CreditUsage = {
 
 const emptyText = "기록이 없습니다.";
 const swipeTabs = ["overview", "documents", "analysis", "chat", "convert", "history"] as const;
+const mobileConversionTargets: Record<ConvertFileType, ConvertFileType[]> = {
+  pdf: ["txt", "xlsx", "hwpx"],
+  txt: ["pdf", "xlsx", "hwpx"],
+  xlsx: ["pdf", "txt", "hwpx"],
+  hwpx: ["pdf", "txt", "xlsx"],
+};
+const mobileConversionLabels: Record<ConvertFileType, string> = {
+  pdf: "PDF",
+  txt: "TXT",
+  xlsx: "XLSX",
+  hwpx: "HWPX",
+};
 
 function getTimestamp(item: { created_at?: string; uploaded_at?: string }) {
   return item.created_at || item.uploaded_at || "";
@@ -131,6 +172,38 @@ function formatDate(value?: string) {
     return value;
   }
   return date.toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" });
+}
+
+function formatMobileCreditAmount(value?: number | null) {
+  if (typeof value !== "number") {
+    return "-";
+  }
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function formatMobilePageCount(value?: number | null) {
+  if (typeof value !== "number") {
+    return "-";
+  }
+  return `${value.toLocaleString("ko-KR")} Page`;
+}
+
+function inferConvertFileType(file: File | null): ConvertFileType | null {
+  const extension = file?.name.split(".").pop()?.toLowerCase();
+  if (extension === "pdf" || extension === "txt" || extension === "xlsx" || extension === "hwpx") {
+    return extension;
+  }
+  return null;
+}
+
+function downloadNameFromHeaders(headers: Headers, fallback: string) {
+  const disposition = headers.get("content-disposition") || "";
+  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1]);
+  }
+  const plainMatch = disposition.match(/filename="?([^";]+)"?/i);
+  return plainMatch?.[1] || fallback;
 }
 
 function inferExtension(file: FileItem) {
@@ -228,6 +301,12 @@ export function MobileWorkspace({
   const [keywordResult, setKeywordResult] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [convertStatus, setConvertStatus] = useState("");
+  const [convertFile, setConvertFile] = useState<File | null>(null);
+  const [convertTarget, setConvertTarget] = useState<ConvertFileType>("txt");
+  const [convertResult, setConvertResult] = useState<MobileConversionResult | null>(null);
+  const [conversionHistory, setConversionHistory] = useState<MobileConversionHistoryItem[]>([]);
+  const [isConvertingFile, setIsConvertingFile] = useState(false);
+  const [downloadingConversionId, setDownloadingConversionId] = useState("");
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("today");
   const [mobileSelectedDocumentId, setMobileSelectedDocumentId] = useState("");
   const [creditConfirm, setCreditConfirm] = useState<CreditConfirmState | null>(null);
@@ -245,7 +324,11 @@ export function MobileWorkspace({
   const [documentSort, setDocumentSort] = useState<"latest" | "name">("latest");
   const [documentFilter, setDocumentFilter] = useState<"all" | "complete">("all");
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const convertInputRef = useRef<HTMLInputElement | null>(null);
   const previousPanelRef = useRef(activePanel);
+  const convertFileType = inferConvertFileType(convertFile);
+  const convertTargets = convertFileType ? mobileConversionTargets[convertFileType] : [];
+  const canRunMobileConvert = Boolean(convertFileType && convertFile && !isConvertingFile);
 
   useEffect(() => {
     let isMounted = true;
@@ -306,6 +389,18 @@ export function MobileWorkspace({
       setMobileSelectedDocumentId(selectedDocumentId);
     }
   }, [mobileSelectedDocumentId, selectedDocumentId]);
+
+  useEffect(() => {
+    if (convertFileType && !convertTargets.includes(convertTarget)) {
+      setConvertTarget(convertTargets[0] || "txt");
+    }
+  }, [convertFileType, convertTarget, convertTargets]);
+
+  useEffect(() => {
+    if (activePanel === "convert") {
+      void loadConversionHistory();
+    }
+  }, [activePanel]);
 
   const selectedDocument = useMemo(
     () => documents.find((document) => document.id === mobileSelectedDocumentId) || null,
@@ -439,6 +534,7 @@ export function MobileWorkspace({
         });
       }
       await onCreditsRefresh?.();
+      window.dispatchEvent(new Event("credits:refresh"));
     } catch (error) {
       const message = error instanceof Error ? error.message : "업로드에 실패했습니다.";
       setUploadStatus(message);
@@ -535,6 +631,7 @@ export function MobileWorkspace({
         confirmText: "결과 보기",
       });
       await onCreditsRefresh?.();
+      window.dispatchEvent(new Event("credits:refresh"));
     } catch (error) {
       setAnalysisStatus(error instanceof Error ? error.message : "요약 생성에 실패했습니다.");
     } finally {
@@ -568,6 +665,90 @@ export function MobileWorkspace({
     }
 
     setConvertStatus(`${action.conversionFormat} 기능은 준비 중입니다.`);
+  }
+
+  async function loadConversionHistory() {
+    try {
+      const response = await authenticatedFetch(`${API_BASE_URL}/convert/history?limit=20`);
+      if (!response.ok) {
+        return;
+      }
+      const data = (await response.json()) as { history?: MobileConversionHistoryItem[] };
+      setConversionHistory(data.history || []);
+    } catch {
+      // History is helpful on mobile, but it should not block the rest of the workspace.
+    }
+  }
+
+  function handleConvertFileChange(file: File | null) {
+    setConvertFile(file);
+    setConvertResult(null);
+    setConvertStatus("");
+  }
+
+  async function executeFileConversion() {
+    if (!convertFile || !convertFileType) {
+      setConvertStatus("PDF, TXT, XLSX, HWPX 파일을 선택해주세요.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", convertFile);
+    formData.append("target_format", convertTarget);
+
+    setIsConvertingFile(true);
+    setConvertResult(null);
+    setConvertStatus("파일을 변환하는 중...");
+
+    try {
+      const response = await authenticatedFetch(`${API_BASE_URL}/convert`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(String(data.detail || "파일 변환에 실패했습니다."));
+      }
+      setConvertResult(data as MobileConversionResult);
+      setConvertStatus(data.status === "unsupported" ? String(data.message || "지원하지 않는 변환입니다.") : "변환이 완료되었습니다.");
+      await loadConversionHistory();
+      await onCreditsRefresh?.();
+      if (data.status === "success") {
+        window.dispatchEvent(new Event("credits:refresh"));
+      }
+    } catch (error) {
+      setConvertStatus(error instanceof Error ? error.message : "파일 변환에 실패했습니다.");
+    } finally {
+      setIsConvertingFile(false);
+      if (convertInputRef.current) {
+        convertInputRef.current.value = "";
+      }
+    }
+  }
+
+  async function downloadConversion(conversionId: string, fallbackName: string) {
+    setDownloadingConversionId(conversionId);
+    try {
+      const response = await authenticatedFetch(`${API_BASE_URL}/convert/download/${conversionId}`);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(String(error.detail || "다운로드에 실패했습니다."));
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = downloadNameFromHeaders(response.headers, fallbackName);
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setConvertStatus("다운로드 완료");
+    } catch (error) {
+      setConvertStatus(error instanceof Error ? error.message : "다운로드에 실패했습니다.");
+    } finally {
+      setDownloadingConversionId("");
+    }
   }
 
   async function handleAsk(event: FormEvent<HTMLFormElement>) {
@@ -1097,6 +1278,83 @@ export function MobileWorkspace({
       <section className="grid gap-3">
         {uploadInput}
         <MobileSectionHeader title="파일 변환" description="문서를 선택하고 필요한 변환 형식을 고르세요." />
+        <input
+          ref={convertInputRef}
+          type="file"
+          accept=".pdf,.txt,.xlsx,.hwpx"
+          className="hidden"
+          onChange={(event) => handleConvertFileChange(event.target.files?.[0] ?? null)}
+        />
+        <section className="grid gap-2 rounded-2xl border border-border bg-card p-3 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-sm font-black text-title">Convert Studio</h2>
+              <p className="mt-1 text-[0.68rem] font-bold leading-4 text-muted">
+                PDF, TXT, XLSX, HWPX만 지원합니다. 다운로드는 다시 받아도 차감되지 않습니다.
+              </p>
+            </div>
+            <Badge muted>{convertFileType ? mobileConversionLabels[convertFileType] : "FILE-2"}</Badge>
+          </div>
+          <button
+            type="button"
+            onClick={() => convertInputRef.current?.click()}
+            disabled={isConvertingFile}
+            className="min-h-12 rounded-2xl border border-border bg-panel px-3 text-left text-xs font-black text-body transition active:scale-[0.98] disabled:opacity-60"
+          >
+            {convertFile ? convertFile.name : "변환할 파일 선택"}
+          </button>
+          <select
+            value={convertTarget}
+            onChange={(event) => setConvertTarget(event.target.value as ConvertFileType)}
+            disabled={!convertFileType || isConvertingFile}
+            className="min-h-11 rounded-2xl border border-border bg-panel px-3 text-sm font-black text-title outline-none"
+          >
+            {convertTargets.length > 0 ? (
+              convertTargets.map((target) => (
+                <option key={target} value={target}>
+                  {convertFileType ? `${mobileConversionLabels[convertFileType]} → ${mobileConversionLabels[target]}` : mobileConversionLabels[target]}
+                </option>
+              ))
+            ) : (
+              <option value="txt">파일을 먼저 선택해주세요</option>
+            )}
+          </select>
+          <button
+            type="button"
+            onClick={() => void executeFileConversion()}
+            disabled={!canRunMobileConvert}
+            className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-3 text-sm font-black text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60"
+          >
+            <ArrowRightLeft size={16} />
+            {isConvertingFile ? "변환 중" : "변환 실행"}
+          </button>
+        </section>
+        {convertResult?.status === "success" && convertResult.conversion_id && (
+          <article className="rounded-2xl border border-primary/25 bg-primary/10 p-3 shadow-sm">
+            <div className="grid gap-3">
+              <Badge>변환 완료</Badge>
+              <div className="grid gap-2 rounded-2xl border border-primary/20 bg-card/70 p-3">
+                <MobileInfoRow label="원본" value={convertResult.original_filename} />
+                <MobileInfoRow label="변환" value={convertResult.display_filename || convertResult.output_filename || "converted"} />
+                <MobileInfoRow
+                  label="형식"
+                  value={`${mobileConversionLabels[convertResult.original_type || convertFileType || "pdf"]} → ${mobileConversionLabels[convertResult.target_type || convertResult.target_format]}`}
+                />
+                <MobileInfoRow label="페이지" value={formatMobilePageCount(convertResult.page_count)} />
+                <MobileInfoRow label="차감 크레딧" value={`${formatMobileCreditAmount(convertResult.credit_cost)} Credit`} />
+              </div>
+              <button
+                type="button"
+                onClick={() => void downloadConversion(convertResult.conversion_id || "", convertResult.display_filename || convertResult.output_filename || "converted")}
+                disabled={downloadingConversionId === convertResult.conversion_id}
+                className="flex min-h-10 w-full items-center justify-center gap-1.5 rounded-2xl bg-primary px-3 text-xs font-black text-white disabled:opacity-60"
+              >
+                <Download size={14} />
+                다운로드
+              </button>
+            </div>
+          </article>
+        )}
         <MobileSelectedDocumentCard
           document={selectedDocument}
           emptyTitle="변환할 문서를 선택해주세요."
@@ -1167,6 +1425,46 @@ export function MobileWorkspace({
             {convertStatus}
           </p>
         )}
+        <section className="grid gap-2">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-sm font-black text-title">변환 기록</h2>
+            <button
+              type="button"
+              onClick={() => void loadConversionHistory()}
+              className="flex min-h-8 items-center gap-1 rounded-xl border border-border bg-card px-2 text-[0.66rem] font-black text-body"
+            >
+              <RefreshCw size={12} />
+              새로고침
+            </button>
+          </div>
+          {conversionHistory.length > 0 ? (
+            conversionHistory.slice(0, 6).map((item) => (
+              <article key={item.conversion_id} className="rounded-2xl border border-border bg-card p-3 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="line-clamp-1 text-sm font-black text-title">{item.original_filename}</h3>
+                    <p className="mt-1 text-[0.68rem] font-bold text-muted">
+                      {mobileConversionLabels[item.original_type]} → {mobileConversionLabels[item.target_type]} · {formatMobileCreditAmount(item.credit_cost)} Credit · {formatMobilePageCount(item.page_count)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void downloadConversion(item.conversion_id, item.display_filename || item.output_filename)}
+                    disabled={downloadingConversionId === item.conversion_id}
+                    className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-2xl bg-primary px-3 text-xs font-black text-white disabled:opacity-60"
+                  >
+                    <Download size={14} />
+                    받기
+                  </button>
+                </div>
+              </article>
+            ))
+          ) : (
+            <p className="rounded-2xl border border-border bg-panel px-3 py-2 text-xs font-bold text-body">
+              아직 변환 기록이 없습니다.
+            </p>
+          )}
+        </section>
       </section>
     );
   }
@@ -1590,6 +1888,15 @@ function TimelineRow({ title, meta, detail }: { title: string; meta: string; det
       <p className="mt-1 truncate text-xs font-bold text-muted">{meta}</p>
       {detail && <p className="mt-1 line-clamp-2 text-xs font-bold leading-5 text-body">{detail}</p>}
     </article>
+  );
+}
+
+function MobileInfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[4.5rem_1fr] gap-2 text-xs">
+      <span className="font-black text-muted">{label}</span>
+      <span className="min-w-0 break-words font-black text-title">{value}</span>
+    </div>
   );
 }
 

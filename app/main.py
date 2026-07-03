@@ -29,8 +29,20 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
-from app.services.conversion_service import ConversionError, UnsupportedConversionError, convert_file
 from app.services.auth_service import create_access_token, decode_access_token, hash_password, verify_password
+from app.services.convert_engine import (
+    ConversionError,
+    DownloadNotFoundError,
+    UnsupportedConversionError,
+    convert_file,
+    get_supported_targets,
+    format_history,
+    is_supported_type,
+    next_display_filename,
+    resolve_converted_download,
+    source_type_from_filename,
+)
+from app.services.converted_document_store import ConvertedDocumentStore
 from app.services.credit_store import CreditStore
 from app.services.extractors.base import ExtractionError
 from app.services.extractors.factory import get_extractor
@@ -55,8 +67,11 @@ TAROT_READINGS_PATH = BASE_DIR / "backend" / "data" / "tarot_readings.json"
 USERS_PATH = BASE_DIR / "backend" / "data" / "users.json"
 CREDIT_TRANSACTIONS_PATH = BASE_DIR / "backend" / "data" / "credit_transactions.json"
 PAYMENTS_PATH = BASE_DIR / "backend" / "data" / "payments.json"
+CONVERTED_DOCUMENTS_PATH = BASE_DIR / "backend" / "data" / "converted_documents.json"
 CONVERSION_DIR = BASE_DIR / "backend" / "data" / "conversions"
 CONVERSION_DIR.mkdir(parents=True, exist_ok=True)
+CONVERTED_DIR = BASE_DIR / "backend" / "data" / "converted"
+CONVERTED_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
     title="NoteFlow AI",
@@ -81,6 +96,7 @@ result_store = ResultStore(RESULTS_PATH)
 user_store = UserStore(USERS_PATH)
 credit_store = CreditStore(CREDIT_TRANSACTIONS_PATH)
 payment_store = PaymentStore(PAYMENTS_PATH)
+converted_document_store = ConvertedDocumentStore(CONVERTED_DOCUMENTS_PATH)
 
 
 def _get_payment_provider(provider_name: Optional[str] = None):
@@ -115,7 +131,7 @@ uploaded_files: Dict[str, Dict[str, Any]] = {}
 
 
 SummaryType = Literal["핵심 요약", "회의록 요약", "보고서 요약", "액션아이템"]
-ConvertTarget = Literal["csv", "pdf", "txt"]
+ConvertTarget = Literal["pdf", "txt", "xlsx", "hwpx"]
 TAROT_TODAY_CATEGORY = "오늘의 운세"
 TAROT_OTHER_READING_CREDIT_COST = 3
 TAROT_EXTRA_TODAY_CREDIT_COST = 1
@@ -2317,11 +2333,16 @@ async def get_analysis(current_user: Dict[str, Any] = Depends(get_current_user))
 async def convert_document(
     file: UploadFile = File(...),
     target_format: ConvertTarget = Form(...),
+    current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     original_filename = file.filename or "uploaded"
     suffix = Path(original_filename).suffix.lower()
-    unique_id = uuid.uuid4().hex[:10]
-    source_path = CONVERSION_DIR / f"source_{unique_id}{suffix}"
+    source_type = source_type_from_filename(original_filename)
+    if not is_supported_type(source_type):
+        raise HTTPException(status_code=400, detail="Unsupported source file type. Use PDF, TXT, XLSX, or HWPX.")
+
+    unique_id = uuid.uuid4().hex
+    source_path = CONVERSION_DIR / f"source_{unique_id}{suffix or '.bin'}"
 
     try:
         with source_path.open("wb") as buffer:
@@ -2330,12 +2351,12 @@ async def convert_document(
         await file.close()
 
     try:
-        converted_path = convert_file(
+        conversion = convert_file(
             source_path=source_path,
-            original_filename=original_filename,
-            target_format=target_format,
-            output_dir=CONVERSION_DIR,
-            unique_id=unique_id,
+            source_type=source_type,
+            target_type=target_format,
+            user_id=str(current_user["user_id"]),
+            filename=original_filename,
         )
     except UnsupportedConversionError as exc:
         return JSONResponse(
@@ -2353,14 +2374,155 @@ async def convert_document(
         if source_path.exists():
             source_path.unlink()
 
-    download_url = f"http://127.0.0.1:8000/downloads/{converted_path.name}"
+    credit_cost = conversion.credit_cost
+    credits_before = float(current_user.get("credits", 0) or 0)
+    if credit_cost > credits_before:
+        if conversion.output_path.exists():
+            conversion.output_path.unlink()
+        raise HTTPException(
+            status_code=402,
+            detail=(
+                "Insufficient credits. "
+                f"Required: {_format_credit_amount(credit_cost)}, "
+                f"available: {_format_credit_amount(credits_before)}"
+            ),
+        )
+
+    updated_user = current_user
+    credits_after = credits_before
+    if credit_cost > 0:
+        updated_user = user_store.update_credits(str(current_user["user_id"]), -credit_cost)
+        if not updated_user:
+            if conversion.output_path.exists():
+                conversion.output_path.unlink()
+            raise HTTPException(status_code=404, detail="User not found")
+        credits_after = float(updated_user.get("credits", 0) or 0)
+
+        identity = _user_identity(updated_user)
+        credit_store.append_transaction({
+            "transaction_id": uuid.uuid4().hex,
+            "user_id": identity["user_id"],
+            "user_email": identity["user_email"],
+            "type": "usage",
+            "service": "file_conversion",
+            "amount": -credit_cost,
+            "credits_before": credits_before,
+            "credits_after": credits_after,
+            "description": (
+                f"파일 변환 {conversion.original_type.upper()} → {conversion.target_type.upper()} / "
+                f"{original_filename} / {conversion.page_count}페이지"
+            ),
+            "metadata": {
+                "conversion_id": conversion.conversion_id,
+                "original_filename": original_filename,
+                "original_type": conversion.original_type,
+                "target_type": conversion.target_type,
+                "page_count": conversion.page_count,
+                "credit_cost": credit_cost,
+                "pricing_rule": "file_conversion_page_based_v1",
+            },
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+    identity = _user_identity(updated_user)
+    created_at = datetime.now(timezone.utc).isoformat()
+    display_filename = next_display_filename(
+        store=converted_document_store,
+        user_id=identity["user_id"],
+        user_email=identity["user_email"],
+        original_filename=original_filename,
+        target_type=conversion.target_type,
+    )
+    record = converted_document_store.append({
+        "conversion_id": conversion.conversion_id,
+        "user_id": identity["user_id"],
+        "user_email": identity["user_email"],
+        "original_filename": original_filename,
+        "original_type": conversion.original_type,
+        "target_type": conversion.target_type,
+        "target_format": conversion.target_format,
+        "output_filename": conversion.output_filename,
+        "display_filename": display_filename,
+        "output_path": str(conversion.output_path),
+        "page_count": conversion.page_count,
+        "credit_cost": credit_cost,
+        "status": conversion.status,
+        "message": conversion.message,
+        "created_at": created_at,
+    })
+
+    download_url = f"/convert/download/{conversion.conversion_id}"
     return {
         "status": "success",
+        "conversion_id": conversion.conversion_id,
         "original_filename": original_filename,
-        "converted_filename": converted_path.name,
-        "target_format": target_format,
+        "converted_filename": conversion.output_filename,
+        "output_filename": conversion.output_filename,
+        "display_filename": display_filename,
+        "original_type": conversion.original_type,
+        "target_type": conversion.target_type,
+        "target_format": conversion.target_type,
+        "page_count": conversion.page_count,
+        "credit_cost": credit_cost,
+        "message": conversion.message,
         "download_url": download_url,
+        "record": record,
+        "credit_usage": {
+            "service": "file_conversion",
+            "page_count": conversion.page_count,
+            "credit_cost": credit_cost,
+            "credits_before": credits_before,
+            "credits_after": credits_after,
+        },
     }
+
+
+@app.get("/convert/history")
+async def get_conversion_history(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    identity = _user_identity(current_user)
+    history = converted_document_store.list_for_user(
+        user_id=identity["user_id"],
+        user_email=identity["user_email"],
+        limit=limit,
+    )
+    return {"history": format_history(history)}
+
+
+@app.get("/convert/targets/{source_type}")
+async def get_conversion_targets(source_type: str):
+    return {"source_type": source_type, "targets": get_supported_targets(source_type)}
+
+
+@app.get("/convert/download/{conversion_id}")
+async def download_converted_document(
+    conversion_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    identity = _user_identity(current_user)
+    try:
+        download_file = resolve_converted_download(
+            store=converted_document_store,
+            conversion_id=conversion_id,
+            user_id=identity["user_id"],
+            user_email=identity["user_email"],
+        )
+    except DownloadNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return FileResponse(
+        path=download_file.path,
+        filename=download_file.filename,
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": (
+                "attachment; "
+                f"filename*=UTF-8''{urllib.parse.quote(download_file.filename)}"
+            )
+        },
+    )
 
 
 @app.get("/downloads/{filename}")

@@ -31,6 +31,13 @@ type DashboardResults = {
   chats?: Array<{ question?: string; answer?: string; created_at?: string; filename?: string }>;
 };
 
+type DashboardConversion = {
+  original_filename?: string;
+  original_type?: string;
+  target_type?: string;
+  created_at?: string;
+};
+
 type OverviewData = {
   documentCount: number;
   analysisCount: number;
@@ -99,13 +106,15 @@ export function DashboardOverview({ onNavigate, compact = false }: DashboardOver
 
     async function loadOverview() {
       try {
-        const [filesResult, resultsResult] = await Promise.allSettled([
+        const [filesResult, resultsResult, conversionsResult] = await Promise.allSettled([
           authenticatedFetch(`${API_BASE_URL}/files`),
           authenticatedFetch(`${API_BASE_URL}/results`),
+          authenticatedFetch(`${API_BASE_URL}/convert/history?limit=50`),
         ]);
 
         let files: DashboardFile[] = [];
         let results: DashboardResults = {};
+        let conversions: DashboardConversion[] = [];
 
         if (filesResult.status === "fulfilled" && filesResult.value.ok) {
           const data = (await filesResult.value.json()) as { files?: DashboardFile[] };
@@ -114,6 +123,11 @@ export function DashboardOverview({ onNavigate, compact = false }: DashboardOver
 
         if (resultsResult.status === "fulfilled" && resultsResult.value.ok) {
           results = (await resultsResult.value.json()) as DashboardResults;
+        }
+
+        if (conversionsResult.status === "fulfilled" && conversionsResult.value.ok) {
+          const data = (await conversionsResult.value.json()) as { history?: DashboardConversion[] };
+          conversions = Array.isArray(data.history) ? data.history : [];
         }
 
         const summaries = Array.isArray(results.summaries) ? results.summaries : [];
@@ -134,13 +148,14 @@ export function DashboardOverview({ onNavigate, compact = false }: DashboardOver
         const latestDocument = getLatest(files);
         const latestAnalysis = getLatest(analyses);
         const latestQuestion = getLatest(chats);
+        const latestConversion = getLatest(conversions);
 
         if (isMounted) {
           setOverviewData({
             documentCount: files.length,
             analysisCount: analyses.length,
             questionCount: chats.length,
-            conversionCount: 0,
+            conversionCount: conversions.length,
             recentDocument: latestDocument?.filename || emptyRecordText,
             recentAnalysis:
               latestAnalysis?.filename ||
@@ -148,7 +163,7 @@ export function DashboardOverview({ onNavigate, compact = false }: DashboardOver
               latestAnalysis?.scope ||
               emptyRecordText,
             recentQuestion: latestQuestion?.question || emptyRecordText,
-            recentConversion: emptyRecordText,
+            recentConversion: latestConversion?.original_filename || emptyRecordText,
           });
         }
       } catch {

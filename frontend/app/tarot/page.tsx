@@ -819,6 +819,15 @@ export default function TarotPage() {
   }
 
   useEffect(() => {
+    const handleCreditsRefresh = () => {
+      void loadCredits();
+    };
+
+    window.addEventListener("credits:refresh", handleCreditsRefresh);
+    return () => window.removeEventListener("credits:refresh", handleCreditsRefresh);
+  }, []);
+
+  useEffect(() => {
     const checkAuth = () => {
       const token = window.localStorage.getItem(TOKEN_KEY)?.trim();
       const hasToken = Boolean(token && token !== "undefined" && token !== "null");
@@ -1196,6 +1205,7 @@ export default function TarotPage() {
           current === reading ? { ...current, credit_usage: data.credit_usage } : current
         ));
         await loadCredits();
+        window.dispatchEvent(new Event("credits:refresh"));
       }
 
       autoSavedKeysRef.current.add(saveKey);

@@ -176,7 +176,7 @@ export default function DashboardPage() {
       return;
     }
 
-    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+    const response = await fetch(`${API_BASE_URL}/credits/me`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -190,6 +190,15 @@ export default function DashboardPage() {
     setUser(data.user);
     window.localStorage.setItem(USER_KEY, JSON.stringify(data.user));
   }, []);
+
+  useEffect(() => {
+    const handleCreditsRefresh = () => {
+      void refreshCurrentUser();
+    };
+
+    window.addEventListener("credits:refresh", handleCreditsRefresh);
+    return () => window.removeEventListener("credits:refresh", handleCreditsRefresh);
+  }, [refreshCurrentUser]);
 
   async function handleLogout() {
     const token = window.localStorage.getItem(TOKEN_KEY);
