@@ -33,7 +33,10 @@ class TossProvider(PaymentProvider):
         return os.getenv("TOSS_TEST_SECRET_KEY", "").strip()
 
     def create_checkout(self, payment: Dict[str, Any]) -> Dict[str, Any]:
-        frontend_base_url = os.getenv("FRONTEND_BASE_URL", "http://127.0.0.1:3000").strip().rstrip("/")
+        frontend_base_url = (
+            os.getenv("FRONTEND_BASE_URL", "").strip().rstrip("/")
+            or str(payment.get("frontend_origin") or "").strip().rstrip("/")
+        )
         order_id = str(payment["payment_id"])
         checkout_path = os.getenv("TOSS_CHECKOUT_PATH", "/payments/toss/ready").strip() or "/payments/toss/ready"
         query = urlencode({
@@ -47,8 +50,10 @@ class TossProvider(PaymentProvider):
 
         if checkout_path.startswith(("http://", "https://")):
             checkout_url = f"{checkout_path}?{query}"
-        else:
+        elif frontend_base_url:
             checkout_url = f"{frontend_base_url}{checkout_path}?{query}"
+        else:
+            checkout_url = f"{checkout_path}?{query}"
 
         return {
             "provider": self.name,

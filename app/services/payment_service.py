@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from app.services.credit_store import CreditStore
 from app.services.payment_provider import PaymentProvider
@@ -25,7 +25,14 @@ class PaymentService:
         self.credit_store = credit_store
         self.provider = provider
 
-    def create_checkout(self, product: Dict[str, Any], user: Dict[str, Any]) -> Dict[str, Any]:
+    def create_checkout(
+        self,
+        product: Dict[str, Any],
+        user: Dict[str, Any],
+        frontend_origin: Optional[str] = None,
+        success_url: Optional[str] = None,
+        fail_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
         now = datetime.now(timezone.utc).isoformat()
         payment_id = uuid.uuid4().hex
         user_id = str(user.get("user_id", ""))
@@ -56,6 +63,9 @@ class PaymentService:
             "amount_cents": int(product.get("amount_cents", 0) or 0),
             "currency": product.get("currency", "USD"),
             "status": "pending",
+            "frontend_origin": frontend_origin,
+            "success_url": success_url,
+            "fail_url": fail_url,
             "created_at": now,
             "updated_at": now,
             "paid_at": None,

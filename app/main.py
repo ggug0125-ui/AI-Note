@@ -182,6 +182,9 @@ class PaymentPrepareRequest(BaseModel):
 class PaymentCheckoutRequest(BaseModel):
     product_id: str = Field(..., min_length=1, max_length=80)
     provider: Optional[str] = Field(default=None, max_length=40)
+    frontend_origin: Optional[str] = Field(default=None, max_length=300)
+    success_url: Optional[str] = Field(default=None, max_length=500)
+    fail_url: Optional[str] = Field(default=None, max_length=500)
 
 
 class MockPaymentSuccessRequest(BaseModel):
@@ -303,6 +306,32 @@ def _frontend_url() -> str:
             detail="Missing OAuth environment variable: FRONTEND_URL",
         )
     return frontend_url
+
+
+def _normalize_frontend_origin(value: Optional[str]) -> str:
+    raw_value = str(value or "").strip().rstrip("/")
+    if not raw_value:
+        return ""
+    parsed = urllib.parse.urlparse(raw_value)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return ""
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _request_origin(request: Request) -> str:
+    configured_origin = _normalize_frontend_origin(os.getenv("FRONTEND_BASE_URL") or os.getenv("FRONTEND_URL"))
+    if configured_origin:
+        return configured_origin
+
+    header_origin = _normalize_frontend_origin(request.headers.get("origin"))
+    if header_origin:
+        return header_origin
+
+    referer_origin = _normalize_frontend_origin(request.headers.get("referer"))
+    if referer_origin:
+        return referer_origin
+
+    return ""
 
 
 def _google_oauth_config() -> Dict[str, str]:
@@ -1566,15 +1595,16 @@ async def prepare_payment(
 
 @app.post("/payments/checkout")
 async def create_payment_checkout(
-    request: PaymentCheckoutRequest,
+    checkout_request: PaymentCheckoutRequest,
+    http_request: Request,
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     payment_store.create_default_credit_products()
-    product = payment_store.get_product(request.product_id)
+    product = payment_store.get_product(checkout_request.product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Payment product not found")
 
-    selected_provider = (request.provider or product.get("provider") or os.getenv("PAYMENT_PROVIDER", "toss")).strip().lower()
+    selected_provider = (checkout_request.provider or product.get("provider") or os.getenv("PAYMENT_PROVIDER", "toss")).strip().lower()
     product_provider = str(product.get("provider") or "").strip().lower()
     if product_provider and selected_provider != product_provider:
         raise HTTPException(status_code=400, detail="Payment provider does not match product")
@@ -1588,7 +1618,17 @@ async def create_payment_checkout(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     try:
-        payment = checkout_service.create_checkout(product, current_user)
+        frontend_origin = (
+            _normalize_frontend_origin(checkout_request.frontend_origin)
+            or _request_origin(http_request)
+        )
+        payment = checkout_service.create_checkout(
+            product,
+            current_user,
+            frontend_origin=frontend_origin,
+            success_url=checkout_request.success_url,
+            fail_url=checkout_request.fail_url,
+        )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to create checkout: {exc}") from exc
 

@@ -23,7 +23,12 @@ class StripeProvider(PaymentProvider):
 
     def create_checkout(self, payment: Dict[str, Any]) -> Dict[str, Any]:
         stripe = self._stripe()
-        frontend_base_url = os.getenv("FRONTEND_BASE_URL", "http://127.0.0.1:3000").strip().rstrip("/")
+        frontend_base_url = (
+            os.getenv("FRONTEND_BASE_URL", "").strip().rstrip("/")
+            or str(payment.get("frontend_origin") or "").strip().rstrip("/")
+        )
+        if not frontend_base_url:
+            raise RuntimeError("Frontend origin is required for Stripe checkout")
         payment_id = str(payment["payment_id"])
 
         session = stripe.checkout.Session.create(

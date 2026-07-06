@@ -299,6 +299,17 @@ function formatPaymentAmount(amount: number | undefined, currency = "USD") {
   return `${safeAmount.toLocaleString("en-US")} ${currency}`;
 }
 
+function getCurrentOrigin() {
+  return typeof window === "undefined" ? "" : window.location.origin;
+}
+
+function resolveCheckoutUrl(checkoutUrl: string) {
+  if (typeof window === "undefined") {
+    return checkoutUrl;
+  }
+  return new URL(checkoutUrl, window.location.origin).toString();
+}
+
 function getProductDisplayName(product: CreditProduct) {
   return product.product_name || product.plan_name || product.name || product.product_id;
 }
@@ -2147,12 +2158,19 @@ function BillingPanel({ user }: { user: AuthUser }) {
     setErrorMessage("");
 
     try {
+      const currentOrigin = getCurrentOrigin();
       const response = await authenticatedFetch(`${API_BASE_URL}/payments/checkout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ product_id: productId, provider: product.provider || "toss" })
+        body: JSON.stringify({
+          product_id: productId,
+          provider: product.provider || "toss",
+          frontend_origin: currentOrigin,
+          success_url: currentOrigin ? `${currentOrigin}/payments/toss/success` : undefined,
+          fail_url: currentOrigin ? `${currentOrigin}/payments/toss/fail` : undefined,
+        })
       });
 
       if (!response.ok) {
@@ -2166,12 +2184,12 @@ function BillingPanel({ user }: { user: AuthUser }) {
         if (!data.checkout_url) {
           throw new Error("Toss checkout_url이 응답에 없습니다.");
         }
-        window.location.href = data.checkout_url;
+        window.location.href = resolveCheckoutUrl(data.checkout_url);
         return;
       }
 
       if (data.provider === "stripe" && data.checkout_url) {
-        window.location.href = data.checkout_url;
+        window.location.href = resolveCheckoutUrl(data.checkout_url);
         return;
       }
 
